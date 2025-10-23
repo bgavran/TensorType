@@ -16,6 +16,9 @@ import Misc
 
 %language ElabReflection
 
+-- TODO should axes be ordered?
+-- For cubical tensors (or generally Naperian) order is generally irrelevant, but for non-cubical ones order matters! CTensor [BinTree, List] a is very different than CTensor [List, BinTree] a?
+
 ||| Correct by construction Einsum expression whose inputs are lists of labels
 ||| Ensures that
 ||| a) each output label appears only once
