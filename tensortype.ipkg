@@ -13,7 +13,7 @@ brief = "Type-safe pure functional tensor processing framework, supporting non-c
 -- langversion
 
 -- packages to add to search path
-depends = contrib, elab-util
+depends = contrib, elab-util, profiler, hashmap
 
 -- modules to install
 modules = Data.Container
