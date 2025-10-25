@@ -1,6 +1,7 @@
 module Data.Tensor.Tensor
 
-import public Data.DPair
+import Data.DPair
+import public Decidable.Equality
 import public Data.Fin.Split
 
 import public Data.Container
@@ -8,6 +9,7 @@ import public Data.Container.Object.Instances as Cont
 
 import public Data.Layout
 import public Misc
+import public Data.Unique.Vect
 
 %hide Syntax.WithProof.prefix.(@@) -- used here for indexing
 
@@ -40,106 +42,132 @@ Functionality includes:
 ||| This is merely a wrapper around `Ext (Tensor shape) a` to help type
 ||| inference
 public export
-record CTensor (shape : List Cont) (a : Type) where
+record CTensor
+  (shape : Vect n Cont)
+  (names : UniqueVect n String)
+  (a : Type) where
   constructor MkT
-  GetT : Ext (Cont.Tensor shape) a
+  GetT : Ext (Cont.Tensor (toList' shape)) a
 
 %name CTensor t, t', t''
 
 ||| Cubical tensors. Used name 'Tensor' for backwards compatibility with
 ||| terminology in the numpy/pytorch ecosystem
 public export
-Tensor : (shape : List Nat) -> Type -> Type
-Tensor shape = CTensor (Vect <$> shape)
+Tensor : (shape : Vect n Nat) ->
+  (names : UniqueVect n String) ->
+  Type -> Type
+Tensor shape names = CTensor (Vect <$> shape) names
 
 public export
-Functor (CTensor shape) where
+Functor (CTensor shape names) where
   map f (MkT t) = MkT $ map f t
+
 
 namespace NestedTensorUtils
   public export
-  extract : CTensor [] a -> a
+  extract : CTensor [] names a -> a
   extract (MkT t) = extract t
 
   public export
-  embed : a -> CTensor [] a
+  embed : a -> CTensor [] names a
   embed a = MkT (toScalar a)
 
   ||| With the added data of the wrapper around (Ext (Tensor shape) a), this
   ||| effectively states a list version of the following isomorphism
   ||| Ext c . Ext d = Ext (c . d)
   public export
-  fromExtensionComposition : {shape : List Cont} ->
-    composeExtensions shape a -> CTensor shape a
+  fromExtensionComposition : {shape : Vect n Cont} ->
+    {names : UniqueVect n String} ->
+    composeExtensions shape a -> CTensor shape names a
   fromExtensionComposition {shape = []} ce = MkT ce
-  fromExtensionComposition {shape = (_ :: _)} (sh <| contentAt) = MkT $
-    let rest = GetT . fromExtensionComposition . contentAt
+  fromExtensionComposition {shape = (c :: cs)} {names = (n :: ns)} (sh <| contentAt)
+    =  MkT $
+    let rest = GetT . fromExtensionComposition {names=ns} . contentAt
     in (sh <| shapeExt . rest) <| \(cp ** fsh) => index (rest cp) fsh
 
   public export
-  toExtensionComposition : {shape : List Cont} ->
-    CTensor shape a -> composeExtensions shape a
+  toExtensionComposition : {shape : Vect n Cont} ->
+    {names : UniqueVect n String} ->
+    CTensor shape names a -> composeExtensions shape a
   toExtensionComposition {shape = []} (MkT t) = t
-  toExtensionComposition {shape = (_ :: _)} (MkT ((csh <| cpos) <| idx))
-    = csh <| \d => toExtensionComposition (MkT (cpos d <| curry idx d))
+  toExtensionComposition {shape = (_ :: _)} {names = (n :: ns)} (MkT ((csh <| cpos) <| idx))
+    = csh <| \d => toExtensionComposition {names=ns} (MkT (cpos d <| curry idx d))
 
   ||| For this and the function below, the commented out definition is 'cleaner'
   ||| but it requires non-erased `c` and `cs`
   public export
-  extractTopExt : CTensor (c :: cs) a -> Ext c (CTensor cs a)
-  extractTopExt (MkT (sh <| ind)) = shapeExt sh <| \p => MkT $ index sh p <| \p' => ind (p ** p')
-  -- extractTopExt t = fromExtensionComposition <$> toExtensionComposition t
+  extractTopExt : {n : String} -> {ns : UniqueVect k String} ->
+    {auto prf : NotElem n ns} ->
+    CTensor (c :: cs) (n :: ns) a -> Ext c (CTensor cs ns a)
+  extractTopExt (MkT (sh <| ind))
+    = shapeExt sh <| \p => MkT $ index sh p <| \p' => ind (p ** p')
 
   public export
-  embedTopExt : Ext c (CTensor cs a) -> CTensor (c :: cs) a
+  embedTopExt : {n : String} -> {ns : UniqueVect k String} ->
+    {auto prf : NotElem n ns} ->
+    Ext c (CTensor cs ns a) -> CTensor (c :: cs) (n :: ns) a
   embedTopExt e =
     let tp = GetT . index e
     in MkT $ (shapeExt e <| shapeExt . tp) <| \(p ** p') => index (tp p) p'
-  --embedTopExt e = fromExtensionComposition  $ toExtensionComposition <$> e
 
   ||| This is useful because container composition adds non-trivial data to the
   ||| vector type (i.e. `c >@ Scalar` is not equal to `c`)
   public export
-  extToVector : Ext c a -> CTensor [c] a
+  extToVector : Ext c a -> CTensor [c] [n] a
   extToVector e = MkT $ (shapeExt e <| \_ => ()) <| \(cp ** ()) => index e cp
 
   public export
-  vectorToExt : CTensor [c] a -> Ext c a
+  vectorToExt : CTensor [c] [n] a -> Ext c a
   vectorToExt (MkT t) = shapeExt (shapeExt t) <| \cp => index t (cp ** ())
 
   public export
-  toNestedTensor : CTensor (c :: cs) a -> CTensor [c] (CTensor cs a)
+  toNestedTensor : {n : String} -> {ns : UniqueVect k String} ->
+    {auto prf : NotElem n ns} ->
+    CTensor (c :: cs) (n :: ns) a -> CTensor [c] [n] (CTensor cs ns a)
   toNestedTensor = extToVector . extractTopExt
 
   public export
-  fromNestedTensor : CTensor [c] (CTensor cs a) -> CTensor (c :: cs) a
-  fromNestedTensor = embedTopExt . vectorToExt
+  fromNestedTensor : {n : String} -> {ns : UniqueVect k String} ->
+    {auto prf : NotElem n ns} ->
+    CTensor [c] [n] (CTensor cs ns a) -> CTensor (c :: cs) (n :: ns) a
+  fromNestedTensor = embedTopExt . vectorToExt 
 
   public export
-  tensorMapFirstAxis : (f : CTensor cs a -> CTensor ds a) ->
-    CTensor (c :: cs) a -> CTensor (c :: ds) a
+  tensorMapFirstAxis : {n : String} ->
+    {ns : UniqueVect k String} ->
+    {ms : UniqueVect k' String} ->
+    {auto prf : NotElem n ns} ->
+    {auto prf' : NotElem n ms} ->
+    (f : CTensor cs ns a -> CTensor ds ms a) ->
+    CTensor (c :: cs) (n :: ns) a -> CTensor (c :: ds) (n :: ms) a
   tensorMapFirstAxis f = fromNestedTensor . map f . toNestedTensor
 
   public export infixr 4 <-$>
   ||| Is meant to look like infix map (i.e. `<$>`) with the added difference
   ||| that we keep the container on the left side untouched, hence the `<-$>`
   public export
-  (<-$>) : (f : CTensor cs a -> CTensor ds a) ->
-    CTensor (c :: cs) a -> CTensor (c :: ds) a
+  (<-$>) :  {n : String} ->
+    {ns : UniqueVect k String} ->
+    {ms : UniqueVect k' String} ->
+    {auto prf : NotElem n ns} ->
+    {auto prf' : NotElem n ms} ->
+    (f : CTensor cs ns a -> CTensor ds ms a) ->
+    CTensor (c :: cs) (n :: ns) a -> CTensor (c :: ds) (n :: ms) a
   (<-$>) = tensorMapFirstAxis
 
 namespace TensorFromConcrete
   public export
-  concreteTypeTensor : (shape : List Cont) ->
-    (allConcrete : AllConcrete shape) =>
+  concreteTypeTensor : (shape : Vect rank Cont) ->
+    (allConcrete : AllConcrete (toList' shape)) =>
     Type -> Type
   concreteTypeTensor [] {allConcrete = []} = concreteType {cont=Scalar}
   concreteTypeTensor (c :: cs) {allConcrete = Cons @{fc}}
     = (concreteType @{fc}) . (concreteTypeTensor cs)
 
   public export
-  concreteTypeFunctor : {shape : List Cont} ->
-    (allConcrete : AllConcrete shape) =>
+  concreteTypeFunctor : {shape : Vect rank Cont} ->
+    (allConcrete : AllConcrete (toList' shape)) =>
     Functor (concreteTypeTensor shape)
   concreteTypeFunctor {shape = []} {allConcrete = []}
     = concreteFunctor {cont=Scalar}
@@ -147,31 +175,33 @@ namespace TensorFromConcrete
     = Functor.Compose @{concreteFunctor @{fc} } @{concreteTypeFunctor}
 
   public export
-  concreteToExtensions : {shape : List Cont} ->
-    (allConcrete : AllConcrete shape) =>
+  concreteToExtensions : {shape : Vect rank Cont} ->
+    (allConcrete : AllConcrete (toList' shape)) =>
     concreteTypeTensor shape a -> composeExtensions shape a
   concreteToExtensions {shape = []} {allConcrete = []} ct = fromConcreteTy ct
   concreteToExtensions {shape = (_ :: _)} {allConcrete = Cons} ct =
     concreteToExtensions <$> fromConcreteTy ct
 
   public export
-  extensionsToConcreteType : {shape : List Cont} ->
-    (allConcrete : AllConcrete shape) =>
+  extensionsToConcreteType : {shape : Vect rank Cont} ->
+    (allConcrete : AllConcrete (toList' shape)) =>
     composeExtensions shape a -> concreteTypeTensor shape a
   extensionsToConcreteType {shape = []} {allConcrete = []} ct = toConcreteTy ct
   extensionsToConcreteType {shape = (_ :: _)} {allConcrete = Cons @{fc}} ct
     = (map @{concreteFunctor @{fc}} extensionsToConcreteType) (toConcreteTy ct)
 
   public export
-  toTensor : {shape : List Cont} ->
-    (allConcrete : AllConcrete shape) =>
-    concreteTypeTensor shape a -> CTensor shape a
+  toTensor : {shape : Vect n Cont} ->
+    {ns : UniqueVect n String} ->
+    (allConcrete : AllConcrete (toList' shape)) =>
+    concreteTypeTensor shape a -> CTensor shape ns a
   toTensor = fromExtensionComposition . concreteToExtensions
 
   public export
-  fromTensor : {shape : List Cont} ->
-    (allConcrete : AllConcrete shape) =>
-    CTensor shape a -> concreteTypeTensor shape a
+  fromTensor : {shape : Vect rank Cont} ->
+    {ns : UniqueVect rank String} ->
+    (allConcrete : AllConcrete (toList' shape)) =>
+    CTensor shape ns a -> concreteTypeTensor shape a
   fromTensor = extensionsToConcreteType . toExtensionComposition
 
   ||| Many containers have a `FromConcrete` instance, allowing them to easily
@@ -183,15 +213,17 @@ namespace TensorFromConcrete
   ||| the ones `FromConcrete` provides. Idris' name resolution should be able to
   ||| detect which one needs to be used at call sites
   public export
-  fromConcreteTy : {shape : List Cont} ->
-    (allConcrete : AllConcrete shape) =>
-    concreteTypeTensor shape a -> CTensor shape a
+  fromConcreteTy : {shape : Vect rank Cont} ->
+    {ns : UniqueVect rank String} ->
+    (allConcrete : AllConcrete (toList' shape)) =>
+    concreteTypeTensor shape a -> CTensor shape ns a
   fromConcreteTy = toTensor
 
   public export
-  toConcreteTy : {shape : List Cont} ->
-    (allConcrete : AllConcrete shape) =>
-    CTensor shape a -> concreteTypeTensor shape a
+  toConcreteTy : {shape : Vect rank Cont} ->
+    {ns : UniqueVect rank String} ->
+    (allConcrete : AllConcrete (toList' shape)) =>
+    CTensor shape ns a -> concreteTypeTensor shape a
   toConcreteTy = fromTensor
 
   public export prefix 0 >#, #>
@@ -199,20 +231,22 @@ namespace TensorFromConcrete
   ||| Prefix operator for converting from a concrete type to a tensor
   ||| We read it as a map `>` going into the tensor `#`
   public export
-  (>#) : {shape : List Cont} ->
-    (allConcrete : AllConcrete shape) =>
-    concreteTypeTensor shape a -> CTensor shape a
+  (>#) : {shape : Vect rank Cont} ->
+    {ns : UniqueVect rank String} ->
+    (allConcrete : AllConcrete (toList' shape)) =>
+    concreteTypeTensor shape a -> CTensor shape ns a
   (>#) = fromConcreteTy
 
   ||| Prefix operator for converting from a tensor to concrete type
   ||| We read it as a map `>` going out of the tensor `#`
   public export
-  (#>) : {shape : List Cont} ->
-    (allConcrete : AllConcrete shape) =>
-    CTensor shape a -> concreteTypeTensor shape a
+  (#>) : {shape : Vect rank Cont} ->
+    {ns : UniqueVect rank String} ->
+    (allConcrete : AllConcrete (toList' shape)) =>
+    CTensor shape ns a -> concreteTypeTensor shape a
   (#>) = toConcreteTy
 
-
+{-
 namespace TensorInstances
   namespace ApplicativeInstance
     public export
@@ -910,3 +944,5 @@ namespace Concatenate
   concat : {x : Nat} ->
     Tensor (x :: shape) a -> Tensor (y :: shape) a -> Tensor (x + y :: shape) a
   concat t t' = embedTopExt $ extractTopExt t ++ extractTopExt t'
+
+-}

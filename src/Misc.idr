@@ -23,7 +23,22 @@ strength : Applicative f => a -> f b -> f (a, b)
 strength a fb = liftA2 (pure a) fb
 
 
-||| Graph of a dependent function
+
+namespace VectFoldable
+  ||| Implementation of Foldable for Vect that is denotationally equivalent to
+  ||| one in Data.Vect, but which does not use `foldrImpl` and therefore
+  ||| reduces in the typechecker
+  public export
+  [straightforward] Foldable (Vect n) where
+    foldr f z [] = z
+    foldr f z (x :: xs) = f x (foldr f z xs)
+
+  ||| toList with a different foldable implementation
+  public export
+  toList' : Vect n a -> List a
+  toList' = foldr @{straightforward} (::) []
+
+||| Starting with (Fin l -> x) and an extra x, we produce a map (Fin (S l) -> x) whose first element is the extra x 
 public export
 graph : {t : a -> Type} ->
   (g : (x : a) -> t x) ->
@@ -106,8 +121,9 @@ namespace Vect
   -- we have to use this approach below, otherwise allSuccThenProdSucc breaks
   public export 
   prod : Num a => Vect n a -> a
-  prod [] = fromInteger 1
-  prod (x :: xs) = x * prod xs
+  prod xs = foldr (*) (fromInteger 1) xs
+  -- prod [] = fromInteger 1
+  -- prod (x :: xs) = x * prod xs
 
 namespace List
   public export
@@ -264,7 +280,7 @@ data IsNo : Dec a -> Type where
 
 
 public export
-[uniqueUninhabited] {a : Type} -> {x : a} -> (de : DecEq a) =>
+[uniqueUninhabited] {0 a : Type} -> {x : a} -> (de : DecEq a) =>
 Uninhabited (IsNo (Equality.decEq x x)) where
   uninhabited y with (decEq x x)
     _ | (Yes _) with (y)

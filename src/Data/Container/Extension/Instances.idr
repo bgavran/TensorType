@@ -1,12 +1,14 @@
 module Data.Container.Extension.Instances
 
 import Data.DPair
+import Data.Vect
 
 import Data.Container.Object.Definition
 import Data.Container.Object.Instances
 import Data.Container.Extension.Definition
 
 import Data.Functor.Naperian
+import Misc
 
 %hide Prelude.(<|)
 
@@ -76,6 +78,11 @@ namespace ExtensionsOfMainExamples
 public export
 composeExtensions : List Cont -> Type -> Type
 composeExtensions = foldr (\c, f => (Ext c) . f) (Ext Scalar)
+
+namespace ComposeExtensionsVect
+  public export
+  composeExtensions : Vect n Cont -> Type -> Type
+  composeExtensions = foldr @{straightforward} (\c, f => (Ext c) . f) (Ext Scalar)
 
 public export
 [fe] {shape : List Cont} -> Functor (composeExtensions shape) where
