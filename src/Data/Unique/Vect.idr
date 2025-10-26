@@ -34,7 +34,7 @@ namespace UniqueVect
       NotInNonEmptyVect : {0 a : Type} -> (de : DecEq a) =>
         {x, y : a} ->
         (xs : UniqueVect n a) ->
-        NotElem x xs ->
+        (ne : NotElem x xs) ->
         {auto neq : IsNo (decEq x y)} ->
         {auto prf : NotElem y xs} ->
         NotElem x (y :: xs)
@@ -44,6 +44,57 @@ namespace UniqueVect
     toVect : DecEq a => UniqueVect n a -> Vect n a
     toVect [] = []
     toVect (x :: xs) = x :: toVect xs
+
+    ||| A proof that an element is found in a vector with unique elements
+    public export
+    data Elem : DecEq a => (x : a) -> (xs : UniqueVect n a) -> Type where
+      Here : DecEq a =>
+        {x : a} ->
+        {xs : UniqueVect k a} ->
+        (prf : NotElem x xs) =>
+        Elem x (x :: xs)
+      There : DecEq a => {x : a} ->
+        {xs : UniqueVect k a} ->
+        (prf : NotElem y xs) =>
+        (later : Elem x xs) ->
+        Elem x (y :: xs)
+
+
+    public export
+    index : DecEq a => {x : a} -> {xs : UniqueVect n a} ->
+      Elem x xs -> Fin n
+    index Here = FZ
+    index (There later) = FS (index later)
+
+    mutual
+      ||| Remove element from a unique vector at a given index
+      public export
+      removeIndex : DecEq a =>
+        {n : Nat} ->
+        (xs : UniqueVect (S n) a) ->
+        Fin (S n) ->
+        UniqueVect n a
+      removeIndex (x :: xs) FZ = xs
+      removeIndex {n = (S k)} (x :: xs) (FS i)
+        = (::) x (removeIndex xs i) {prf=removingElemIsStillNotElem}
+
+      ||| Given a vector `xs` and a proof that `x` is not in `xs`, then even if
+      ||| we remove any elemens from `xs`, `x` will still not be in the result
+      public export
+      removingElemIsStillNotElem : DecEq a =>
+        {n : Nat} ->
+        {x : a} ->
+        {xs : UniqueVect (S n) a} ->
+        {i : Fin (S n)} ->
+        (ne : NotElem x xs) =>
+        NotElem x (removeIndex xs i)
+      removingElemIsStillNotElem {xs = (_ :: _)} {ne = (NotInNonEmptyVect _ ne)} {i = FZ}
+        = ne
+      removingElemIsStillNotElem {n = (S k)} {xs = (y :: ys)} {ne = (NotInNonEmptyVect ys ne)} {i = (FS j)}
+        = NotInNonEmptyVect (removeIndex ys j) removingElemIsStillNotElem {prf=removingElemIsStillNotElem} 
+
+
+
 
     -- fromVect : DecEq a => Vect n a -> UniqueVect n a
     -- fromVect [] = []

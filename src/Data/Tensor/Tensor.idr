@@ -246,10 +246,6 @@ namespace TensorFromConcrete
     CTensor shape ns a -> concreteTypeTensor shape a
   (#>) = toConcreteTy
 
-t0 : Tensor [3, 4] ["batch", "features"] Double
-t0 = ># [ [0, 1, 2, 3]
-        , [4, 5, 6, 7]
-        , [8, 9, 10, 11]]
 namespace TensorInstances
   namespace ApplicativeInstance
     public export
@@ -397,7 +393,6 @@ namespace TensorInstances
     -}
 
 
-    -- TODO should this reduce over just a single axis?
     public export
     reduceTensor : {shape : Vect rank Cont} ->
       {names : UniqueVect rank String} ->
@@ -406,10 +401,11 @@ namespace TensorInstances
     reduceTensor {allAlg = []} = extract
     reduceTensor {allAlg = Cons} = reduceTensor . reduce . extractTopExt
 
-{-
     public export
-    {shape : List Cont} -> (allAlg : AllAlgebra shape a) =>
-    Algebra (CTensor shape) a where
+    {shape : Vect rank Cont} ->
+    {names : UniqueVect rank String} ->
+    (allAlg : AllAlgebra shape names a) =>
+    Algebra (CTensor shape names) a where
       reduce = reduceTensor
 
     -- public export
@@ -417,6 +413,29 @@ namespace TensorInstances
     -- Algebra (CTensor [c]) (CTensor [] a) where
     --   reduce t = embed $ reduce $ vectorToExt $ extract <$> t
 
+    namespace ReduceAxis
+      public export
+      reduce : {shape : Vect (S rank) Cont} ->
+        {names : UniqueVect (S rank) String} ->
+        (allAlg : AllAlgebra shape names a) =>
+        CTensor shape names a ->
+        (toDelete : String) ->
+        (inAxes : Elem toDelete names) =>
+        CTensor (deleteAt (index inAxes) shape) (removeIndex names (index inAxes)) a
+
+
+t0 : Tensor [3, 4] ["batch", "features"] Double
+t0 = ># [ [0, 1, 2, 3]
+        , [4, 5, 6, 7]
+        , [8, 9, 10, 11]]
+
+
+t1 : Tensor [3] ["batch"] Double
+t1 = reduce t0 "features"
+
+
+    
+{-
     -- So to define this:
     allalg3 : AllAlgebra [BinTree, List, List] Int
     allalg3 = %search
