@@ -417,11 +417,17 @@ namespace TensorInstances
       public export
       reduce : {shape : Vect (S rank) Cont} ->
         {names : UniqueVect (S rank) String} ->
-        (allAlg : AllAlgebra shape names a) =>
         CTensor shape names a ->
         (toDelete : String) ->
         (inAxes : Elem toDelete names) =>
+        (alg : Algebra (Ext (Vect.index (index inAxes) shape)) a) => -- 'a'?
+        -- TODO add algebra for this particular axis
         CTensor (deleteAt (index inAxes) shape) (removeIndex names (index inAxes)) a
+      reduce t toDelete {shape = (s :: ss)} {inAxes = Here}
+        = let tt = extractTopExt t
+          in ?reduce_rhs_2
+      reduce t toDelete {shape = (s :: ss)} {inAxes = (There later)}
+        = ?reduce_rhs_3
 
 
 t0 : Tensor [3, 4] ["batch", "features"] Double
