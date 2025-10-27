@@ -5,12 +5,27 @@ import Data.Vect
 import Data.Tree
 import Misc
 
+{-------------------------------------------------------------------------------
+{-------------------------------------------------------------------------------
+This file defines the Algebra interface, which is a pragmatic implementation of
+the concept of F-algebra from category theory.
+
+It is pragmatic since it is not defined for an arbitrary category, but rather
+for the vaguely defined category of Idris types and functions.
+
+Instantiating it for 'other' categories is solved by exposing the carrier of the algebra at the type level, allow us to use interface constraints to specify
+the constraints on the carrier.
+This comes at the cost of needing to always specify the carrier type in the type
+of every function that uses this algebra interface.
+-------------------------------------------------------------------------------}
+-------------------------------------------------------------------------------}
+
 ||| Generalised sum operation
 ||| Categorically, an F-Algebra
 public export
-interface Algebra (f : Type -> Type) a where
+interface Algebra (f : Type -> Type) (0 carrier : Type)where
   constructor MkAlgebra
-  reduce : f a -> a
+  reduce : f carrier -> carrier
 
 ||| In many instances below, we assume Num a defines a Rig structure on a
 ||| This means we assume the sum operation is both commutative and associative,
@@ -20,7 +35,7 @@ namespace Instances
   public export
   Num a => Algebra List a where
     reduce = foldr (+) (fromInteger 0)
-  
+
   -- Does this work for any Applicative? I think not, because in trees we have to choose an order of summation. But that might not impact things?
   -- if the sum operation is commutative, then it should not impact things
   public export
