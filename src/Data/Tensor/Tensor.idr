@@ -2,6 +2,7 @@ module Data.Tensor.Tensor
 
 import Data.Fin
 import Data.Nat
+import Data.Vect
 import Data.DPair
 import public Decidable.Equality
 import public Data.Fin.Split
@@ -46,7 +47,6 @@ Functionality includes:
 ||| inference
 public export
 record CTensor
-  (0 n : Nat)
   (shape : Vect n Cont)
   (names : UniqueVect n String)
   (a : Type) where
@@ -58,24 +58,23 @@ record CTensor
 ||| Cubical tensors. Used name 'Tensor' for backwards compatibility with
 ||| terminology in the numpy/pytorch ecosystem
 public export
-Tensor : (0 n : Nat) ->
-  (shape : Vect n Nat) ->
+Tensor : (shape : Vect n Nat) ->
   (names : UniqueVect n String) ->
   Type -> Type
-Tensor n shape names = CTensor n (Vect <$> shape) names
+Tensor shape names = CTensor (Vect <$> shape) names
 
 public export
-Functor (CTensor n shape names) where
+Functor (CTensor shape names) where
   map f (MkT t) = MkT $ map f t
 
 
 namespace NestedTensorUtils
   public export
-  extract : CTensor 0 [] [] a -> a
+  extract : CTensor [] [] a -> a
   extract (MkT t) = extract t
 
   public export
-  embed : a -> CTensor 0 [] [] a
+  embed : a -> CTensor [] [] a
   embed a = MkT (toScalar a)
 
   ||| With the added data of the wrapper around (Ext (Tensor shape) a), this
@@ -84,7 +83,7 @@ namespace NestedTensorUtils
   public export
   fromExtensionComposition : {shape : Vect n Cont} ->
     {names : UniqueVect n String} ->
-    composeExtensions shape a -> CTensor n shape names a
+    composeExtensions shape a -> CTensor shape names a
   fromExtensionComposition {shape = []} ce = MkT ce
   fromExtensionComposition {shape = (c :: cs)} {names = (n :: ns)} (sh <| contentAt)
     =  MkT $
@@ -94,7 +93,7 @@ namespace NestedTensorUtils
   public export
   toExtensionComposition : {shape : Vect n Cont} ->
     {names : UniqueVect n String} ->
-    CTensor n shape names a -> composeExtensions shape a
+    CTensor shape names a -> composeExtensions shape a
   toExtensionComposition {shape = []} (MkT t) = t
   toExtensionComposition {shape = (_ :: _)} {names = (n :: ns)} (MkT ((csh <| cpos) <| idx))
     = csh <| \d => toExtensionComposition {names=ns} (MkT (cpos d <| curry idx d))
@@ -102,16 +101,16 @@ namespace NestedTensorUtils
   ||| For this and the function below, the commented out definition is 'cleaner'
   ||| but it requires non-erased `c` and `cs`
   public export
-  extractTopExt : {n : String} -> {ns : UniqueVect k String} ->
+  extractTopExt : {0 n : String} -> {0 ns : UniqueVect k String} ->
     {auto prf : NotElem n ns} ->
-    CTensor (S k) (c :: cs) (n :: ns) a -> Ext c (CTensor k cs ns a)
+    CTensor (c :: cs) (n :: ns) a -> Ext c (CTensor cs ns a)
   extractTopExt (MkT (sh <| ind))
     = shapeExt sh <| \p => MkT $ index sh p <| \p' => ind (p ** p')
 
   public export
   embedTopExt : {n : String} -> {ns : UniqueVect k String} ->
     {auto prf : NotElem n ns} ->
-    Ext c (CTensor k cs ns a) -> CTensor (S k) (c :: cs) (n :: ns) a
+    Ext c (CTensor cs ns a) -> CTensor (c :: cs) (n :: ns) a
   embedTopExt e =
     let tp = GetT . index e
     in MkT $ (shapeExt e <| shapeExt . tp) <| \(p ** p') => index (tp p) p'
@@ -119,23 +118,23 @@ namespace NestedTensorUtils
   ||| This is useful because container composition adds non-trivial data to the
   ||| vector type (i.e. `c >@ Scalar` is not equal to `c`)
   public export
-  extToVector : Ext c a -> CTensor 1 [c] [n] a
+  extToVector : Ext c a -> CTensor [c] [n] a
   extToVector e = MkT $ (shapeExt e <| \_ => ()) <| \(cp ** ()) => index e cp
 
   public export
-  vectorToExt : CTensor 1 [c] [n] a -> Ext c a
+  vectorToExt : CTensor [c] [n] a -> Ext c a
   vectorToExt (MkT t) = shapeExt (shapeExt t) <| \cp => index t (cp ** ())
 
   public export
   toNestedTensor : {n : String} -> {ns : UniqueVect k String} ->
     {auto prf : NotElem n ns} ->
-    CTensor (S k) (c :: cs) (n :: ns) a -> CTensor 1 [c] [n] (CTensor k cs ns a)
+    CTensor (c :: cs) (n :: ns) a -> CTensor [c] [n] (CTensor cs ns a)
   toNestedTensor = extToVector . extractTopExt
 
   public export
   fromNestedTensor : {n : String} -> {ns : UniqueVect k String} ->
     {auto prf : NotElem n ns} ->
-    CTensor 1 [c] [n] (CTensor k cs ns a) -> CTensor (S k) (c :: cs) (n :: ns) a
+    CTensor [c] [n] (CTensor cs ns a) -> CTensor (c :: cs) (n :: ns) a
   fromNestedTensor = embedTopExt . vectorToExt 
 
   public export
@@ -144,8 +143,8 @@ namespace NestedTensorUtils
     {ms : UniqueVect k' String} ->
     {auto prf : NotElem n ns} ->
     {auto prf' : NotElem n ms} ->
-    (f : CTensor k cs ns a -> CTensor k' ds ms a) ->
-    CTensor (S k) (c :: cs) (n :: ns) a -> CTensor (S k') (c :: ds) (n :: ms) a
+    (f : CTensor cs ns a -> CTensor ds ms a) ->
+    CTensor (c :: cs) (n :: ns) a -> CTensor (c :: ds) (n :: ms) a
   tensorMapFirstAxis f = fromNestedTensor . map f . toNestedTensor
 
   public export infixr 4 <-$>
@@ -157,8 +156,8 @@ namespace NestedTensorUtils
     {ms : UniqueVect k' String} ->
     {auto prf : NotElem n ns} ->
     {auto prf' : NotElem n ms} ->
-    (f : CTensor k cs ns a -> CTensor k' ds ms a) ->
-    CTensor (S k) (c :: cs) (n :: ns) a -> CTensor (S k') (c :: ds) (n :: ms) a
+    (f : CTensor cs ns a -> CTensor ds ms a) ->
+    CTensor (c :: cs) (n :: ns) a -> CTensor (c :: ds) (n :: ms) a
   (<-$>) = tensorMapFirstAxis
 
 namespace TensorFromConcrete
@@ -199,14 +198,14 @@ namespace TensorFromConcrete
   toTensor : {shape : Vect rank Cont} ->
     {ns : UniqueVect rank String} ->
     (allConcrete : AllConcrete (toList' shape)) =>
-    concreteTypeTensor shape a -> CTensor rank shape ns a
+    concreteTypeTensor shape a -> CTensor shape ns a
   toTensor = fromExtensionComposition . concreteToExtensions
 
   public export
   fromTensor : {shape : Vect rank Cont} ->
     {ns : UniqueVect rank String} ->
     (allConcrete : AllConcrete (toList' shape)) =>
-    CTensor rank shape ns a -> concreteTypeTensor shape a
+    CTensor shape ns a -> concreteTypeTensor shape a
   fromTensor = extensionsToConcreteType . toExtensionComposition
 
   ||| Many containers have a `FromConcrete` instance, allowing them to easily
@@ -221,14 +220,14 @@ namespace TensorFromConcrete
   fromConcreteTy : {shape : Vect rank Cont} ->
     {ns : UniqueVect rank String} ->
     (allConcrete : AllConcrete (toList' shape)) =>
-    concreteTypeTensor shape a -> CTensor rank shape ns a
+    concreteTypeTensor shape a -> CTensor shape ns a
   fromConcreteTy = toTensor
 
   public export
   toConcreteTy : {shape : Vect rank Cont} ->
     {ns : UniqueVect rank String} ->
     (allConcrete : AllConcrete (toList' shape)) =>
-    CTensor rank shape ns a -> concreteTypeTensor shape a
+    CTensor shape ns a -> concreteTypeTensor shape a
   toConcreteTy = fromTensor
 
   public export prefix 0 >#, #>
@@ -239,7 +238,7 @@ namespace TensorFromConcrete
   (>#) : {shape : Vect rank Cont} ->
     {ns : UniqueVect rank String} ->
     (allConcrete : AllConcrete (toList' shape)) =>
-    concreteTypeTensor shape a -> CTensor rank shape ns a
+    concreteTypeTensor shape a -> CTensor shape ns a
   (>#) = fromConcreteTy
 
   ||| Prefix operator for converting from a tensor to concrete type
@@ -248,7 +247,7 @@ namespace TensorFromConcrete
   (#>) : {shape : Vect rank Cont} ->
     {ns : UniqueVect rank String} ->
     (allConcrete : AllConcrete (toList' shape)) =>
-    CTensor rank shape ns a -> concreteTypeTensor shape a
+    CTensor shape ns a -> concreteTypeTensor shape a
   (#>) = toConcreteTy
 
 namespace TensorInstances
@@ -257,7 +256,7 @@ namespace TensorInstances
     tensorReplicate : {shape : Vect rank Cont} ->
       {names : UniqueVect rank String} ->
       (allAppl : All TensorMonoid (toList' shape)) =>
-      (x : a) -> CTensor rank shape names a
+      (x : a) -> CTensor shape names a
     tensorReplicate {shape = [], names = []} = embed
     tensorReplicate {shape = (_ :: _), names = (n :: ns), allAppl = (::) _ _}
       = fromExtensionComposition
@@ -269,7 +268,7 @@ namespace TensorInstances
     liftA2Tensor : {shape : Vect rank Cont} ->
       {names : UniqueVect rank String} ->
       (allAppl : All TensorMonoid (toList' shape)) =>
-      CTensor rank shape names a -> CTensor rank shape names b -> CTensor rank shape names (a, b)
+      CTensor shape names a -> CTensor shape names b -> CTensor shape names (a, b)
     liftA2Tensor {shape= [], names= [], allAppl=[]} (MkT t) (MkT t')
       = embed (index t (), index t' ())
     liftA2Tensor {shape=(s::ss), names=(n::ns), allAppl=(::) _ _} t t'
@@ -280,16 +279,16 @@ namespace TensorInstances
     {shape : Vect rank Cont} ->
     {names : UniqueVect rank String} ->
     (allAppl : All TensorMonoid (toList' shape)) =>
-    Applicative (CTensor rank shape names) where
-      pure = tensorReplicate
-      fs <*> xs = uncurry ($) <$> liftA2Tensor fs xs
+    Applicative (CTensor shape names) where
+      pure = tensorReplicate {allAppl = allAppl}
+      fs <*> xs = uncurry ($) <$> liftA2Tensor {allAppl = allAppl} fs xs
 
   namespace EqInstance
     public export
     data AllEq : Vect rank Cont -> UniqueVect rank String -> Type -> Type where
       Nil : Eq a => AllEq [] [] a
       Cons :  {n : String} -> {ns : UniqueVect k String} ->
-        Eq (c `fullOf` CTensor k cs ns a) => -- hmm, can be simplified?
+        Eq (c `fullOf` CTensor cs ns a) => -- hmm, can be simplified?
         {auto prf : NotElem n ns} ->
         AllEq (c :: cs) (n :: ns) a
 
@@ -297,7 +296,7 @@ namespace TensorInstances
     tensorEq : {shape : Vect rank Cont} ->
       {names : UniqueVect rank String} ->
       (allEq : AllEq shape names a) =>
-      CTensor rank shape names a -> CTensor rank shape names a -> Bool
+      CTensor shape names a -> CTensor shape names a -> Bool
     tensorEq {allEq = []} t1 t2 = extract t1 == extract t2
     tensorEq {allEq = Cons} t1 t2 = (extractTopExt t1) == (extractTopExt t2)
 
@@ -305,7 +304,7 @@ namespace TensorInstances
     {shape : Vect rank Cont} ->
     {names : UniqueVect rank String} ->
     (allEq : AllEq shape names a) =>
-      Eq (CTensor rank shape names a) where
+      Eq (CTensor shape names a) where
         (==) = tensorEq {allEq = allEq}
 
     -- Turns out only this is sufficient for the setC function to work
@@ -323,7 +322,7 @@ namespace TensorInstances
     {shape : Vect rank Cont} ->
     {names : UniqueVect rank String} ->
     Num a => All TensorMonoid (toList' shape) =>
-    Num (CTensor rank shape names a) where
+    Num (CTensor shape names a) where
         fromInteger = tensorReplicate . fromInteger
         t + t' = uncurry (+) <$> liftA2Tensor t t'
         t * t' = uncurry (*) <$> liftA2Tensor t t'
@@ -332,26 +331,26 @@ namespace TensorInstances
     {shape : Vect rank Cont} ->
     {names : UniqueVect rank String} ->
     Neg a => All TensorMonoid (toList' shape) =>
-    Neg (CTensor rank shape names a) where
+    Neg (CTensor shape names a) where
       negate = (negate <$>)
       xs - ys = (uncurry (-)) <$> liftA2 xs ys
 
     -- TODO this throws an error?
-    negNotFound : {shape : Vect rank Nat} -> Neg a => Neg (Tensor rank shape names a)
+    negNotFound : {shape : Vect rank Nat} -> Neg a => Neg (Tensor shape names a)
     negNotFound = ?interfaceProblemsAgain
 
     public export
     {shape : Vect rank Cont} ->
     {names : UniqueVect rank String} ->
     Abs a => All TensorMonoid (toList' shape) =>
-    Abs (CTensor rank shape names a) where
+    Abs (CTensor shape names a) where
       abs = (abs <$>)
 
     public export
     {shape : Vect rank Cont} ->
     {names : UniqueVect rank String} ->
     Fractional a => All TensorMonoid (toList' shape) =>
-    Fractional (CTensor rank shape names a) where
+    Fractional (CTensor shape names a) where
       t / v = (uncurry (/)) <$> liftA2 t v
 
     public export
@@ -359,7 +358,7 @@ namespace TensorInstances
     {names : UniqueVect rank String} ->
     Exp a =>
     All TensorMonoid (toList' shape) =>
-    Exp (CTensor rank shape names a) where
+    Exp (CTensor shape names a) where
       exp = (exp <$>)
       minusInfinity = pure minusInfinity
 
@@ -376,7 +375,7 @@ namespace TensorInstances
       (dtype : Type) -> Type where
       Nil : AllAlgebra [] [] a
       Cons : {n : String} -> {ns : UniqueVect k String} ->
-        (alg : Algebra (Ext c) (CTensor k cs ns a)) =>
+        (alg : Algebra (Ext c) (CTensor cs ns a)) =>
         (rest : AllAlgebra cs ns a) =>
         {auto prf : NotElem n ns} ->
         AllAlgebra (c :: cs) (n :: ns) a
@@ -402,7 +401,7 @@ namespace TensorInstances
     reduceTensor : {shape : Vect rank Cont} ->
       {names : UniqueVect rank String} ->
       (allAlg : AllAlgebra shape names a) =>
-      CTensor rank shape names a -> a
+      CTensor shape names a -> a
     reduceTensor {allAlg = []} = extract
     reduceTensor {allAlg = Cons} = reduceTensor . reduce . extractTopExt
 
@@ -410,7 +409,7 @@ namespace TensorInstances
     {shape : Vect rank Cont} ->
     {names : UniqueVect rank String} ->
     (allAlg : AllAlgebra shape names a) =>
-    Algebra (CTensor rank shape names) a where
+    Algebra (CTensor shape names) a where
       reduce = reduceTensor
 
     -- public export
@@ -423,79 +422,77 @@ namespace TensorInstances
       reduce : {rank : Nat} ->
         {shape : Vect (S rank) Cont} ->
         {names : UniqueVect (S rank) String} ->
-        CTensor (S rank) shape names a ->
+        CTensor shape names a ->
         (toDelete : String) ->
-        (isInAxes : Elem toDelete names) =>
-        (alg : Algebra (Ext (index (indexOf isInAxes) shape))
-          (CTensor (minus (S rank) (finToNat (FS (indexOf isInAxes)))) (drop (FS (indexOf isInAxes)) shape) (drop names isInAxes) a)
+        (inAxes : Elem toDelete names) =>
+        (alg : Algebra (Ext (index (indexOf inAxes) shape))
+          (CTensor (drop (FS (indexOf inAxes)) shape) (drop names inAxes) a)
         ) => -- have to increase `index inAxes` by 1 because we're not indexing, but counting
-        CTensor rank (deleteAt (indexOf isInAxes) shape) (removeIndex names (indexOf {n=S rank} {xs=names} isInAxes)) a
-      reduce t toDelete {shape = (s :: ss)} {isInAxes = Here {x=toDelete} {xs} {prf}}
-        = let algRewr : Ext s (CTensor rank ss xs a) -> CTensor rank ss xs a
+        CTensor (deleteAt (indexOf inAxes) shape) (removeIndex names (indexOf inAxes)) a
+      reduce t _ {shape = (s :: ss)} {inAxes = Here {xs=ns}}
+        = let algRewr : Ext s (CTensor ss ns a) -> CTensor ss ns a
               algRewr = rewrite sym (minusZeroRight rank) in reduce
           in algRewr (extractTopExt t)
-      reduce t toDelete {shape = (s :: ss)} {isInAxes = (There later)}
-        = ?reduce_rhs_3
+      reduce {rank = (S k)} t toDelete {shape = (s :: ss)} {names = (n :: ns)} {inAxes = There later}
+        = let th : Ext s (CTensor (deleteAt (indexOf later) ss) (removeIndex ns (indexOf later)) a) 
+              th = (\t' => ReduceAxis.reduce t' toDelete {inAxes=later}) <$> extractTopExt t
+              ne : NotElem n (removeIndex ns (indexOf later))
+              ne = removingElemIsStillNotElem 
+          -- For some reason Idris does not automatically reduce
+          -- `deleteAt (indexOf (There later)) (s :: ss)` tp
+          -- `s :: deleteAt (indexOf later) ss`
+          in believe_me $ embedTopExt {prf = ne} th
 
-
-t0 : Tensor 2 [3, 4] ["batch", "features"] Double
-t0 = ># [ [0, 1, 2, 3]
-        , [4, 5, 6, 7]
-        , [8, 9, 10, 11]]
-
-
-t1 : Tensor 1 [3] ["batch"] Double
-t1 = reduce t0 "features"
-
-
-    
-{-
     -- So to define this:
-    allalg3 : AllAlgebra [BinTree, List, List] Int
+    allalg3 : AllAlgebra [BinTree, List, List] ["x", "y", "z"] Int
     allalg3 = %search
 
     -- we need to have:
-    allAlg2 : Algebra (CTensor [BinTree]) (CTensor [List, List] Int)
+    allAlg2 : Algebra (CTensor [BinTree] ["abc"]) (CTensor [List, List] ["def", "ced"] Int)
     allAlg2 = %search
 
     -- we need to have:
-    allAlg1 : Algebra (CTensor [List]) (CTensor [List] Int)
+    allAlg1 : Algebra (CTensor [List] ["a"]) (CTensor [List] ["y"] Int)
     allAlg1 = %search
 
-    allAlg0 : AllAlgebra [List] Int
+    allAlg0 : AllAlgebra [List] ["x"] Int
     allAlg0 = %search
 
     -- we need to have:
-    alg0 : Algebra (CTensor [List]) (CTensor [] Int)
+    alg0 : Algebra (CTensor [List] ["yy"]) (CTensor [] [] Int)
     alg0 = %search
 
 
 
-    rrr : {shape : List Cont} -> AllAlgebra shape a => CTensor shape a -> a
+    rrr : {shape : Vect rank Cont} ->
+      {names : UniqueVect rank String} ->
+      AllAlgebra shape names a => CTensor shape names a -> a
     rrr t = reduce t
 
-    rrrc : {shape : List Nat} -> AllAlgebra (Vect <$> shape) a => Tensor shape a -> a
+    rrrc : {shape : Vect rank Nat} ->
+      {names : UniqueVect rank String} ->
+      AllAlgebra (Vect <$> shape) names a => Tensor shape names a -> a
     rrrc t = reduce t
 
     agtest0 : Algebra BinTreeNode Int
     agtest0 = %search
 
-    zzn : Num (CTensor [] Int)
+    zzn : Num (CTensor [] [] Int)
     zzn = %search
 
-    zz : Algebra (Ext BinTree) (CTensor [] Int)
+    zz : Algebra (Ext BinTree) (CTensor [] [] Int)
     zz = %search
 
-    zz0 : Algebra (CTensor [BinTree]) Int
+    zz0 : Algebra (CTensor [BinTree] ["o"]) Int
     zz0 = %search
 
-    zzt : Algebra (CTensor [BinTree]) (CTensor [] Int)
+    zzt : Algebra (CTensor [BinTree] ["p"]) (CTensor [] [] Int)
     zzt = %search
 
-    agt0 : AllAlgebra [BinTree] Int
+    agt0 : AllAlgebra [BinTree] ["o"] Int
     agt0 = %search
 
-    agt1 : AllAlgebra [List] Int
+    agt1 : AllAlgebra [List] ["x"] Int
     agt1 = %search
 
 
@@ -506,41 +503,55 @@ t1 = reduce t0 "features"
 
 
 
+t0 : Tensor [3, 4] ["batch", "features"] Double
+t0 = ># [ [0, 1, 2, 3]
+        , [4, 5, 6, 7]
+        , [8, 9, 10, 11]]
 
-  namespace FoldableInstance
-    public export
-    data AllFoldable : (shape : List Cont) -> Type where
-        Nil : AllFoldable []
-        Cons : Foldable (Ext c) =>
-          AllFoldable cs =>
-          AllFoldable (c :: cs)
 
-    public export
-    tensorFoldr : (allFoldable : AllFoldable shape) =>
-      (a -> acc -> acc) -> acc -> CTensor shape a -> acc
-    tensorFoldr {allFoldable = []} f val t = f (extract t) val
-    tensorFoldr {allFoldable = Cons} f val t = foldr
-      (\ct, acc => tensorFoldr f acc ct) val (extractTopExt t)
+t1 : Tensor [4] ["features"] Double
+t1 = reduce t0 "batch"
 
-    public export
-    {shape : List Cont} -> (allFoldable : AllFoldable shape) =>
-    Foldable (CTensor shape) where
-      foldr = tensorFoldr
+    
+namespace FoldableInstance
+  public export
+  data AllFoldable : (shape : Vect rank Cont) -> Type where
+      Nil : AllFoldable []
+      Cons : Foldable (Ext c) =>
+        AllFoldable cs =>
+        AllFoldable (c :: cs)
 
-    concreteWorks : Tensor [7, 2] Integer -> Integer
-    concreteWorks t = foldr (+) 0 t
+  public export
+  tensorFoldr : (allFoldable : AllFoldable shape) =>
+    {names : UniqueVect rank String} ->
+    (a -> acc -> acc) -> acc -> CTensor shape names a -> acc
+  tensorFoldr {names=[]} {allFoldable = []} f val t = f (extract t) val
+  tensorFoldr {names=(n :: ns)} {allFoldable = Cons} f val t = foldr
+    (\ct, acc => tensorFoldr f acc ct) val (extractTopExt t)
 
-    parametricCTensorWorks : {shape : List Cont} -> AllFoldable shape =>
-      CTensor shape Integer -> Integer
-    parametricCTensorWorks t = foldr (+) 0 t
+  public export
+  {shape : Vect rank Cont} ->
+  {names : UniqueVect rank String} ->
+  (allFoldable : AllFoldable shape) =>
+  Foldable (CTensor shape names) where
+    foldr = tensorFoldr
 
-    -- parametricDoesNotWork : {shape : List Nat} ->
-    --   Tensor shape Integer -> Integer
-    -- parametricDoesNotWork t = foldr (+) 0 t
+  concreteWorks : Tensor [7, 2] ["a", "b"] Integer -> Integer
+  concreteWorks t = foldr (+) 0 t
+
+  parametricCTensorWorks : {shape : Vect rank Cont} ->
+    {names : UniqueVect rank String} ->
+    AllFoldable shape =>
+    CTensor shape names Integer -> Integer
+  parametricCTensorWorks t = foldr (+) 0 t
+
+  -- parametricDoesNotWork : {shape : List Nat} ->
+  --   Tensor shape Integer -> Integer
+  -- parametricDoesNotWork t = foldr (+) 0 t
 
   namespace TraversableInstance
     public export
-    data AllTraversable : (shape : List Cont) -> Type where
+    data AllTraversable : (shape : Vect rank Cont) -> Type where
         Nil : AllTraversable []
         Cons : Traversable (Ext c) =>
           AllTraversable cs =>
@@ -549,22 +560,25 @@ t1 = reduce t0 "features"
     public export
     tensorTraverse : (allTraversable : AllTraversable shape) =>
       Applicative f =>
-      (a -> f b) -> CTensor shape a -> f (CTensor shape b)
-    tensorTraverse {allTraversable = []} f t = pure <$> f (extract t)
-    tensorTraverse {allTraversable = Cons} f t = embedTopExt <$>
-      traverse (\ct => tensorTraverse f ct) (extractTopExt t)
+      {names : UniqueVect rank String} ->
+      (a -> f b) -> CTensor shape names a -> f (CTensor shape names b)
+    tensorTraverse {allTraversable = []} {names = []} f t
+      = pure <$> f (extract t)
+    tensorTraverse {allTraversable = Cons} {names=(n :: ns)} f t
+      = embedTopExt <$> traverse (\ct => tensorTraverse f ct) (extractTopExt t)
 
     public export
-    {shape : List Cont} ->
+    {shape : Vect rank Cont} ->
+    {names : UniqueVect rank String} ->
     (allTraversable : AllTraversable shape) =>
     (allFoldable : AllFoldable shape) =>
-    Traversable (CTensor shape) where
+    Traversable (CTensor shape names) where
       traverse = tensorTraverse
 
 
   namespace NaperianInstance
     public export
-    data AllNaperian : (shape : List Cont) -> Type where
+    data AllNaperian : (shape : Vect rank Cont) -> Type where
       Nil : AllNaperian []
       Cons : (nap : Naperian (Ext c)) =>
         (rest : AllNaperian cs) =>
@@ -573,7 +587,7 @@ t1 = reduce t0 "features"
     namespace Index
       ||| Datatype for indexing into a tensor
       public export
-      data IndexNaperian : (shape : List Cont) ->
+      data IndexNaperian : (shape : Vect rank Cont) ->
         (allNap : AllNaperian shape) =>
         Type where
         Nil : IndexNaperian []
@@ -584,25 +598,31 @@ t1 = reduce t0 "features"
           IndexNaperian (c :: cs) {allNap=Cons {rest=rest}}
 
     public export
-    tensorLookup : {shape : List Cont} ->
+    tensorLookup : {shape : Vect rank Cont} ->
+      {names : UniqueVect rank String} ->
       (allNaperian : AllNaperian shape) =>
-      CTensor shape a ->
+      CTensor shape names a ->
       (IndexNaperian shape -> a)
-    tensorLookup {shape = []} t _ = extract t
-    tensorLookup {shape = (c :: cs)} {allNaperian = Cons} t (i :: is)
+    tensorLookup {shape = []} {names = []} t _ = extract t
+    tensorLookup {shape = (c :: cs)} {names = (n :: ns)} {allNaperian = Cons} t (i :: is)
       = tensorLookup (lookup (extractTopExt t) i) is
 
     public export
-    tensorTabulate : {shape : List Cont} -> (allNaperian : AllNaperian shape) =>
-      (IndexNaperian shape -> a) -> CTensor shape a
-    tensorTabulate {shape = []} {allNaperian = []} f = embed (f Nil)
-    tensorTabulate {shape = (_ :: _)} {allNaperian = Cons} f
+    tensorTabulate : {shape : Vect rank Cont} ->
+      {names : UniqueVect rank String} ->
+      (allNaperian : AllNaperian shape) =>
+      (IndexNaperian shape -> a) -> CTensor shape names a
+    tensorTabulate {shape = []} {names = []} {allNaperian = []} f
+      = embed (f Nil)
+    tensorTabulate {shape = (_ :: _)} {names = (n :: ns)} {allNaperian = Cons} f
       = embedTopExt $ tabulate $ \i => tensorTabulate $ \is => f (i :: is)
 
     public export
-    {shape : List Cont} ->
-    (allAppl : All TensorMonoid shape) => (allNaperian : AllNaperian shape) =>
-    Naperian (CTensor shape) where
+    {shape : Vect rank Cont} ->
+    {names : UniqueVect rank String} ->
+    (allAppl : All TensorMonoid (toList' shape)) =>
+    (allNaperian : AllNaperian shape) =>
+    Naperian (CTensor shape names) where
       Log = IndexNaperian shape
       lookup = tensorLookup
       tabulate = tensorTabulate
@@ -616,86 +636,108 @@ t1 = reduce t0 "features"
 
     public export
     transposeMatrix : {i, j : Cont} ->
+      {ni, nj : String} ->
+      IsNo (decEq ni nj) =>
       (allNaperian : AllNaperian [i, j]) =>
-      CTensor [i, j] a -> CTensor [j, i] a
+      CTensor [i, j] [ni, nj] a -> CTensor [j, i] [nj, ni] a
     transposeMatrix {allNaperian=Cons @{f} @{Cons}}
       = fromExtensionComposition
       . transpose
       . toExtensionComposition
 
-
-    tm : Tensor [2, 3] a -> Tensor [3, 2] a
+    
+    tm : Tensor [2, 3] ["i", "j"] a -> Tensor [3, 2] ["j", "i"] a
     tm t = transposeMatrix t
 
-    tmp : {i, j : Nat} -> Tensor [i, j] a -> Tensor [j, i] a
+    tmp : {i, j : Nat} ->
+      Tensor [i, j] ["i", "j"] a -> Tensor [j, i] ["j", "i"] a 
     tmp t = transposeMatrix t
 
-    ttm : {i, j : Cont} -> AllNaperian [i, j] => CTensor [i, j] a -> CTensor [j, i] a
+    ttm : {i, j : Cont} -> AllNaperian [i, j] =>
+      CTensor [i, j] ["i", "j"] a -> CTensor [j, i] ["j", "i"] a
     ttm t = transposeMatrix t
 
     ||| Like 'positions' from Naperian, but parametric, and not requiring the
     ||| Naperian instance here
     public export
     positions : {c : Cont} ->
-      {sh : c.Shp} -> CTensor [c] (c.Pos sh)
+      {sh : c.Shp} -> CTensor [c] [n] (c.Pos sh)
     positions = extToVector positionsCont
 
-  namespace ShowInstance
-    ||| TODO include LayoutOrder as argument, or maybe that should be in Display
-    public export
-    data AllShow : List Cont -> Type -> Type where
-      Nil : Show a => AllShow [] a
-      -- for type below, we should be able to define what shExt is without referencing CTensor cs a?
-      Cons : Show (c `fullOf` CTensor cs a) =>
-       AllShow (c :: cs) a
 
-    public export
-    show' : {shape : List Cont} -> (allShow : AllShow shape a) =>
-      CTensor shape a -> String
-    show' {allShow = Nil} t = show (extract t)
-    show' {allShow = Cons} t = show (extractTopExt t)
+namespace ShowInstance
+  public export
+  data AllShow : Vect rank Cont -> UniqueVect rank String -> Type -> Type where
+    Nil : Show a => AllShow [] [] a
+    -- for type below, we should be able to define what shExt is without referencing CTensor cs a? 
+    Cons : {0 n : String} -> {0 ns : UniqueVect k String} ->
+      Show (c `fullOf` CTensor cs ns a) =>
+      (ne : NotElem n ns) =>
+      AllShow (c :: cs) (n :: ns) a
 
-    public export
-    {shape : List Cont} -> (allShow : AllShow shape a) =>
-    Show (CTensor shape a) where
-        show t = show' {allShow = allShow} t
+  public export
+  show' : {0 rank : Nat} ->
+    {shape : Vect rank Cont} ->
+    {0 names : UniqueVect rank String} ->
+    (allShow : AllShow shape names a) =>
+    CTensor shape names a -> String
+  show' {allShow = Nil} t = show (extract t)
+  show' {allShow = Cons @{sh}} t = show (extractTopExt t)
 
-    %hint
-    public export
-    allShowCubical : {shape : List Nat} -> Show a => AllShow (Vect <$> shape) a
-    allShowCubical {shape=[]} = Nil
-    allShowCubical {shape=(c :: cs)} = Cons @{?oibim}
+  public export
+  {shape : Vect rank Cont} -> (allShow : AllShow shape names a) =>
+  Show (CTensor shape names a) where
+      show t = show' {allShow = allShow} t
 
-    public export
-    {shape : List Nat} -> Show a => Show (Tensor shape a) where
-      show t = show' {allShow=allShowCubical} t
-      -- show {shape=(c :: cs)} t = show' {allShow = Cons @{?oiim}} t
+  %hint
+  public export
+  allShowCubical : {shape : Vect rank Nat} ->
+    {names : UniqueVect rank String} ->
+    Show a =>
+    AllShow (Vect <$> shape) names a
+  allShowCubical {shape=[]} {names=[]} = Nil
+  allShowCubical {shape=(c :: cs)} {names=(n :: ns)} = Cons @{?oibim}
 
-    -- showCubical : {shape : List Nat} -> Show a => Tensor shape a -> String
-    -- showCubical {shape=[]} t = show' {allShow = Nil} t
-    -- showCubical {shape=(c :: cs)} t = show' {allShow = Cons @{?oiim}} t
+  public export
+  {shape : Vect rank Nat} ->
+  {names : UniqueVect rank String} ->
+  Show a =>
+  Show (Tensor shape names a) where
+    show t = show' {allShow=allShowCubical} t
+    -- show {shape=(c :: cs)} t = show' {allShow = Cons @{?oiim}} t
+
+  -- showCubical : {shape : List Nat} -> Show a => Tensor shape a -> String
+  -- showCubical {shape=[]} t = show' {allShow = Nil} t
+  -- showCubical {shape=(c :: cs)} t = show' {allShow = Cons @{?oiim}} t
 
 
-    sst : {shape : List Cont} -> AllShow shape a => CTensor shape a -> String
-    sst t = show t
+  sst : {shape : Vect rank Cont} -> AllShow shape names a => CTensor shape names a -> String
+  sst t = show t
 
-    -- sstc : {shape : List Nat} -> Show a => Tensor shape a -> String
-    -- sstc t = show t
+  -- sstc : {shape : List Nat} -> Show a => Tensor shape a -> String
+  -- sstc t = show t
 
-  namespace TensorContractions
-    public export
-    dotWith : {shape : List Cont} ->
-      Algebra (CTensor shape) c => All TensorMonoid shape =>
-      (a -> b -> c) ->
-      CTensor shape a -> CTensor shape b -> CTensor [] c
-    dotWith f xs ys = embed $ reduce $ uncurry f <$> liftA2Tensor xs ys
+namespace TensorContractions
+  public export
+  dotWith : {shape : Vect rank Cont} ->
+    {names : UniqueVect rank String} ->
+    Algebra (CTensor shape names) c => All TensorMonoid (toList' shape) =>
+    (a -> b -> c) ->
+    CTensor shape names a -> CTensor shape names b -> CTensor [] [] c
+  dotWith f xs ys = embed $ Algebra.reduce $ uncurry f <$> liftA2Tensor xs ys
 
-    public export
-    dot : {shape : List Cont} -> Num a =>
-      Algebra (CTensor shape) a => All TensorMonoid shape =>
-      CTensor shape a -> CTensor shape a -> CTensor [] a
-    dot xs ys = dotWith (*) xs ys
+  public export
+  dot : {shape : Vect rank Cont} ->
+    {names : UniqueVect rank String} ->
+    Num a =>
+    Algebra (CTensor shape names) a => All TensorMonoid (toList' shape) =>
+    CTensor shape names a -> CTensor shape names a -> CTensor [] [] a
+  dot xs ys = dotWith (*) xs ys
 
+  namespace DotAxis
+
+    
+{-
     public export
     outerWith : {i, j : Cont} ->
       (TensorMonoid i) =>

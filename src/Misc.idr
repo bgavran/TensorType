@@ -1,14 +1,13 @@
 module Misc
 
+import Data.Nat
 import Data.Vect
 import System.Random
 import Data.Fin.Arith
 import Data.List.Quantifiers
 import Decidable.Equality
 import Decidable.Equality.Core
-import Data.String
 import Data.List
-import Data.List1
 
 %hide Builtin.infixr.(#)
 
@@ -37,6 +36,15 @@ namespace VectFoldable
   public export
   toList' : Vect n a -> List a
   toList' = foldr @{straightforward} (::) []
+
+
+||| Drop the first i elements of a vector
+||| Analogous to Data.Vect.drop, except the index is Fin n instead of Nat
+public export
+drop : (i : Fin (S n)) -> Vect n a -> Vect (minus n (finToNat i)) a
+drop FZ xs = rewrite minusZeroRight n in xs
+drop (FS i) (x :: xs) = drop i xs
+
 
 ||| Starting with (Fin l -> x) and an extra x, we produce a map (Fin (S l) -> x) whose first element is the extra x 
 public export
@@ -274,45 +282,33 @@ replaceString old new str =
         else x :: replaceInList old new rest
 
 
-public export
-data IsNo : Dec a -> Type where
-  ItIsNo : {prop : Type} -> {contra : Not prop} -> IsNo (No {prop=prop} contra)
-
-
-public export
-[uniqueUninhabited] {0 a : Type} -> {x : a} -> (de : DecEq a) =>
-Uninhabited (IsNo (Equality.decEq x x)) where
-  uninhabited y with (decEq x x)
-    _ | (Yes _) with (y)
-      _ | ItIsNo impossible
-    _ | (No contra) = contra Refl
-
-
-||| Proof of inequality yields IsNo
-public export
-proofIneqIsNo : {x, y : a} -> DecEq a => ((x = y) -> Void) -> (IsNo (Equality.decEq x y))
-proofIneqIsNo f with (decEq x y)
-  _ | (Yes prf) = absurd (f prf)
-  _ | (No contra) = ItIsNo
-
-||| Proofs about elements existing or not existing in vectors
-namespace ElemVector
-  ||| A proof that an element is found in a vector at position i
-  ||| Position-relevant variant of Elem
+namespace IsNo
   public export
-  data ElemIndex : a -> Fin n -> Vect n a -> Type where 
-    Here : ElemIndex x FZ (x :: xs)
-    There : (later : ElemIndex x i xs) -> ElemIndex x (FS i) (y :: xs)
+  data IsNo : Dec a -> Type where
+    ItIsNo : {prop : Type} -> {contra : Not prop} -> IsNo (No {prop=prop} contra)
 
-
-  ||| A proof that an element is *not* found in vector
-  ||| Dual of Elem
-  data NotElem : (x : a) -> (xs : Vect n a) -> Type where
-    NotElemEmpty : NotElem x []
-    NotElemCons : Eq a => {x, y : a} ->
-      NotElem x xs ->
-      So (x /= y) ->
-      NotElem x (y :: xs)
+  ||| Can this be simplified?
+  public export 
+  isNoSym : DecEq a => {x, y : a} -> IsNo (decEq x y) -> IsNo (decEq y x)
+  isNoSym z with (decEq x y) | (decEq y x)
+    _ | (No contra1) | (Yes prf) = absurd (contra1 (sym prf))
+    _ | _           | (No contra) = ItIsNo 
+  
+  public export
+  [uniqueUninhabited] {0 a : Type} -> {x : a} -> (de : DecEq a) =>
+  Uninhabited (IsNo (Equality.decEq x x)) where
+    uninhabited y with (decEq x x)
+      _ | (Yes _) with (y)
+        _ | (ItIsNo _) impossible
+      _ | (No contra) = contra Refl
+  
+  
+  ||| Proof of inequality yields IsNo
+  public export
+  proofIneqIsNo : {x, y : a} -> DecEq a => ((x = y) -> Void) -> (IsNo (Equality.decEq x y))
+  proofIneqIsNo f with (decEq x y)
+    _ | (Yes prf) = absurd (f prf)
+    _ | (No contra) = ItIsNo
 
 
 public export
@@ -559,17 +555,18 @@ filter'' p (x :: xs) with (filter' p xs)
 
 {-
 Prelude.absurd : Uninhabited t => t -> a
+believe_me : a -> b
 
  -}
 
-h : {n : Nat} -> Vect n a -> Nat
-h xs = n
 
+ll1 : {n : Nat} -> Vect n a -> Nat
+ll1 {n} _ = n
 
-g : {0 n : Nat} -> Vect n a -> Nat
-g [] = 0
-g (x :: xs) = 1 + (g xs)
-
-proof2 : (v : Vect n a) -> g v = n
-proof2 [] = Refl
-proof2 (x :: xs) = cong (1 +) (proof2 xs)
+-- Should this be detected as `using` the variable `n`?
+-- in pattern matching, we'd have to unify type of `xs` which has in itself `len`
+-- and `n` which in this case is computed to be `S len`?
+-- this step of `ll2` is decomposing `n` only one level down, but the entire recursion ends up using the entire `n`
+ll2 : {0 n : Nat} -> Vect n a -> Nat
+ll2 [] = 0
+ll2 {n=S t} (x :: xs) = 1 + ll2 xs
