@@ -57,6 +57,23 @@ namespace UniqueVect
       (later : Elem x xs) ->
       Elem x (y :: xs)
 
+  public export
+  notElem : DecEq a =>
+    {x : a} ->
+    {xs : UniqueVect n a} ->
+    (Not (Elem x xs)) -> NotElem x xs
+  notElem {xs = []} f = NotInEmptyVect x
+  notElem {xs = (y :: ys)} f with (decEq x y)
+    _ | (Yes Refl) = absurd (f Here)
+    _ | (No neq) = NotInNonEmptyVect
+      {neq=(proofIneqIsNo neq)} ys (notElem (\e => f ?bb))
+
+  ||| An element cannot be in an empty vector
+  public export
+  {x : a} -> DecEq a => Uninhabited (Elem x []) where
+    uninhabited Here impossible
+    uninhabited (There later) impossible
+
   ||| Turn the proof that an element `x` is in a vector into the index of `x`
   public export
   indexOf : DecEq a => {0 n : Nat} -> {0 xs : UniqueVect n a} ->
@@ -134,7 +151,68 @@ namespace UniqueVect
     (neq : IsNo (decEq x y)) ->
     NotElem y [x]
   notEqualNotElem2 neq = notEqualNotElem {x=y} {y=x} (isNoSym neq)
+
+  public export
+  decElemInUniqueVect : DecEq a =>
+    (x : a) -> (xs : UniqueVect n a) -> Dec (Elem x xs)
+  decElemInUniqueVect x [] = No absurd
+  decElemInUniqueVect x (y :: ys) = case decEq x y of
+    Yes Refl => Yes Here
+    No neq => case decElemInUniqueVect x ys of
+      Yes prf => Yes $ There prf
+      No nprf => No $ \case
+        Here => neq Refl
+        (There later) => nprf later
+
+  ||| Compute the number of unique elements found in any of two unique vectors
+  public export
+  numUnique : {n, m : Nat} -> DecEq a => UniqueVect n a -> UniqueVect m a -> Nat
+  numUnique [] _ = m
+  numUnique (x :: xs) ys = case decElemInUniqueVect x ys of
+    Yes _ => numUnique xs ys
+    No _ => 1 + numUnique xs ys
   
+  mutual
+    public export infixr 5 +++
+    public export
+    (+++) : DecEq a =>
+      (xs : UniqueVect n a) ->
+      (ys : UniqueVect m a) ->
+      UniqueVect (numUnique xs ys) a
+    [] +++ ys = ys
+    (x :: xs) +++ ys with (decElemInUniqueVect x ys)
+      _ | (Yes prf) = xs +++ ys -- x :: (xs +++ ys)
+      _ | (No nprf) = (::) x (xs +++ ys) {prf=expandUnique {prfy=notElem nprf}}
+   -- (x :: xs) +++ ys = case (decElemInUniqueVect x ys) of
+   --   (Yes prf) => ?aa -- x :: (xs +++ ys)
+   --   (No nprf) => ?bb -- xs +++ ys
+
+    ||| If `x` is not in `xs` nor `ys`, then it also won't be in `xs +++ ys`
+    public export
+    expandUnique : DecEq a =>
+      {x : a} ->
+      {xs : UniqueVect n a} ->
+      {ys : UniqueVect m a} ->
+      (prfx : NotElem x xs) =>
+      (prfy : NotElem x ys) =>
+      NotElem x (xs +++ ys)
+    -- todo implement this
+
+    public export
+    l1 : UniqueVect 3 String
+    l1 = ["a", "b", "c"]
+
+    public export
+    l2 : UniqueVect 3 String
+    l2 = ["c", "d", "e"]
+
+    public export
+    l3 : UniqueVect 5 String
+    l3 = l1 +++ l2
+
+    -- expandUnique {xs = []} {ys = (_ :: _)} prf = prf
+    -- expandUnique {xs = (x :: xs)} {ys = (y :: ys)} prf = case decElemInUniqueVect x ys of
+    --   Yes prf' => expandUnique {prf=prf'} xs ys
 
   -- fromVect : DecEq a => Vect n a -> UniqueVect n a
   -- fromVect [] = []

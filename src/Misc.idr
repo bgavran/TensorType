@@ -37,7 +37,6 @@ namespace VectFoldable
   toList' : Vect n a -> List a
   toList' = foldr @{straightforward} (::) []
 
-
 ||| Drop the first i elements of a vector
 ||| Analogous to Data.Vect.drop, except the index is Fin n instead of Nat
 public export
@@ -305,7 +304,8 @@ namespace IsNo
   
   ||| Proof of inequality yields IsNo
   public export
-  proofIneqIsNo : {x, y : a} -> DecEq a => ((x = y) -> Void) -> (IsNo (Equality.decEq x y))
+  proofIneqIsNo : {x, y : a} -> DecEq a =>
+    Not (x = y) -> (IsNo (Equality.decEq x y))
   proofIneqIsNo f with (decEq x y)
     _ | (Yes prf) = absurd (f prf)
     _ | (No contra) = ItIsNo

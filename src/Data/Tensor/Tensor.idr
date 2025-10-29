@@ -735,6 +735,14 @@ namespace TensorContractions
   dot xs ys = dotWith (*) xs ys
 
   namespace DotAxis
+    public export
+    dot : {shape1 : Vect rank1 Cont} ->
+      {shape2 : Vect rank2 Cont} ->
+      {names1 : UniqueVect rank1 String} ->
+      {names2 : UniqueVect rank2 String} ->
+      Num a =>
+      CTensor shape1 names1 a -> CTensor shape2 names2 a ->
+      CTensor ?whaat (names1 +++ names2) a
 
     
 {-
