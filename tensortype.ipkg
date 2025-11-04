@@ -50,6 +50,7 @@ modules = Data.Container,
           Architectures.MLP,
           Architectures.Transformer.Attention,
           Architectures.Transformer.Definition,
+          Architectures.RNN,
           Architectures.Utils,
           Misc
 
