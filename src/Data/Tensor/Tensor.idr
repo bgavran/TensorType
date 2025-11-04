@@ -67,7 +67,6 @@ public export
 Functor (CTensor shape names) where
   map f (MkT t) = MkT $ map f t
 
-
 namespace NestedTensorUtils
   public export
   extract : CTensor [] [] a -> a
@@ -501,8 +500,6 @@ namespace TensorInstances
     -- Algebra (CTensor shape) a => Algebra (CTensor shape) (CTensor [] a) where
     --   reduce t = embed $ reduce $ extract <$> t
 
-
-
 t0 : Tensor [3, 4] ["batch", "features"] Double
 t0 = ># [ [0, 1, 2, 3]
         , [4, 5, 6, 7]
@@ -735,14 +732,64 @@ namespace TensorContractions
   dot xs ys = dotWith (*) xs ys
 
   namespace DotAxis
+    ||| Given a list of axes, the names of these axes, and a subset of their 
+    ||| names, return the axes corresponding to that subset
+    public export
+    selectAxes : (shape : Vect rank Cont) ->
+      (names : UniqueVect rank String) ->
+      (toSelect : UniqueVect n String) ->
+      (al : All (\x => Elem x names) toSelect) =>
+      Vect n Cont
+    selectAxes _ _ [] = []
+    selectAxes shape names @{(p :: ps)} (s :: ss)
+      = (index (indexOf p) shape) :: selectAxes shape names ss @{ps}
+
+    public export
+    sh : Vect 3 Cont
+    sh = [Vect 2, Vect 3, Vect 4]
+
+    public export
+    nn : UniqueVect 3 String
+    nn = ["a", "b", "c"]
+
+    ||| This ensures axes are coherently bound between between
+    ||| names1 -> shape1 and names2 -> shape2
+    public export
+    coherentlyBound :
+      (shape1 : Vect rank1 Cont) ->
+      (shape2 : Vect rank2 Cont) ->
+      (names1 : UniqueVect rank1 String) ->
+      (names2 : UniqueVect rank2 String) ->
+      Type
+    coherentlyBound shape1 shape2 names1 names2 =
+      selectAxes shape1 names1 (intersect names1 names2) {al=allElemIntersectFst names1 names2} = selectAxes shape2 names2 (intersect names1 names2) {al=allElemIntersectSnd names1 names2}
+
+    ||| Shape of the output vector
+    ||| Given    [2, 3] ["i", "j"]
+    ||| and      [3, 4] ["j", "k"]
+    ||| produces [2, 4]
+    public export
+    combinedShape :
+      (shape1 : Vect rank1 Cont) ->
+      (shape2 : Vect rank2 Cont) ->
+      (names1 : UniqueVect rank1 String) ->
+      (names2 : UniqueVect rank2 String) ->
+      coherentlyBound shape1 shape2 names1 names2 =>
+      Vect (numUnique names1 names2) Cont
+    combinedShape shape1 shape2 names1 names2 =
+      let nn = names1 +++ names2 
+      in ?combinedShape_rhs
+
+    ||| Generalised dot product which contracts over shared axes
     public export
     dot : {shape1 : Vect rank1 Cont} ->
       {shape2 : Vect rank2 Cont} ->
       {names1 : UniqueVect rank1 String} ->
       {names2 : UniqueVect rank2 String} ->
       Num a =>
+      coherentlyBound shape1 shape2 names1 names2 =>
       CTensor shape1 names1 a -> CTensor shape2 names2 a ->
-      CTensor ?whaat (names1 +++ names2) a
+      CTensor (combinedShape shape1 shape2 names1 names2) (names1 +++ names2) a
 
     
 {-

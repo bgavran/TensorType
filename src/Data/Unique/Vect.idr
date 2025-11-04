@@ -36,6 +36,21 @@ namespace UniqueVect
         {auto prf : NotElem y xs} ->
         NotElem x (y :: xs)
 
+  namespace All
+    ||| A proof that elements of a unique vector satisfy a property
+    public export
+    data All : DecEq a => (0 p : a -> Type) -> UniqueVect rank a -> Type where
+      Nil : DecEq a => {0 p : a -> Type} -> All p []
+      (::) : DecEq a => {0 p : a -> Type} ->
+        {0 x : a} ->
+        {0 xs : UniqueVect k a} ->
+        NotElem x xs =>
+        p x ->
+        All p xs ->
+        All p (x :: xs)
+
+        
+
 
   public export
   toVect : DecEq a => UniqueVect n a -> Vect n a
@@ -164,16 +179,28 @@ namespace UniqueVect
         Here => neq Refl
         (There later) => nprf later
 
-  ||| Compute the number of unique elements found in any of two unique vectors
+  ||| Number of unique elements found in any of two unique vectors
   public export
   numUnique : {n, m : Nat} -> DecEq a => UniqueVect n a -> UniqueVect m a -> Nat
   numUnique [] _ = m
   numUnique (x :: xs) ys = case decElemInUniqueVect x ys of
-    Yes _ => numUnique xs ys
-    No _ => 1 + numUnique xs ys
+    Yes _ => numUnique xs ys -- found in ys, so don't count it again
+    No _ => 1 + numUnique xs ys -- not found in ys, so count it
+
+  ||| Number of unique elements that are found in both of the two unique vectors
+  public export
+  numOverlap : {n, m : Nat} -> DecEq a =>
+    UniqueVect n a -> UniqueVect m a -> Nat
+  numOverlap [] ys = 0
+  numOverlap (x :: xs) ys = case decElemInUniqueVect x ys of
+    Yes _ => 1 + numOverlap xs ys -- found also in ys, so count it
+    No _ => numOverlap xs ys
+
   
   mutual
     public export infixr 5 +++
+
+    ||| Union
     public export
     (+++) : DecEq a =>
       (xs : UniqueVect n a) ->
@@ -198,17 +225,64 @@ namespace UniqueVect
       NotElem x (xs +++ ys)
     -- todo implement this
 
+  mutual
     public export
-    l1 : UniqueVect 3 String
-    l1 = ["a", "b", "c"]
+    intersect : DecEq a =>
+      (xs : UniqueVect n a) ->
+      (ys : UniqueVect m a) ->
+      UniqueVect (numOverlap xs ys) a
+    intersect [] ys = []
+    intersect (x :: xs) ys with (decElemInUniqueVect x ys)
+      _ | (Yes prf) = (::) x (intersect xs ys) {prf=notElemIntersect}
+      _ | (No nprf) = intersect xs ys
 
+    ||| If `x` is not in `xs`, then we can intersect `xs` with any other list,
+    ||| and `x` still wont' be in the result (even if `x` was in the other list)
     public export
-    l2 : UniqueVect 3 String
-    l2 = ["c", "d", "e"]
+    notElemIntersect : DecEq a =>
+      {x : a} ->
+      {xs : UniqueVect n a} ->
+      {ys : UniqueVect m a} ->
+      (prfx : NotElem x xs) =>
+      (prfy : Elem x ys) =>
+      NotElem x (intersect xs ys)
 
-    public export
-    l3 : UniqueVect 5 String
-    l3 = l1 +++ l2
+
+  ||| All elements of the intersection of two vectors `xs` and `ys`
+  ||| will be elements of `xs`
+  public export
+  allElemIntersectFst : DecEq a => 
+    (xs : UniqueVect n a) ->
+    (ys : UniqueVect m a) ->
+    All (\x => Elem x xs) (intersect xs ys)
+  allElemIntersectFst = ?allElemIntersect_rhs
+
+  ||| All elements of the intersection of two vectors `xs` and `ys`
+  ||| will be elements of `ys`
+  public export
+  allElemIntersectSnd : DecEq a => 
+    (xs : UniqueVect n a) ->
+    (ys : UniqueVect m a) ->
+    All (\x => Elem x ys) (intersect xs ys)
+  allElemIntersectSnd = ?allElemIntersect_rhs2
+
+
+
+  public export
+  l1 : UniqueVect 3 String
+  l1 = ["a", "b", "c"]
+
+  public export
+  l2 : UniqueVect 3 String
+  l2 = ["c", "d", "e"]
+
+  public export
+  l3 : UniqueVect 5 String
+  l3 = l1 +++ l2
+
+  public export
+  l4 : UniqueVect 1 String
+  l4 = intersect l1 l2
 
     -- expandUnique {xs = []} {ys = (_ :: _)} prf = prf
     -- expandUnique {xs = (x :: xs)} {ys = (y :: ys)} prf = case decElemInUniqueVect x ys of
