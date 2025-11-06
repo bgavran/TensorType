@@ -3,9 +3,12 @@ module Data.Tensor.Tensor
 import Data.Fin
 import Data.Nat
 import Data.Vect
+import Data.Vect.Quantifiers
+import Data.Vect.Elem
 import Data.DPair
 import public Decidable.Equality
 import public Data.Fin.Split
+import Data.HashMap
 
 import public Data.Container
 import public Data.Container.Object.Instances as Cont
@@ -13,7 +16,6 @@ import public Data.Container.Object.Instances as Cont
 import public Data.Layout
 import public Misc
 import public Data.Unique.Vect
-
 
 %hide Syntax.WithProof.prefix.(@@) -- used here for indexing
 
@@ -42,13 +44,36 @@ Functionality includes:
 -------------------------------------------------------------------------------}
 -------------------------------------------------------------------------------}
 
+-- todo do a pass where you add zeros/make things implicit
+-- clean up the various 'drop' functions
+
+data NewElemConsistent : String -> Cont -> Vect n String -> Vect n Cont -> Type where
+  ||| Adding a binding `s->c` not already in `AllConsistent ss cs`
+  NewElem : NotElem s ss ->
+    NewElemConsistent s c ss cs
+  ||| Adding a binding `s->c` already in `AllConsistent ss cs`
+  ExistingElem : (e : Elem s ss) ->
+    index (elemToFin e) cs = c ->
+    NewElemConsistent s c ss cs
+
+
+||| Type-level predicate: For all pairs of positions where names match,
+||| the corresponding containers must be equal
+public export
+data AllConsistent : Vect n String -> Vect n Cont -> Type where
+  Nil : AllConsistent [] []
+  (::) : NewElemConsistent s c ss cs ->
+    AllConsistent ss cs ->
+    AllConsistent (s :: ss) (c :: cs)
+
 ||| Container Tensor: a tensor whose shape is a list of containers
 ||| This is merely a wrapper around `Ext (Tensor shape) a` to help type
 ||| inference
 public export
 record CTensor
   (shape : Vect n Cont)
-  (names : UniqueVect n String)
+  (names : Vect n String)
+  {auto 0 ac : AllConsistent names shape}
   (a : Type) where
   constructor MkT
   GetT : Ext (Cont.Tensor (toList' shape)) a
@@ -59,12 +84,33 @@ record CTensor
 ||| terminology in the numpy/pytorch ecosystem
 public export
 Tensor : (shape : Vect n Nat) ->
-  (names : UniqueVect n String) ->
+  (names : Vect n String) ->
+  AllConsistent names (Vect <$> shape) =>
   Type -> Type
 Tensor shape names = CTensor (Vect <$> shape) names
 
+testBinding0 : Tensor [] [] Double
+
+
+testBinding1 : Tensor [2] ["i"] Double
+
+testBinding2 : Tensor [2, 3] ["i", "j"] Double
+
+testBinding3 : Tensor [2, 3, 2] ["i", "j", "i"] Double
+
+testBinding4 : Tensor [2, 3, 3, 4] ["i", "j", "j", "k"] Double
+
+
+failing
+  failBinding0 : Tensor [] ["i"] Double
+failing
+  failBinding1 : Tensor [2] ["i", "j"] Double
+failing
+  failBinding2 : Tensor [2, 3] ["i", "i"] Double
+
+
 public export
-Functor (CTensor shape names) where
+(ac : AllConsistent names shape) => Functor (CTensor shape names {ac=ac}) where
   map f (MkT t) = MkT $ map f t
 
 namespace NestedTensorUtils
@@ -81,34 +127,38 @@ namespace NestedTensorUtils
   ||| Ext c . Ext d = Ext (c . d)
   public export
   fromExtensionComposition : {shape : Vect n Cont} ->
-    {names : UniqueVect n String} ->
+    {names : Vect n String} ->
+    (ac : AllConsistent names shape) =>
     composeExtensions shape a -> CTensor shape names a
   fromExtensionComposition {shape = []} ce = MkT ce
-  fromExtensionComposition {shape = (c :: cs)} {names = (n :: ns)} (sh <| contentAt)
+  fromExtensionComposition {shape = (c :: cs)} {names = (n :: ns)} {ac=(a :: as)} (sh <| contentAt)
     =  MkT $
     let rest = GetT . fromExtensionComposition {names=ns} . contentAt
     in (sh <| shapeExt . rest) <| \(cp ** fsh) => index (rest cp) fsh
 
   public export
   toExtensionComposition : {shape : Vect n Cont} ->
-    {names : UniqueVect n String} ->
+    {names : Vect n String} ->
+    (ac : AllConsistent names shape) =>
     CTensor shape names a -> composeExtensions shape a
   toExtensionComposition {shape = []} (MkT t) = t
-  toExtensionComposition {shape = (_ :: _)} {names = (n :: ns)} (MkT ((csh <| cpos) <| idx))
+  toExtensionComposition {shape = (_ :: _)} {names = (n :: ns)} {ac=(a :: as)} (MkT ((csh <| cpos) <| idx))
     = csh <| \d => toExtensionComposition {names=ns} (MkT (cpos d <| curry idx d))
 
   ||| For this and the function below, the commented out definition is 'cleaner'
   ||| but it requires non-erased `c` and `cs`
   public export
-  extractTopExt : {0 n : String} -> {0 ns : UniqueVect k String} ->
-    {auto prf : NotElem n ns} ->
+  extractTopExt : {0 ns : Vect k String} ->
+    NewElemConsistent n c ns cs =>
+    AllConsistent ns cs =>
     CTensor (c :: cs) (n :: ns) a -> Ext c (CTensor cs ns a)
   extractTopExt (MkT (sh <| ind))
     = shapeExt sh <| \p => MkT $ index sh p <| \p' => ind (p ** p')
 
   public export
-  embedTopExt : {n : String} -> {ns : UniqueVect k String} ->
-    {auto prf : NotElem n ns} ->
+  embedTopExt : {0 ns : Vect k String} ->
+    NewElemConsistent n c ns cs =>
+    AllConsistent ns cs =>
     Ext c (CTensor cs ns a) -> CTensor (c :: cs) (n :: ns) a
   embedTopExt e =
     let tp = GetT . index e
@@ -125,23 +175,29 @@ namespace NestedTensorUtils
   vectorToExt (MkT t) = shapeExt (shapeExt t) <| \cp => index t (cp ** ())
 
   public export
-  toNestedTensor : {n : String} -> {ns : UniqueVect k String} ->
-    {auto prf : NotElem n ns} ->
+  toNestedTensor : {n : String} -> {ns : Vect k String} ->
+    {c : Cont} -> {cs : Vect k Cont} -> 
+    NewElemConsistent n c ns cs =>
+    AllConsistent ns cs =>
     CTensor (c :: cs) (n :: ns) a -> CTensor [c] [n] (CTensor cs ns a)
   toNestedTensor = extToVector . extractTopExt
 
   public export
-  fromNestedTensor : {n : String} -> {ns : UniqueVect k String} ->
-    {auto prf : NotElem n ns} ->
+  fromNestedTensor : {n : String} -> {ns : Vect k String} ->
+    {c : Cont} -> {cs : Vect k Cont} -> 
+    NewElemConsistent n c ns cs =>
+    AllConsistent ns cs =>
     CTensor [c] [n] (CTensor cs ns a) -> CTensor (c :: cs) (n :: ns) a
   fromNestedTensor = embedTopExt . vectorToExt 
 
   public export
-  tensorMapFirstAxis : {n : String} ->
-    {ns : UniqueVect k String} ->
-    {ms : UniqueVect k' String} ->
-    {auto prf : NotElem n ns} ->
-    {auto prf' : NotElem n ms} ->
+  tensorMapFirstAxis :
+    {n : String} -> {ns : Vect k String} -> {ms : Vect k' String} ->
+    {c : Cont} -> {cs : Vect k Cont} -> {ds : Vect k' Cont} ->
+    NewElemConsistent n c ns cs =>
+    NewElemConsistent n c ms ds =>
+    AllConsistent ns cs =>
+    AllConsistent ms ds =>
     (f : CTensor cs ns a -> CTensor ds ms a) ->
     CTensor (c :: cs) (n :: ns) a -> CTensor (c :: ds) (n :: ms) a
   tensorMapFirstAxis f = fromNestedTensor . map f . toNestedTensor
@@ -150,11 +206,13 @@ namespace NestedTensorUtils
   ||| Is meant to look like infix map (i.e. `<$>`) with the added difference
   ||| that we keep the container on the left side untouched, hence the `<-$>`
   public export
-  (<-$>) :  {n : String} ->
-    {ns : UniqueVect k String} ->
-    {ms : UniqueVect k' String} ->
-    {auto prf : NotElem n ns} ->
-    {auto prf' : NotElem n ms} ->
+  (<-$>) : 
+    {n : String} -> {ns : Vect k String} -> {ms : Vect k' String} ->
+    {c : Cont} -> {cs : Vect k Cont} -> {ds : Vect k' Cont} ->
+    NewElemConsistent n c ns cs =>
+    NewElemConsistent n c ms ds =>
+    AllConsistent ns cs =>
+    AllConsistent ms ds =>
     (f : CTensor cs ns a -> CTensor ds ms a) ->
     CTensor (c :: cs) (n :: ns) a -> CTensor (c :: ds) (n :: ms) a
   (<-$>) = tensorMapFirstAxis
@@ -195,15 +253,17 @@ namespace TensorFromConcrete
 
   public export
   toTensor : {shape : Vect rank Cont} ->
-    {ns : UniqueVect rank String} ->
+    {ns : Vect rank String} ->
     (allConcrete : AllConcrete (toList' shape)) =>
+    AllConsistent ns shape =>
     concreteTypeTensor shape a -> CTensor shape ns a
   toTensor = fromExtensionComposition . concreteToExtensions
 
   public export
   fromTensor : {shape : Vect rank Cont} ->
-    {ns : UniqueVect rank String} ->
+    {ns : Vect rank String} ->
     (allConcrete : AllConcrete (toList' shape)) =>
+    AllConsistent ns shape =>
     CTensor shape ns a -> concreteTypeTensor shape a
   fromTensor = extensionsToConcreteType . toExtensionComposition
 
@@ -217,15 +277,17 @@ namespace TensorFromConcrete
   ||| detect which one needs to be used at call sites
   public export
   fromConcreteTy : {shape : Vect rank Cont} ->
-    {ns : UniqueVect rank String} ->
+    {ns : Vect rank String} ->
     (allConcrete : AllConcrete (toList' shape)) =>
+    AllConsistent ns shape =>
     concreteTypeTensor shape a -> CTensor shape ns a
   fromConcreteTy = toTensor
 
   public export
   toConcreteTy : {shape : Vect rank Cont} ->
-    {ns : UniqueVect rank String} ->
+    {ns : Vect rank String} ->
     (allConcrete : AllConcrete (toList' shape)) =>
+    AllConsistent ns shape =>
     CTensor shape ns a -> concreteTypeTensor shape a
   toConcreteTy = fromTensor
 
@@ -235,8 +297,9 @@ namespace TensorFromConcrete
   ||| We read it as a map `>` going into the tensor `#`
   public export
   (>#) : {shape : Vect rank Cont} ->
-    {ns : UniqueVect rank String} ->
+    {ns : Vect rank String} ->
     (allConcrete : AllConcrete (toList' shape)) =>
+    AllConsistent ns shape =>
     concreteTypeTensor shape a -> CTensor shape ns a
   (>#) = fromConcreteTy
 
@@ -244,8 +307,9 @@ namespace TensorFromConcrete
   ||| We read it as a map `>` going out of the tensor `#`
   public export
   (#>) : {shape : Vect rank Cont} ->
-    {ns : UniqueVect rank String} ->
+    {ns : Vect rank String} ->
     (allConcrete : AllConcrete (toList' shape)) =>
+    AllConsistent ns shape =>
     CTensor shape ns a -> concreteTypeTensor shape a
   (#>) = toConcreteTy
 
@@ -253,11 +317,12 @@ namespace TensorInstances
   namespace ApplicativeInstance
     public export
     tensorReplicate : {shape : Vect rank Cont} ->
-      {names : UniqueVect rank String} ->
+      {names : Vect rank String} ->
       (allAppl : All TensorMonoid (toList' shape)) =>
+      (ac : AllConsistent names shape) =>
       (x : a) -> CTensor shape names a
-    tensorReplicate {shape = [], names = []} = embed
-    tensorReplicate {shape = (_ :: _), names = (n :: ns), allAppl = (::) _ _}
+    tensorReplicate {shape = []} {names = []} {ac = []} = embed
+    tensorReplicate {shape = (_ :: _)} {names = (n :: ns)} {ac = (a :: as)} {allAppl = (::) _ _}
       = fromExtensionComposition
       . pure
       . toExtensionComposition {names=ns}
@@ -265,43 +330,53 @@ namespace TensorInstances
 
     public export
     liftA2Tensor : {shape : Vect rank Cont} ->
-      {names : UniqueVect rank String} ->
+      {names : Vect rank String} ->
       (allAppl : All TensorMonoid (toList' shape)) =>
+      (ac : AllConsistent names shape) =>
       CTensor shape names a -> CTensor shape names b -> CTensor shape names (a, b)
-    liftA2Tensor {shape= [], names= [], allAppl=[]} (MkT t) (MkT t')
-      = embed (index t (), index t' ())
-    liftA2Tensor {shape=(s::ss), names=(n::ns), allAppl=(::) _ _} t t'
+    liftA2Tensor {shape = []} {names = []} {ac = []} {allAppl=[]} (MkT t) (MkT t') = embed (index t (), index t' ())
+    liftA2Tensor {shape = (s :: ss)} {names = (n :: ns)} {ac = (a :: as)} {allAppl = (::) _ _} t t'
       = embedTopExt $ uncurry liftA2Tensor <$>
           liftA2 (extractTopExt t) (extractTopExt t')
 
     public export
     {shape : Vect rank Cont} ->
-    {names : UniqueVect rank String} ->
+    {names : Vect rank String} ->
     (allAppl : All TensorMonoid (toList' shape)) =>
+    (ac : AllConsistent names shape) =>
     Applicative (CTensor shape names) where
-      pure = tensorReplicate {allAppl = allAppl}
-      fs <*> xs = uncurry ($) <$> liftA2Tensor {allAppl = allAppl} fs xs
+      pure = tensorReplicate
+      fs <*> xs = uncurry ($) <$> liftA2Tensor fs xs
 
   namespace EqInstance
     public export
-    data AllEq : Vect rank Cont -> UniqueVect rank String -> Type -> Type where
+    data AllEq : (shape : Vect rank Cont) ->
+      (names : Vect rank String) ->
+      AllConsistent names shape =>
+      (a : Type) -> Type where
       Nil : Eq a => AllEq [] [] a
-      Cons :  {n : String} -> {ns : UniqueVect k String} ->
-        Eq (c `fullOf` CTensor cs ns a) => -- hmm, can be simplified?
-        {auto prf : NotElem n ns} ->
+      Cons :  {n : String} -> {ns : Vect k String} -> 
+        {c : Cont} -> {cs : Vect k Cont} ->
+        (ac : AllConsistent ns cs) =>
+        (eq : Eq (c `fullOf` CTensor cs ns a)) => -- hmm, can be simplified? this would cause unification regarding AllConsistent to become much simpler?
+        (ne : NewElemConsistent n c ns cs) =>
         AllEq (c :: cs) (n :: ns) a
+
 
     public export
     tensorEq : {shape : Vect rank Cont} ->
-      {names : UniqueVect rank String} ->
+      {names : Vect rank String} ->
+      (ac : AllConsistent names shape) =>
       (allEq : AllEq shape names a) =>
       CTensor shape names a -> CTensor shape names a -> Bool
-    tensorEq {allEq = []} t1 t2 = extract t1 == extract t2
-    tensorEq {allEq = Cons} t1 t2 = (extractTopExt t1) == (extractTopExt t2)
+    tensorEq {ac=[]} {allEq = []} t1 t2 = extract t1 == extract t2
+    tensorEq {ac=(a :: as)} {allEq = Cons} t1 t2
+      = (extractTopExt t1) == (extractTopExt t2)
 
     public export
     {shape : Vect rank Cont} ->
-    {names : UniqueVect rank String} ->
+    {names : Vect rank String} ->
+    (ac : AllConsistent names shape) =>
     (allEq : AllEq shape names a) =>
       Eq (CTensor shape names a) where
         (==) = tensorEq {allEq = allEq}
@@ -319,7 +394,8 @@ namespace TensorInstances
   namespace NumericInstances
     public export
     {shape : Vect rank Cont} ->
-    {names : UniqueVect rank String} ->
+    {names : Vect rank String} ->
+    (ac : AllConsistent names shape) =>
     Num a => All TensorMonoid (toList' shape) =>
     Num (CTensor shape names a) where
         fromInteger = tensorReplicate . fromInteger
@@ -328,39 +404,44 @@ namespace TensorInstances
 
     public export
     {shape : Vect rank Cont} ->
-    {names : UniqueVect rank String} ->
+    {names : Vect rank String} ->
+    (ac : AllConsistent names shape) =>
     Neg a => All TensorMonoid (toList' shape) =>
     Neg (CTensor shape names a) where
       negate = (negate <$>)
       xs - ys = (uncurry (-)) <$> liftA2 xs ys
 
     -- TODO this throws an error?
-    negNotFound : {shape : Vect rank Nat} -> Neg a => Neg (Tensor shape names a)
+    negNotFound : {shape : Vect rank Nat} ->
+      AllConsistent names (Vect <$> shape) =>
+      Neg a => Neg (Tensor shape names a)
     negNotFound = ?interfaceProblemsAgain
 
     public export
     {shape : Vect rank Cont} ->
-    {names : UniqueVect rank String} ->
+    {names : Vect rank String} ->
+    (ac : AllConsistent names shape) =>
     Abs a => All TensorMonoid (toList' shape) =>
     Abs (CTensor shape names a) where
       abs = (abs <$>)
 
     public export
     {shape : Vect rank Cont} ->
-    {names : UniqueVect rank String} ->
+    {names : Vect rank String} ->
+    AllConsistent names shape =>
     Fractional a => All TensorMonoid (toList' shape) =>
     Fractional (CTensor shape names a) where
       t / v = (uncurry (/)) <$> liftA2 t v
 
     public export
     {shape : Vect rank Cont} ->
-    {names : UniqueVect rank String} ->
+    {names : Vect rank String} ->
+    AllConsistent names shape =>
     Exp a =>
     All TensorMonoid (toList' shape) =>
     Exp (CTensor shape names a) where
       exp = (exp <$>)
       minusInfinity = pure minusInfinity
-
 
   namespace AlgebraInstance
     ||| Unlike all other instantiations of 'AllX', `AllAlgebra` is not
@@ -370,13 +451,16 @@ namespace TensorInstances
     ||| and `Algebra d a`.
     public export
     data AllAlgebra : (shape : Vect rank Cont) ->
-      (names : UniqueVect rank String) ->
+      (names : Vect rank String) ->
+      AllConsistent names shape =>
       (dtype : Type) -> Type where
       Nil : AllAlgebra [] [] a
-      Cons : {n : String} -> {ns : UniqueVect k String} ->
+      Cons : {n : String} -> {ns : Vect k String} ->
+        {c : Cont} -> {cs : Vect k Cont} ->
+        AllConsistent ns cs =>
         (alg : Algebra (Ext c) (CTensor cs ns a)) =>
         (rest : AllAlgebra cs ns a) =>
-        {auto prf : NotElem n ns} ->
+        NewElemConsistent n c ns cs =>
         AllAlgebra (c :: cs) (n :: ns) a
 
     {-
@@ -398,15 +482,18 @@ namespace TensorInstances
 
     public export
     reduceTensor : {shape : Vect rank Cont} ->
-      {names : UniqueVect rank String} ->
+      {names : Vect rank String} ->
+      AllConsistent names shape =>
       (allAlg : AllAlgebra shape names a) =>
       CTensor shape names a -> a
     reduceTensor {allAlg = []} = extract
     reduceTensor {allAlg = Cons} = reduceTensor . reduce . extractTopExt
 
+
     public export
     {shape : Vect rank Cont} ->
-    {names : UniqueVect rank String} ->
+    {names : Vect rank String} ->
+    AllConsistent names shape =>
     (allAlg : AllAlgebra shape names a) =>
     Algebra (CTensor shape names) a where
       reduce = reduceTensor
@@ -416,19 +503,49 @@ namespace TensorInstances
     -- Algebra (CTensor [c]) (CTensor [] a) where
     --   reduce t = embed $ reduce $ vectorToExt $ extract <$> t
 
+    ||| Since we have non-unique axis labels, this likely needs to be 
+    ||| implemented after `dot`
     namespace ReduceAxis
+
+{-
+      public export
+      allConsistentAfterDropElems : {rank : Nat} ->
+        {shape : Vect (S rank) Cont} ->
+        {names : Vect (S rank) String} ->
+        AllConsistent names shape =>
+        (inAxes : Elem toDelete names) =>
+        AllConsistent (DropElem.drop names inAxes)
+                      (drop (FS (elemToFin inAxes)) shape)
+      allConsistentAfterDropElems = ?todo
+
+      allConsistentAfterDropOneElem : {rank : Nat} ->
+        {shape : Vect (S rank) Cont} ->
+        {names : Vect (S rank) String} ->
+        AllConsistent names shape =>
+        {toDelete : String} ->
+        (inAxes : Elem toDelete names) =>
+        AllConsistent (dropElem names inAxes)
+                      (deleteAt (elemToFin inAxes) shape)
+      allConsistentAfterDropOneElem = ?todo2
       public export
       reduce : {rank : Nat} ->
         {shape : Vect (S rank) Cont} ->
-        {names : UniqueVect (S rank) String} ->
+        {names : Vect (S rank) String} ->
+        (ac : AllConsistent names shape) =>
         CTensor shape names a ->
         (toDelete : String) ->
         (inAxes : Elem toDelete names) =>
-        (alg : Algebra (Ext (index (indexOf inAxes) shape))
-          (CTensor (drop (FS (indexOf inAxes)) shape) (drop names inAxes) a)
+        (alg : Algebra (Ext (index (elemToFin inAxes) shape))
+          (CTensor (drop (FS (elemToFin inAxes)) shape)
+                   (DropElem.drop names inAxes)
+                   {ac=allConsistentAfterDropElems {toDelete=toDelete} {names=names} {shape=shape}}
+                   a)
         ) => -- have to increase `index inAxes` by 1 because we're not indexing, but counting
-        CTensor (deleteAt (indexOf inAxes) shape) (removeIndex names (indexOf inAxes)) a
-      reduce t _ {shape = (s :: ss)} {inAxes = Here {xs=ns}}
+        CTensor (deleteAt (elemToFin inAxes) shape)
+                (dropElem names inAxes)
+                {ac=allConsistentAfterDropOneElem {toDelete=toDelete} {names=names} {shape=shape}}
+                a
+      reduce {ac=aa::ac} t _ {shape = (s :: ss)} {inAxes = Here {xs=ns}} {alg}
         = let algRewr : Ext s (CTensor ss ns a) -> CTensor ss ns a
               algRewr = rewrite sym (minusZeroRight rank) in reduce
           in algRewr (extractTopExt t)
@@ -500,16 +617,11 @@ namespace TensorInstances
     -- Algebra (CTensor shape) a => Algebra (CTensor shape) (CTensor [] a) where
     --   reduce t = embed $ reduce $ extract <$> t
 
-t0 : Tensor [3, 4] ["batch", "features"] Double
-t0 = ># [ [0, 1, 2, 3]
-        , [4, 5, 6, 7]
-        , [8, 9, 10, 11]]
-
-
 t1 : Tensor [4] ["features"] Double
 t1 = reduce t0 "batch"
 
-    
+-}
+
 namespace FoldableInstance
   public export
   data AllFoldable : (shape : Vect rank Cont) -> Type where
@@ -520,15 +632,17 @@ namespace FoldableInstance
 
   public export
   tensorFoldr : (allFoldable : AllFoldable shape) =>
-    {names : UniqueVect rank String} ->
+    {names : Vect rank String} ->
+    (ac : AllConsistent names shape) =>
     (a -> acc -> acc) -> acc -> CTensor shape names a -> acc
-  tensorFoldr {names=[]} {allFoldable = []} f val t = f (extract t) val
-  tensorFoldr {names=(n :: ns)} {allFoldable = Cons} f val t = foldr
+  tensorFoldr {names=[]} {ac=[]} {allFoldable = []} f val t = f (extract t) val
+  tensorFoldr {names=(n :: ns)} {ac=a::as} {allFoldable = Cons} f val t = foldr
     (\ct, acc => tensorFoldr f acc ct) val (extractTopExt t)
 
   public export
   {shape : Vect rank Cont} ->
-  {names : UniqueVect rank String} ->
+  {names : Vect rank String} ->
+  (ac : AllConsistent names shape) =>
   (allFoldable : AllFoldable shape) =>
   Foldable (CTensor shape names) where
     foldr = tensorFoldr
@@ -537,7 +651,8 @@ namespace FoldableInstance
   concreteWorks t = foldr (+) 0 t
 
   parametricCTensorWorks : {shape : Vect rank Cont} ->
-    {names : UniqueVect rank String} ->
+    {names : Vect rank String} ->
+    (ac : AllConsistent names shape) =>
     AllFoldable shape =>
     CTensor shape names Integer -> Integer
   parametricCTensorWorks t = foldr (+) 0 t
@@ -557,21 +672,21 @@ namespace FoldableInstance
     public export
     tensorTraverse : (allTraversable : AllTraversable shape) =>
       Applicative f =>
-      {names : UniqueVect rank String} ->
+      {names : Vect rank String} ->
+      (ac : AllConsistent names shape) =>
       (a -> f b) -> CTensor shape names a -> f (CTensor shape names b)
-    tensorTraverse {allTraversable = []} {names = []} f t
-      = pure <$> f (extract t)
-    tensorTraverse {allTraversable = Cons} {names=(n :: ns)} f t
-      = embedTopExt <$> traverse (\ct => tensorTraverse f ct) (extractTopExt t)
+    tensorTraverse {allTraversable = []} {names = []} {ac=[]} f t = pure <$> f (extract t)
+    tensorTraverse {allTraversable = Cons} {names=(n :: ns)} {ac=a::as} f t = embedTopExt <$> 
+      traverse (\ct => tensorTraverse f ct) (extractTopExt t)
 
     public export
     {shape : Vect rank Cont} ->
-    {names : UniqueVect rank String} ->
+    {names : Vect rank String} ->
+    (ac : AllConsistent names shape) =>
     (allTraversable : AllTraversable shape) =>
     (allFoldable : AllFoldable shape) =>
     Traversable (CTensor shape names) where
       traverse = tensorTraverse
-
 
   namespace NaperianInstance
     public export
@@ -580,6 +695,7 @@ namespace FoldableInstance
       Cons : (nap : Naperian (Ext c)) =>
         (rest : AllNaperian cs) =>
         AllNaperian (c :: cs)
+
 
     namespace Index
       ||| Datatype for indexing into a tensor
@@ -596,27 +712,30 @@ namespace FoldableInstance
 
     public export
     tensorLookup : {shape : Vect rank Cont} ->
-      {names : UniqueVect rank String} ->
+      {names : Vect rank String} ->
+      (ac : AllConsistent names shape) =>
       (allNaperian : AllNaperian shape) =>
       CTensor shape names a ->
       (IndexNaperian shape -> a)
-    tensorLookup {shape = []} {names = []} t _ = extract t
-    tensorLookup {shape = (c :: cs)} {names = (n :: ns)} {allNaperian = Cons} t (i :: is)
+    tensorLookup {shape = []} {names = []} {ac=[]} t _ = extract t
+    tensorLookup {shape = (c :: cs)} {names = (n :: ns)} {ac=a::as} {allNaperian = Cons} t (i :: is)
       = tensorLookup (lookup (extractTopExt t) i) is
 
     public export
     tensorTabulate : {shape : Vect rank Cont} ->
-      {names : UniqueVect rank String} ->
+      {names : Vect rank String} ->
+      (ac : AllConsistent names shape) =>
       (allNaperian : AllNaperian shape) =>
       (IndexNaperian shape -> a) -> CTensor shape names a
-    tensorTabulate {shape = []} {names = []} {allNaperian = []} f
+    tensorTabulate {shape = []} {names = []} {ac=[]} {allNaperian = []} f
       = embed (f Nil)
-    tensorTabulate {shape = (_ :: _)} {names = (n :: ns)} {allNaperian = Cons} f
+    tensorTabulate {shape = (_ :: _)} {names = (n :: ns)} {ac=a::as} {allNaperian = Cons} f
       = embedTopExt $ tabulate $ \i => tensorTabulate $ \is => f (i :: is)
 
     public export
     {shape : Vect rank Cont} ->
-    {names : UniqueVect rank String} ->
+    {names : Vect rank String} ->
+    (ac : AllConsistent names shape) =>
     (allAppl : All TensorMonoid (toList' shape)) =>
     (allNaperian : AllNaperian shape) =>
     Naperian (CTensor shape names) where
@@ -634,7 +753,9 @@ namespace FoldableInstance
     public export
     transposeMatrix : {i, j : Cont} ->
       {ni, nj : String} ->
-      IsNo (decEq ni nj) =>
+      AllConsistent [ni, nj] [i, j] =>
+      AllConsistent [nj, ni] [j, i] => -- should get rid of one of these?
+      --Either (IsNo (decEq ni nj)) ((ni = nj), (i = j)) =>
       (allNaperian : AllNaperian [i, j]) =>
       CTensor [i, j] [ni, nj] a -> CTensor [j, i] [nj, ni] a
     transposeMatrix {allNaperian=Cons @{f} @{Cons}}
@@ -664,40 +785,50 @@ namespace FoldableInstance
 
 namespace ShowInstance
   public export
-  data AllShow : Vect rank Cont -> UniqueVect rank String -> Type -> Type where
+  data AllShow : (shape : Vect rank Cont) ->
+    (names : Vect rank String) ->
+    AllConsistent names shape =>
+    (a :Type) -> Type where
     Nil : Show a => AllShow [] [] a
     -- for type below, we should be able to define what shExt is without referencing CTensor cs a? 
-    Cons : {0 n : String} -> {0 ns : UniqueVect k String} ->
+    Cons : {0 n : String} -> {0 ns : Vect k String} ->
+      AllConsistent ns cs =>
       Show (c `fullOf` CTensor cs ns a) =>
-      (ne : NotElem n ns) =>
+      NewElemConsistent n c ns cs =>
       AllShow (c :: cs) (n :: ns) a
 
   public export
   show' : {0 rank : Nat} ->
     {shape : Vect rank Cont} ->
-    {0 names : UniqueVect rank String} ->
+    {0 names : Vect rank String} ->
+    AllConsistent names shape =>
     (allShow : AllShow shape names a) =>
     CTensor shape names a -> String
   show' {allShow = Nil} t = show (extract t)
   show' {allShow = Cons @{sh}} t = show (extractTopExt t)
 
   public export
-  {shape : Vect rank Cont} -> (allShow : AllShow shape names a) =>
+  {shape : Vect rank Cont} ->
+  AllConsistent names shape =>
+  (allShow : AllShow shape names a) =>
   Show (CTensor shape names a) where
       show t = show' {allShow = allShow} t
 
   %hint
   public export
   allShowCubical : {shape : Vect rank Nat} ->
-    {names : UniqueVect rank String} ->
+    {names : Vect rank String} ->
+    (ac : AllConsistent names (Vect <$> shape)) =>
     Show a =>
     AllShow (Vect <$> shape) names a
-  allShowCubical {shape=[]} {names=[]} = Nil
-  allShowCubical {shape=(c :: cs)} {names=(n :: ns)} = Cons @{?oibim}
+  allShowCubical {shape=[]} {names=[]} {ac = []} = Nil
+  allShowCubical {shape=(c :: cs)} {names=(n :: ns)} {ac = a::as}
+    = ?allShowCubical_rhs -- Cons @{?oibim}
 
   public export
   {shape : Vect rank Nat} ->
-  {names : UniqueVect rank String} ->
+  {names : Vect rank String} ->
+  (ac : AllConsistent names (Vect <$> shape)) =>
   Show a =>
   Show (Tensor shape names a) where
     show t = show' {allShow=allShowCubical} t
@@ -708,16 +839,32 @@ namespace ShowInstance
   -- showCubical {shape=(c :: cs)} t = show' {allShow = Cons @{?oiim}} t
 
 
-  sst : {shape : Vect rank Cont} -> AllShow shape names a => CTensor shape names a -> String
+  sst : {shape : Vect rank Cont} ->
+    AllConsistent names shape =>
+    AllShow shape names a => CTensor shape names a -> String
   sst t = show t
 
   -- sstc : {shape : List Nat} -> Show a => Tensor shape a -> String
   -- sstc t = show t
 
+
+t0 : Tensor [3, 4] ["batch", "features"] Double
+t0 = ># [ [0, 1, 2, 3]
+        , [4, 5, 6, 7]
+        , [8, 9, 10, 11]]
+
+
+t1 : Tensor [2, 3, 2] ["i", "j", "i"] Double
+t1 = ># [ [[0, 1], [2, 3], [4, 5]]
+        , [[6, 7], [8, 9], [10, 11]] ]
+
+
+
 namespace TensorContractions
   public export
   dotWith : {shape : Vect rank Cont} ->
-    {names : UniqueVect rank String} ->
+    {names : Vect rank String} ->
+    (ac : AllConsistent names shape) =>
     Algebra (CTensor shape names) c => All TensorMonoid (toList' shape) =>
     (a -> b -> c) ->
     CTensor shape names a -> CTensor shape names b -> CTensor [] [] c
@@ -725,25 +872,15 @@ namespace TensorContractions
 
   public export
   dot : {shape : Vect rank Cont} ->
-    {names : UniqueVect rank String} ->
+    {names : Vect rank String} ->
+    (ac : AllConsistent names shape) =>
     Num a =>
     Algebra (CTensor shape names) a => All TensorMonoid (toList' shape) =>
     CTensor shape names a -> CTensor shape names a -> CTensor [] [] a
   dot xs ys = dotWith (*) xs ys
 
   namespace DotAxis
-    ||| Given a list of axes, the names of these axes, and a subset of their 
-    ||| names, return the axes corresponding to that subset
-    public export
-    selectAxes : (shape : Vect rank Cont) ->
-      (names : UniqueVect rank String) ->
-      (toSelect : UniqueVect n String) ->
-      (al : All (\x => Elem x names) toSelect) =>
-      Vect n Cont
-    selectAxes _ _ [] = []
-    selectAxes shape names @{(p :: ps)} (s :: ss)
-      = (index (indexOf p) shape) :: selectAxes shape names ss @{ps}
-
+{-
     public export
     sh : Vect 3 Cont
     sh = [Vect 2, Vect 3, Vect 4]
@@ -764,32 +901,100 @@ namespace TensorContractions
     coherentlyBound shape1 shape2 names1 names2 =
       selectAxes shape1 names1 (intersect names1 names2) {al=allElemIntersectFst names1 names2} = selectAxes shape2 names2 (intersect names1 names2) {al=allElemIntersectSnd names1 names2}
 
+
+    public export
+    coherentlyBoundCons : 
+      {s : Cont} -> {ss : Vect rank Cont} ->
+      {n : String} -> {ns : UniqueVect rank String} ->
+      {shape2 : Vect rank2 Cont} ->
+      {names2 : UniqueVect rank2 String} ->
+      NotElem n ns =>
+      coherentlyBound (s :: ss) shape2 (n :: ns) names2 ->
+      coherentlyBound ss shape2 ns names2
+    coherentlyBoundCons prf = ?coherentlyBoundCons_rhs
+
     ||| Shape of the output vector
     ||| Given    [2, 3] ["i", "j"]
     ||| and      [3, 4] ["j", "k"]
-    ||| produces [2, 4]
+    ||| produces [2, 4] ["i", "k"]
     public export
     combinedShape :
       (shape1 : Vect rank1 Cont) ->
       (shape2 : Vect rank2 Cont) ->
       (names1 : UniqueVect rank1 String) ->
       (names2 : UniqueVect rank2 String) ->
-      coherentlyBound shape1 shape2 names1 names2 =>
-      Vect (numUnique names1 names2) Cont
-    combinedShape shape1 shape2 names1 names2 =
-      let nn = names1 +++ names2 
-      in ?combinedShape_rhs
+      (coh : coherentlyBound shape1 shape2 names1 names2) =>
+      Vect (numSymmetricDifference names1 names2) Cont
+    combinedShape [] shape2 [] names2 = shape2
+    combinedShape {rank1=S k} (s :: ss) shape2 (n :: ns) names2 @{cc} with (decElemInUniqueVect n names2)
+      _ | (Yes prf) =
+        let tt = coherentlyBoundCons {rank=k} {rank2=rank2} {s=s} {ss=ss} {n=n} {ns=ns} {shape2=shape2} {names2=names2}
+        in ?abc -- combinedShape ss shape2 ns names2 @{(tt ?hhh)}
+      _ | (No nprf) = ?def -- s :: (combinedShape ss shape2 ns names2 @{(?hhhh)})
+    
+    hh : selectAxes Sh1 N1 ["i"] = selectAxes Sh2 N2 ["i"]
+    hh = Refl
+
+
+-}
+
+    ||| Combines the labels of two axes
+    ||| Given    ["i", "j", "i"]
+    ||| and      ["i", "k"]
+    ||| produces ["i", "j", "k"] (or should it produce ["j", "i", "k"])
+    ||| Using 'reverse' because we're dealing with cons instead of snoc lists
+    public export
+    combineNames :
+      (names1 : Vect n String) ->
+      (names2 : Vect m String) ->
+      Vect (fst (UniqueVect.fromVect ((reverse names2) ++ (reverse names1)))) String
+    combineNames names1 names2 with (UniqueVect.fromVect ((reverse names2) ++ (reverse names1)))
+      _ | (_ ** res) = reverse $ toVect res
+
+    ||| Given a list of axes, the names of these axes, and a subset of their 
+    ||| names, return the axes corresponding to that subset
+    public export
+    selectAxes : (shape : Vect rank Cont) ->
+      (names : Vect rank String) ->
+      AllConsistent names shape =>
+      (toSelect : Vect m String) -> -- technically should be UniqueVect
+      (al : All (\x => Elem x names) toSelect) =>
+      Vect m Cont
+    -- selectAxes _ _ [] = []
+    -- selectAxes shape names (s :: ss) @{(p :: ps)} 
+    --   = (index (indexOf p) shape) :: selectAxes shape names ss @{ps}
+
+    public export
+    N1 : Vect 3 String
+    N1 = ["i", "j", "i"]
+
+    public export
+    N2 : Vect 3 String
+    N2 = ["i", "k", "l"]
 
     ||| Generalised dot product which contracts over shared axes
+    ||| For instance, given 
+    ||| Given    [2, 3, 2] ["i", "j", "i"]
+    ||| and      [2, 4]    ["i", "k"]
+    ||| produces [2, 3, 4] ["i", "j", "k"]
     public export
     dot : {shape1 : Vect rank1 Cont} ->
       {shape2 : Vect rank2 Cont} ->
-      {names1 : UniqueVect rank1 String} ->
-      {names2 : UniqueVect rank2 String} ->
+      {names1 : Vect rank1 String} ->
+      {names2 : Vect rank2 String} ->
+      AllConsistent names1 shape1 => -- t1 is consistently bound
+      AllConsistent names2 shape2 => -- t2 to
+      AllConsistent (names1 ++ names2) (shape1 ++ shape2) => -- but the result should too
       Num a =>
-      coherentlyBound shape1 shape2 names1 names2 =>
       CTensor shape1 names1 a -> CTensor shape2 names2 a ->
-      CTensor (combinedShape shape1 shape2 names1 names2) (names1 +++ names2) a
+      CTensor (selectAxes (shape1 ++ shape2) (names1 ++ names2) (combineNames names1 names2))
+              (combineNames names1 names2)
+              a
+    -- dot {rank1 = 0} {shape1 = []} {names1 = []} t t' = (extract t * ) <$> t'
+    -- dot {rank1 = (S k)} {shape1 = (s :: ss)} {names1 = (n :: ns)} t t'
+    --   with (decElemInUniqueVect n names2)
+    --   _ | (Yes prf) = ?dot_rhs_1
+    --   _ | (No nprf) = ?dot_rhs_2
 
     
 {-

@@ -5,6 +5,8 @@ import Decidable.Equality
 import Decidable.Equality.Core
 import Misc
 
+%hide Misc.NotElem
+
 ||| A vector with unique elements
 ||| Requires a mutual block since it is defined in terms of NotElem
 namespace UniqueVect
@@ -32,8 +34,8 @@ namespace UniqueVect
         {x, y : a} ->
         (xs : UniqueVect n a) ->
         (ne : NotElem x xs) ->
-        {auto neq : IsNo (decEq x y)} ->
-        {auto prf : NotElem y xs} ->
+        (neq : IsNo (decEq x y)) =>
+        (prf : NotElem y xs) =>
         NotElem x (y :: xs)
 
   namespace All
@@ -50,13 +52,6 @@ namespace UniqueVect
         All p (x :: xs)
 
         
-
-
-  public export
-  toVect : DecEq a => UniqueVect n a -> Vect n a
-  toVect [] = []
-  toVect (x :: xs) = x :: toVect xs
-
   ||| A proof that an element is found in a vector with unique elements
   public export
   data Elem : DecEq a => (x : a) -> (xs : UniqueVect n a) -> Type where
@@ -72,22 +67,51 @@ namespace UniqueVect
       (later : Elem x xs) ->
       Elem x (y :: xs)
 
+  ||| An element cannot be in an empty vector
+  public export
+  {x : a} -> DecEq a => Uninhabited (Elem x []) where
+    uninhabited Here impossible
+    uninhabited (There later) impossible
+
+  ||| Decision procedure for unique vector's Elem
+  public export
+  decElemInUniqueVect : DecEq a =>
+    (x : a) -> (xs : UniqueVect n a) -> Dec (Elem x xs)
+  decElemInUniqueVect x [] = No absurd
+  decElemInUniqueVect x (y :: ys) = case decEq x y of
+    Yes Refl => Yes Here
+    No neq => case decElemInUniqueVect x ys of
+      Yes prf => Yes $ There prf
+      No nprf => No $ \case
+        Here => neq Refl
+        (There later) => nprf later
+
   public export
   notElem : DecEq a =>
     {x : a} ->
     {xs : UniqueVect n a} ->
-    (Not (Elem x xs)) -> NotElem x xs
+    Not (Elem x xs) -> NotElem x xs
   notElem {xs = []} f = NotInEmptyVect x
   notElem {xs = (y :: ys)} f with (decEq x y)
     _ | (Yes Refl) = absurd (f Here)
     _ | (No neq) = NotInNonEmptyVect
       {neq=(proofIneqIsNo neq)} ys (notElem (\e => f ?bb))
 
-  ||| An element cannot be in an empty vector
   public export
-  {x : a} -> DecEq a => Uninhabited (Elem x []) where
-    uninhabited Here impossible
-    uninhabited (There later) impossible
+  toVect : DecEq a => UniqueVect n a -> Vect n a
+  toVect [] = []
+  toVect (x :: xs) = x :: toVect xs
+
+  ||| Converts a vector to a unique vector, removing duplicates if they exist
+  public export
+  fromVect : DecEq a => Vect n a -> (m : Nat ** UniqueVect m a)
+  fromVect [] = (0 ** [])
+  fromVect (x :: xs) =
+    let (k ** t) = fromVect xs
+    in case decElemInUniqueVect x t of
+      Yes prf => (k ** t)
+      No nprf => (S k ** (::) x t {prf=notElem nprf})
+
 
   ||| Turn the proof that an element `x` is in a vector into the index of `x`
   public export
@@ -167,19 +191,8 @@ namespace UniqueVect
     NotElem y [x]
   notEqualNotElem2 neq = notEqualNotElem {x=y} {y=x} (isNoSym neq)
 
-  public export
-  decElemInUniqueVect : DecEq a =>
-    (x : a) -> (xs : UniqueVect n a) -> Dec (Elem x xs)
-  decElemInUniqueVect x [] = No absurd
-  decElemInUniqueVect x (y :: ys) = case decEq x y of
-    Yes Refl => Yes Here
-    No neq => case decElemInUniqueVect x ys of
-      Yes prf => Yes $ There prf
-      No nprf => No $ \case
-        Here => neq Refl
-        (There later) => nprf later
-
-  ||| Number of unique elements found in any of two unique vectors
+  ||| Number of elements found in any of two unique vectors
+  ||| Effectively, union
   public export
   numUnique : {n, m : Nat} -> DecEq a => UniqueVect n a -> UniqueVect m a -> Nat
   numUnique [] _ = m
@@ -187,7 +200,8 @@ namespace UniqueVect
     Yes _ => numUnique xs ys -- found in ys, so don't count it again
     No _ => 1 + numUnique xs ys -- not found in ys, so count it
 
-  ||| Number of unique elements that are found in both of the two unique vectors
+  ||| Number of elements found in both of the two unique vectors
+  ||| Effectively, intersection
   public export
   numOverlap : {n, m : Nat} -> DecEq a =>
     UniqueVect n a -> UniqueVect m a -> Nat
@@ -196,6 +210,19 @@ namespace UniqueVect
     Yes _ => 1 + numOverlap xs ys -- found also in ys, so count it
     No _ => numOverlap xs ys
 
+  ||| Number of elements that are found in one but not both of the two vectors
+  ||| Effectively, symmetric difference
+  public export
+  numSymmetricDifference : {n, m : Nat} -> DecEq a =>
+    UniqueVect n a -> UniqueVect m a -> Nat
+  numSymmetricDifference [] ys = m
+  numSymmetricDifference (x :: xs) ys = case decElemInUniqueVect x ys of
+    -- need to pattern match on Elem to propagate length information
+    Yes Here => numSymmetricDifference xs (removeIndex ys FZ)
+    Yes (There later) => numSymmetricDifference xs (removeIndex ys (FS (indexOf later)))
+    No _ => 1 + numSymmetricDifference xs ys
+
+  
   
   mutual
     public export infixr 5 +++
@@ -210,9 +237,6 @@ namespace UniqueVect
     (x :: xs) +++ ys with (decElemInUniqueVect x ys)
       _ | (Yes prf) = xs +++ ys -- x :: (xs +++ ys)
       _ | (No nprf) = (::) x (xs +++ ys) {prf=expandUnique {prfy=notElem nprf}}
-   -- (x :: xs) +++ ys = case (decElemInUniqueVect x ys) of
-   --   (Yes prf) => ?aa -- x :: (xs +++ ys)
-   --   (No nprf) => ?bb -- xs +++ ys
 
     ||| If `x` is not in `xs` nor `ys`, then it also won't be in `xs +++ ys`
     public export
@@ -265,6 +289,20 @@ namespace UniqueVect
     (ys : UniqueVect m a) ->
     All (\x => Elem x ys) (intersect xs ys)
   allElemIntersectSnd = ?allElemIntersect_rhs2
+
+  mutual
+    public export
+    symmetricDifference : DecEq a => {n, m : Nat} ->
+      (xs : UniqueVect n a) ->
+      (ys : UniqueVect m a) ->
+      UniqueVect (numSymmetricDifference xs ys) a
+    symmetricDifference [] ys = ys
+    symmetricDifference (x :: xs) ys = ?aaa
+    
+    -- with (decElemInUniqueVect x ys)
+      -- _ | Yes p = ?aaa
+      -- _ | No neq = ?bbb
+
 
 
 
