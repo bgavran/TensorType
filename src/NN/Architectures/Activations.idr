@@ -16,9 +16,13 @@ sigmoid x = ex / (1 + ex) where ex = exp x
 
 namespace Tensor
   public export
-  relu : Ord a => Num a => CTensor shape a -> CTensor shape a
+  relu : Ord a => Num a => {names : Vect rank String} -> {shape : Vect rank Cont} -> AllConsistent names shape =>
+    CTensor shape names a -> CTensor shape names a
   relu t = relu <$> t
  
   public export
-  sigmoid : Fractional a => Exp a => CTensor shape a -> CTensor shape a
+  sigmoid : Fractional a => Exp a =>  {0 names : Vect rank String} ->
+    {0 shape : Vect rank Cont} ->
+    AllConsistent names shape =>
+    CTensor shape names a -> CTensor shape names a
   sigmoid t = sigmoid <$> t

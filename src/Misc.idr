@@ -27,11 +27,11 @@ namespace IsNo
     _ | _           | (No contra) = ItIsNo 
   
   public export
-  [uniqueUninhabited] {0 a : Type} -> {x : a} -> (de : DecEq a) =>
+  [uniqueUninhabited] {a : Type} -> {x : a} -> (de : DecEq a) =>
   Uninhabited (IsNo (Equality.decEq x x)) where
     uninhabited y with (decEq x x)
       _ | (Yes _) with (y)
-        _ | (ItIsNo _) impossible
+        _ | ItIsNo impossible
       _ | (No contra) = contra Refl
   
   
@@ -214,7 +214,7 @@ namespace Vect
   -- we have to use this approach below, otherwise allSuccThenProdSucc breaks
   public export 
   prod : Num a => Vect n a -> a
-  prod xs = foldr (*) (fromInteger 1) xs
+  prod xs = foldr @{straightforward} (*) (fromInteger 1) xs
   -- prod [] = fromInteger 1
   -- prod (x :: xs) = x * prod xs
 

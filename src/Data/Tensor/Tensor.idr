@@ -2,13 +2,12 @@ module Data.Tensor.Tensor
 
 import Data.Fin
 import Data.Nat
-import Data.Vect
+import public Data.Vect
 import Data.Vect.Quantifiers
 import Data.Vect.Elem
 import Data.DPair
 import public Decidable.Equality
 import public Data.Fin.Split
-import Data.HashMap
 
 import public Data.Container
 import public Data.Container.Object.Instances as Cont
@@ -47,7 +46,9 @@ Functionality includes:
 -- todo do a pass where you add zeros/make things implicit
 -- clean up the various 'drop' functions
 
-data NewElemConsistent : String -> Cont -> Vect n String -> Vect n Cont -> Type where
+public export
+data NewElemConsistent : String -> Cont ->
+  Vect n String -> Vect n Cont -> Type where
   ||| Adding a binding `s->c` not already in `AllConsistent ss cs`
   NewElem : NotElem s ss ->
     NewElemConsistent s c ss cs
@@ -72,7 +73,7 @@ data AllConsistent : Vect n String -> Vect n Cont -> Type where
 public export
 record CTensor
   (shape : Vect n Cont)
-  (names : Vect n String)
+  (0 names : Vect n String)
   {auto 0 ac : AllConsistent names shape}
   (a : Type) where
   constructor MkT
@@ -84,7 +85,7 @@ record CTensor
 ||| terminology in the numpy/pytorch ecosystem
 public export
 Tensor : (shape : Vect n Nat) ->
-  (names : Vect n String) ->
+  (0 names : Vect n String) ->
   AllConsistent names (Vect <$> shape) =>
   Type -> Type
 Tensor shape names = CTensor (Vect <$> shape) names
@@ -175,25 +176,23 @@ namespace NestedTensorUtils
   vectorToExt (MkT t) = shapeExt (shapeExt t) <| \cp => index t (cp ** ())
 
   public export
-  toNestedTensor : {n : String} -> {ns : Vect k String} ->
-    {c : Cont} -> {cs : Vect k Cont} -> 
+  toNestedTensor : {0 ns : Vect k String} -> {0 cs : Vect k Cont} -> 
     NewElemConsistent n c ns cs =>
     AllConsistent ns cs =>
     CTensor (c :: cs) (n :: ns) a -> CTensor [c] [n] (CTensor cs ns a)
   toNestedTensor = extToVector . extractTopExt
 
   public export
-  fromNestedTensor : {n : String} -> {ns : Vect k String} ->
-    {c : Cont} -> {cs : Vect k Cont} -> 
+  fromNestedTensor : {0 ns : Vect k String} -> {0 cs : Vect k Cont} -> 
     NewElemConsistent n c ns cs =>
     AllConsistent ns cs =>
     CTensor [c] [n] (CTensor cs ns a) -> CTensor (c :: cs) (n :: ns) a
   fromNestedTensor = embedTopExt . vectorToExt 
 
   public export
-  tensorMapFirstAxis :
-    {n : String} -> {ns : Vect k String} -> {ms : Vect k' String} ->
-    {c : Cont} -> {cs : Vect k Cont} -> {ds : Vect k' Cont} ->
+  tensorMapFirstAxis : {n : String} ->
+    {ns : Vect k String} -> {ms : Vect k' String} ->
+    {cs : Vect k Cont} -> {ds : Vect k' Cont} ->
     NewElemConsistent n c ns cs =>
     NewElemConsistent n c ms ds =>
     AllConsistent ns cs =>
@@ -206,9 +205,9 @@ namespace NestedTensorUtils
   ||| Is meant to look like infix map (i.e. `<$>`) with the added difference
   ||| that we keep the container on the left side untouched, hence the `<-$>`
   public export
-  (<-$>) : 
-    {n : String} -> {ns : Vect k String} -> {ms : Vect k' String} ->
-    {c : Cont} -> {cs : Vect k Cont} -> {ds : Vect k' Cont} ->
+  (<-$>) : {n : String} ->
+    {ns : Vect k String} -> {ms : Vect k' String} ->
+    {cs : Vect k Cont} -> {ds : Vect k' Cont} ->
     NewElemConsistent n c ns cs =>
     NewElemConsistent n c ms ds =>
     AllConsistent ns cs =>
@@ -847,7 +846,6 @@ namespace ShowInstance
   -- sstc : {shape : List Nat} -> Show a => Tensor shape a -> String
   -- sstc t = show t
 
-
 t0 : Tensor [3, 4] ["batch", "features"] Double
 t0 = ># [ [0, 1, 2, 3]
         , [4, 5, 6, 7]
@@ -941,15 +939,14 @@ namespace TensorContractions
     ||| Combines the labels of two axes
     ||| Given    ["i", "j", "i"]
     ||| and      ["i", "k"]
-    ||| produces ["i", "j", "k"] (or should it produce ["j", "i", "k"])
-    ||| Using 'reverse' because we're dealing with cons instead of snoc lists
+    ||| produces ["j", "i", "k"] (or should it produce ["i", "j", "k"]?)
     public export
     combineNames :
       (names1 : Vect n String) ->
       (names2 : Vect m String) ->
-      Vect (fst (UniqueVect.fromVect ((reverse names2) ++ (reverse names1)))) String
-    combineNames names1 names2 with (UniqueVect.fromVect ((reverse names2) ++ (reverse names1)))
-      _ | (_ ** res) = reverse $ toVect res
+      Vect (fst (UniqueVect.fromVect (names1 ++ names2))) String
+    combineNames names1 names2 with (UniqueVect.fromVect (names1 ++ names2))
+      _ | (_ ** res) = toVect res
 
     ||| Given a list of axes, the names of these axes, and a subset of their 
     ||| names, return the axes corresponding to that subset
@@ -972,24 +969,25 @@ namespace TensorContractions
     N2 : Vect 3 String
     N2 = ["i", "k", "l"]
 
-    ||| Generalised dot product which contracts over shared axes
-    ||| For instance, given 
-    ||| Given    [2, 3, 2] ["i", "j", "i"]
-    ||| and      [2, 4]    ["i", "k"]
-    ||| produces [2, 3, 4] ["i", "j", "k"]
-    public export
-    dot : {shape1 : Vect rank1 Cont} ->
-      {shape2 : Vect rank2 Cont} ->
-      {names1 : Vect rank1 String} ->
-      {names2 : Vect rank2 String} ->
-      AllConsistent names1 shape1 => -- t1 is consistently bound
-      AllConsistent names2 shape2 => -- t2 to
-      AllConsistent (names1 ++ names2) (shape1 ++ shape2) => -- but the result should too
-      Num a =>
-      CTensor shape1 names1 a -> CTensor shape2 names2 a ->
-      CTensor (selectAxes (shape1 ++ shape2) (names1 ++ names2) (combineNames names1 names2))
-              (combineNames names1 names2)
-              a
+    -- ||| Generalised dot product which contracts over shared axes
+    -- ||| For instance, given 
+    -- ||| Given    [2, 3, 2] ["i", "j", "i"]
+    -- ||| and      [2, 4]    ["i", "k"]
+    -- ||| produces [2, 3, 4] ["i", "j", "k"]
+    -- public export
+    -- dot : {shape1 : Vect rank1 Cont} ->
+    --   {shape2 : Vect rank2 Cont} ->
+    --   {names1 : Vect rank1 String} ->
+    --   {names2 : Vect rank2 String} ->
+    --   AllConsistent names1 shape1 => -- t1 is consistently bound
+    --   AllConsistent names2 shape2 => -- t2 to
+    --   AllConsistent (names1 ++ names2) (shape1 ++ shape2) => -- but the result should too
+    --   Num a =>
+    --   CTensor shape1 names1 a -> CTensor shape2 names2 a ->
+    --   CTensor (selectAxes (shape1 ++ shape2) (names1 ++ names2)
+    --             (snd (UniqueVect.fromVect (names1 ++ names2))))
+    --           (toVect (snd (fromVect names1 ++ names2)))
+    --           a
     -- dot {rank1 = 0} {shape1 = []} {names1 = []} t t' = (extract t * ) <$> t'
     -- dot {rank1 = (S k)} {shape1 = (s :: ss)} {names1 = (n :: ns)} t t'
     --   with (decElemInUniqueVect n names2)
@@ -997,73 +995,92 @@ namespace TensorContractions
     --   _ | (No nprf) = ?dot_rhs_2
 
     
-{-
     public export
     outerWith : {i, j : Cont} ->
-      (TensorMonoid i) =>
-      (TensorMonoid j) =>
+      {ni, nj : String} ->
+      TensorMonoid i =>
+      TensorMonoid j =>
+      (ac : AllConsistent [ni, nj] [i, j]) =>
       (a -> b -> c) ->
-      CTensor [i] a -> CTensor [j] b -> CTensor [i, j] c
-    outerWith f t t' =
+      CTensor [i] [ni] a -> CTensor [j] [nj] b -> CTensor [i, j] [ni, nj] c
+    outerWith {ac = [x, NewElem NotInEmptyVect]} f t t' =
       let tt = (\(t, a) => strength a t) <$> strength t' t
       in uncurry f <$> fromNestedTensor tt
 
     public export
-    outer : {i, j : Cont} -> Num a =>
-      (TensorMonoid i) =>
-      (TensorMonoid j) =>
-      CTensor [i] a -> CTensor [j] a -> CTensor [i, j] a
+    outer : {i, j : Cont} ->
+      {ni, nj : String} ->
+      TensorMonoid i => TensorMonoid j =>
+      (ac : AllConsistent [ni, nj] [i, j]) =>
+      Num a => 
+      CTensor [i] [ni] a -> CTensor [j] [nj] a -> CTensor [i, j] [ni, nj] a
     outer = outerWith (*)
 
     public export
-    matrixVectorProduct : Num a => {f, g : Cont} -> TensorMonoid g =>
-      AllAlgebra [g] a =>
-      CTensor [f, g] a -> CTensor [g] a -> CTensor [f] a
-    matrixVectorProduct m v = fromNestedTensor $
-      dot v <$> toNestedTensor m
+    matrixVectorProduct : Num a => {f, g : Cont} ->
+      {nf, ng : String} ->
+      TensorMonoid g =>
+      AllAlgebra [g] [ng] a =>
+      (ac : AllConsistent [nf, ng] [f, g]) =>
+      CTensor [f, g] [nf, ng] a -> CTensor [g] [ng] a -> CTensor [f] [nf] a
+    matrixVectorProduct {ac = [x, NewElem NotInEmptyVect]} m v
+      = fromNestedTensor $ dot v <$> toNestedTensor m
 
 
     public export
     vectorMatrixProduct : Num a => {f, g : Cont} ->
-      (TensorMonoid f) =>
-      Algebra (Ext f) (CTensor [g] a) =>
-      CTensor [f] a -> CTensor [f, g] a -> CTensor [g] a
-    vectorMatrixProduct v m =
-      let em : Ext f (CTensor [g] a) := extractTopExt m
-          ev : Ext f (CTensor [] a) := extractTopExt v
+      {nf, ng : String} ->
+      TensorMonoid f => 
+      (ac : AllConsistent [nf, ng] [f, g]) =>
+      Algebra (Ext f) (CTensor [g] [ng] a) =>
+      CTensor [f] [nf] a -> CTensor [f, g] [nf, ng] a -> CTensor [g] [ng] a
+    vectorMatrixProduct {ac = [x, NewElem NotInEmptyVect]} v m =
+      let em : Ext f (CTensor [g] [ng] a) := extractTopExt m
+          ev : Ext f (CTensor [] [] a) := extractTopExt v
       in reduce $ (\(x, gx) => ((extract x) *) <$> gx) <$> liftA2 ev em
       --let t : CTensor [f] (CTensor [g] a) := toNestedTensor m
       --in extract $ dotWith (\x, gx => (x *) <$> gx) v t
 
     public export
-    matMul : Num a => {f, g, h : Cont} -> TensorMonoid g =>
-      Algebra (Ext g) (CTensor [h] a) =>
-      CTensor [f, g] a -> CTensor [g, h] a -> CTensor [f, h] a
-    matMul m1 m2 = fromNestedTensor $
+    matMul : Num a => {f, g, h : Cont} ->
+      {nf, ng, nh : String} ->
+      TensorMonoid g =>
+      (ac1 : AllConsistent [nf, ng] [f, g]) =>
+      (ac2 : AllConsistent [ng, nh] [g, h]) =>
+      (ac3 : AllConsistent [nf, nh] [f, h]) =>
+      Algebra (Ext g) (CTensor [h] [nh] a) =>
+      CTensor [f, g] [nf, ng] a -> CTensor [g, h] [ng, nh] a -> CTensor [f, h] [nf, nh] a
+    matMul {ac1=[x,NewElem NotInEmptyVect]} {ac2} {ac3=[y,NewElem NotInEmptyVect]} m1 m2
+      = fromNestedTensor $ 
       toNestedTensor m1 <&> (\row => vectorMatrixProduct row m2)
 
     -- "ij,kj->ki"
     public export
-    matrixMatrixProduct : {f, g, h : Cont} -> Num a =>
+    matrixMatrixProduct : {f, g, h : Cont} ->
+      {nf, ng, nh : String} ->
+      (ac1 : AllConsistent [nf, ng] [f, g]) =>
+      (ac2 : AllConsistent [nh, ng] [h, g]) =>
+      (ac3 : AllConsistent [nh, nf] [h, f]) =>
+      Num a =>
       TensorMonoid g =>
-      AllAlgebra [g] a =>
-      CTensor [f, g] a -> CTensor [h, g] a -> CTensor [h, f] a
-    matrixMatrixProduct m1 m2 = fromNestedTensor $
-      matrixVectorProduct m1 <$> toNestedTensor m2
+      (allAlg : AllAlgebra [g] [ng] a) =>
+      CTensor [f, g] [nf, ng] a -> CTensor [h, g] [nh, ng] a -> CTensor [h, f] [nh, nf] a
+    matrixMatrixProduct {ac2=[x, NewElem NotInEmptyVect]} {ac3=[y, NewElem NotInEmptyVect]} m1 m2
+      = fromNestedTensor $ matrixVectorProduct m1 <$> toNestedTensor m2
 
-tt0 : CTensor [] Integer
+tt0 : CTensor [] [] Integer
 tt0 = pure 13
 
-fg : CTensor [Vect 7] Integer
+fg : CTensor [Vect 7] ["i"] Integer
 fg = pure 5
 
-fgh : CTensor [Vect 7, Vect 7] Integer
+fgh : CTensor [Vect 7, Vect 7] ["i", "j"] Integer
 fgh = pure 13
 
 sht0 : String
 sht0 = show tt0
 
-fsh0 : Show (Vect 8 `fullOf` (CTensor [] Integer))
+fsh0 : Show (Vect 8 `fullOf` (CTensor [] [] Integer))
 fsh0 = %search
 
 fsh : String
@@ -1086,9 +1103,11 @@ namespace Reshape
   ||| A wrapper around `extMap`
   ||| Allows us to define views, traversals and general reshaping
   public export
-  restructure : {cs, ds : List Cont} ->
-    Cont.Tensor cs =%> Cont.Tensor ds ->
-    CTensor cs a -> CTensor ds a
+  restructure : {cs : Vect oldRank Cont} -> {ds : Vect newRank Cont} ->
+    AllConsistent ns cs =>
+    AllConsistent ms ds =>
+    Cont.Tensor (toList' cs) =%> Cont.Tensor (toList' ds) ->
+    CTensor cs ns a -> CTensor ds ms a
   restructure f = MkT . extMap f . GetT
 
   ||| Reshape is `restructure` for cubical tensors that leaves number of 
@@ -1099,17 +1118,25 @@ namespace Reshape
   ||| Importantly, the content of tensors is never touched, only the shape is
   ||| manipulated
   public export
-  reshape : {oldShape, newShape : List Nat} ->
-    CTensor (Vect <$> oldShape) a ->
-    {auto prf : prod oldShape = prod newShape} ->
-    CTensor (Vect <$> newShape) a
-  reshape t = restructure (reshape DefaultLayoutOrder) t
+  reshape :
+    {oldShape : Vect oldRank Nat} -> {oldNames : Vect oldRank String} ->
+    {newShape : Vect newRank Nat} -> {newNames : Vect newRank String} ->
+    (oldAc : AllConsistent oldNames (Vect <$> oldShape)) =>
+    (newAc : AllConsistent newNames (Vect <$> newShape)) =>
+    CTensor (Vect <$> oldShape) oldNames a ->
+    {auto prf : prod (toList' oldShape) = prod (toList' newShape)} ->
+    CTensor (Vect <$> newShape) newNames a
+  reshape t = restructure
+    (let tt = reshape {oldShape=(toList' oldShape)} {newShape=(toList' newShape)} DefaultLayoutOrder in ?asdf)
+    t
+  -- todo rewrites missing
 
   -- treeExample1 : CTensor [BinTree] Double
   -- treeExample1 = fromConcreteTy $ Node 60 (Node 7 (Leaf (-42)) (Leaf 46)) (Leaf 2)
 
   ||| Performs an in-order traversal of a binary tree tensor into a list tensor
-  traversalExample : CTensor [BinTree] Double -> CTensor [List] Double
+  traversalExample : CTensor [BinTree] ["tree"] Double ->
+    CTensor [List] ["list"] Double
   traversalExample = restructure (wrapIntoVector inorder)
 
   -- ||| Down the line, we'll also want to adjust how we perform this 
@@ -1117,12 +1144,11 @@ namespace Reshape
 
 
 
-
-tEx : Tensor [2, 3] Integer
+tEx : Tensor [2, 3] ["i", "j"] Integer
 tEx = ># [ [1,2,3]
          , [4,5,6] ]
 
-Ex2 : Tensor [6] Integer
+Ex2 : Tensor [6] ["i"] Integer
 Ex2 = reshape {oldShape=[2,3]} {newShape=[6]} tEx
 
 -- Tl : List Nat
@@ -1158,49 +1184,54 @@ mt = MkMyCType
 -- mtex : MyType (-3)
 -- mtex = resh mt
 
-
-
-
-
-
 namespace SetterGetter
   ||| Machinery for indexing into a CTensor
   ||| It depends on shape, but also on the tensor t itself
   ||| Provides a compile-time guarantee that we won't be out of bounds
   ||| This dependency is not needed for cubical tensors
   public export
-  data Index : (shape : List Cont) -> (t : CTensor shape dtype) -> Type where
-    Nil : {val : dtype} -> Index [] (embed val)
-    (::) : {t : CTensor (c :: cs) dtype} ->
+  data Index :
+    (shape : Vect rank Cont) ->
+    (names : Vect rank String) ->
+    AllConsistent names shape =>
+    (t : CTensor shape names dtype) -> Type where
+    Nil : {val : dtype} -> Index [] [] (embed val)
+    (::) : {ns : Vect k String} -> {cs : Vect k Cont} ->
+      NewElemConsistent n c ns cs =>
+      AllConsistent ns cs =>
+      {t : CTensor (c :: cs) (n :: ns) dtype} ->
       (p : c.Pos (shapeExt (extractTopExt t))) ->
-      Index cs (index (extractTopExt t) p) ->
-      Index (c :: cs) t
-
+      Index cs ns (index (extractTopExt t) p) ->
+      Index (c :: cs) (n :: ns) t
+  
   %name Index is, js
 
   public export
-  index : {shape : List Cont} ->
-    (t : CTensor shape a) -> Index shape t -> a
-  index {shape = []} (embed val) [] = val
-  index {shape = (c :: cs)} t (i :: is) =
+  index : {shape : Vect rank Cont} ->
+    AllConsistent names shape =>
+    (t : CTensor shape names a) -> Index shape names t -> a
+  index {shape = [], names=[]} (embed val) [] = val
+  index {shape = (c :: cs), names=(n :: ns)} t (i :: is) =
     index (index (extractTopExt t) i) is
 
   public export infixr 9 @@
   public export
-  (@@) : {shape : List Cont} ->
-    (t : CTensor shape a) -> Index shape t -> a
+  (@@) : {shape : Vect rank Cont} ->
+    AllConsistent names shape =>
+    (t : CTensor shape names a) -> Index shape names t -> a
   (@@) = index
 
-  public export
-  set : {shape : List Cont} ->
-    (t : CTensor shape a) ->
-    (iop : InterfaceOnPositions (Tensor shape) Eq) =>
-    Index shape t -> a -> CTensor shape a
+  public export 
+  set : {shape : Vect rank Cont} ->
+    AllConsistent names shape =>
+    (t : CTensor shape names a) ->
+    (iop : InterfaceOnPositions (Tensor (toList' shape)) Eq) =>
+    Index shape names t -> a -> CTensor shape names a
   set {shape = []} t is val = MkT $ set (GetT t) () val
-  set {shape = (c :: cs)} t (i :: is) val =
+  set {shape = (c :: cs), names=(n :: ns)} t (i :: is) val =
     let ts = index (extractTopExt t) i
         -- tg = set ts is val
-    in ?set_rhs_1
+    in ?set_rhs_1 -- need to use index here... or even better phrase this using lenses?
   -- maybe InterfaceOnPositions needs a 'AllInterfaceOnPositions' counterpart?
 
   -- setC t [] x = MkT $ set (GetT t) () x
@@ -1210,24 +1241,24 @@ namespace SetterGetter
   --   in fromNestedTensor $ MkT $ set (GetT tNested) (i ** ()) ts
 
   public export
-  t00 : CTensor [Maybe, List] Integer
+  t00 : CTensor [Maybe, List] ["m", "l"] Integer
   t00 = ># Just [10, 20, 30, 40, 50, 60, 70]
 
   public export
-  t11 : Tensor [2, 3] Integer
+  t11 : Tensor [2, 3] ["i", "j"] Integer
   t11 = ># [[1,2,3], [4,5,6]]
 
   public export
-  t22 : CTensor [BinTree, List] Integer
+  t22 : CTensor [BinTree, List] ["b", "l"] Integer
   t22 = ># Node [1,2] (Leaf [3,4]) (Leaf [5,6])
 
-  t33 : CTensor [BinTree] Integer
+  t33 : CTensor [BinTree] ["b"] Integer
   t33 = ># Node 1 (Leaf 2) (Leaf 3)
 
-  t333 : CTensor [Vect 2] Integer
+  t333 : CTensor [Vect 2] ["v"] Integer
   t333 = ># [1, 2]
-
-  t44 : CTensor [] Integer
+  
+  t44 : CTensor [] [] Integer
   t44 = ># 13
 
   public export
@@ -1236,22 +1267,28 @@ namespace SetterGetter
 
 namespace CubicalSetterGetter
   public export
-  data IndexC : List Nat -> Type where
+  data IndexC : Vect rank Nat -> Type where
     Nil : IndexC []
     (::) : Fin n -> IndexC ns -> IndexC (n :: ns)
 
   public export
-  indexC : {shape : List Nat} -> Tensor shape a -> IndexC shape -> a
+  indexC : {shape : Vect rank Nat} ->
+    {names : Vect rank String} ->
+    (ac : AllConsistent names (Vect <$> shape)) =>
+    Tensor shape names a ->
+    IndexC shape -> a
   indexC t [] = index (GetT t) ()
-  indexC t (i :: is) = indexC (index (GetT $ toNestedTensor t) (i ** ())) is
+  indexC {ac=a::as} t (i :: is) = indexC (index (GetT $ toNestedTensor t) (i ** ())) is 
 
   public export
-  setC : {shape : List Nat} ->
-    Tensor shape a -> IndexC shape -> a -> Tensor shape a
+  setC : {shape : Vect rank Nat} ->
+    {names : Vect rank String} ->
+    (ac : AllConsistent names (Vect <$> shape)) =>
+    Tensor shape names a -> IndexC shape -> a -> Tensor shape names a
   setC t [] x = MkT $ set (GetT t) () x
-  setC {shape=(s::ss)} t (i :: is) x =
-    let tNested : Tensor [s] (Tensor ss a) := toNestedTensor t
-        ts : Tensor ss a := setC (indexC tNested [i]) is x
+  setC {shape=(s::ss)} {names=n::ns} {ac=aa::aas} t (i :: is) x =
+    let tNested : Tensor [s] [n] (Tensor ss ns a) := toNestedTensor t
+        ts : Tensor ss ns a := setC (indexC tNested [i]) is x
     in fromNestedTensor $ MkT $ set (GetT tNested) (i ** ()) ts
 
 -- sTest : Tensor [2, 3] Integer
@@ -1259,27 +1296,32 @@ namespace CubicalSetterGetter
 
 ||| Functionality for slicing tensors
 namespace Slice
+  ||| Needs to be appropriated for named tensors
   namespace CubicalSlicing
     ||| Machinery for slicing cubical tensors
     ||| Crucially, different from the indexing one in the definition of (::)
     ||| Here we have Fin (S m) instead of Fin m
     public export
-    data Slice : (shape : List Nat) -> Type where
+    data Slice : (shape : Vect rank Nat) -> Type where
       Nil : Slice []
       (::) : Fin (S m) -> Slice ms -> Slice (m :: ms)
 
   public export
-  sliceToShape : {shape : List Nat} -> Slice shape -> List Nat
+  sliceToShape : {shape : Vect rank Nat} -> Slice shape -> Vect rank Nat
   sliceToShape [] = []
   sliceToShape (s :: ss) = finToNat s :: sliceToShape ss
 
   public export
-  take : {shape : List Nat} ->
+  take : {shape : Vect rank Nat} ->
+    (ac : AllConsistent names (Vect <$> shape)) =>
     (slice : Slice shape) ->
-    Tensor shape a ->
-    Tensor (sliceToShape slice) a
-  take [] t = t
-  take (s :: ss) t = embedTopExt $ take ss <$> take s (extractTopExt t)
+    (newNames : Vect rank String) ->
+    (ac' : AllConsistent newNames (Vect <$> sliceToShape slice)) =>
+    Tensor shape names a ->
+    Tensor (sliceToShape slice) newNames a
+  take {ac=[]} {ac'=[]} [] _ t = t
+  take {ac=aa::aas} {ac'=aa'::aas'} (s :: ss) (n :: ns) t
+    = embedTopExt $ take ss ns <$> take s (extractTopExt t)
 
 
   ||| What does it mean to slice a non-cubical tensor?
@@ -1290,8 +1332,12 @@ namespace Concatenate
   ||| Concatenate two tensors along an existing axis, the first one
   ||| TODO extend to allow concatenation along an arbitrary axis
   public export
-  concat : {x : Nat} ->
-    Tensor (x :: shape) a -> Tensor (y :: shape) a -> Tensor (x + y :: shape) a
+  concat : {shape : Vect rank Nat} -> {x : Nat} ->
+    NewElemConsistent n (Vect x) names (Vect <$> shape) =>
+    NewElemConsistent m (Vect y) names (Vect <$> shape) =>
+    NewElemConsistent l (Vect (x + y)) names (Vect <$> shape) =>
+    AllConsistent names (Vect <$> shape) =>
+    Tensor (x :: shape) (n :: names) a ->
+    Tensor (y :: shape) (m :: names) a ->
+    Tensor (x + y :: shape) (l :: names) a
   concat t t' = embedTopExt $ extractTopExt t ++ extractTopExt t'
-
--}

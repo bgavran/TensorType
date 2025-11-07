@@ -28,49 +28,63 @@ Naming needs to be made more consistent
 namespace CommonNames
   public export
   CScalar : (dtype : Type) -> Type
-  CScalar dtype = CTensor [] dtype
+  CScalar dtype = CTensor [] [] dtype
 
   public export
-  CVector : (c : Cont) -> (dtype : Type) -> Type
-  CVector c dtype = CTensor [c] dtype
-
+  CVector : (c : Cont) -> (n : String) -> (dtype : Type) -> Type
+  CVector c n dtype = CTensor [c] [n] dtype
+  
   public export
-  CMatrix : (row, col : Cont) -> (dtype : Type) -> Type
-  CMatrix row col dtype = CTensor [row, col] dtype
+  CMatrix : (row, col : Cont) -> (n, m : String) ->
+    AllConsistent [n, m] [row, col] =>
+    (dtype : Type) -> Type
+  CMatrix row col n m dtype = CTensor [row, col] [n, m] dtype
 
   public export
   Scalar : (dtype : Type) -> Type
-  Scalar dtype = Tensor [] dtype
+  Scalar dtype = Tensor [] [] dtype
 
   public export
-  Vector : (n : Nat) -> (dtype : Type) -> Type
-  Vector n dtype = Tensor [n] dtype
-
+  Vector : (n : Nat) -> (name : String) -> (dtype : Type) -> Type
+  Vector n name dtype = Tensor [n] [name] dtype
+  
   public export
-  Matrix : (row, col : Nat) -> (dtype : Type) -> Type
-  Matrix row col dtype = Tensor [row, col] dtype
+  Matrix : (row, col : Nat) -> (n, m : String) ->
+    AllConsistent [n, m] [Vect row, Vect col] =>
+    (dtype : Type) -> Type
+  Matrix row col n m dtype = Tensor [row, col] [n, m] dtype
 
 namespace ZerosOnes
   public export
-  zeros : Num a => {shape : List Cont} -> All TensorMonoid shape =>
-    CTensor shape a
+  zeros : Num a => {shape : Vect rank Cont} ->
+    {names : Vect rank String} ->
+    All TensorMonoid (toList' shape) => 
+    AllConsistent names shape =>
+    CTensor shape names a
   zeros = tensorReplicate (fromInteger 0)
 
   public export
-  ones : Num a => {shape : List Cont} -> All TensorMonoid shape =>
-    CTensor shape a
+  ones : Num a => {shape : Vect rank Cont} ->
+    {names : Vect rank String} ->
+    AllConsistent names shape =>
+    All TensorMonoid (toList' shape) => 
+    CTensor shape names a
   ones = tensorReplicate (fromInteger 1)
 
 
   ||| An identity matrix with True on the diagonal and False elsewhere
   public export
-  identityBool : {n : Nat} -> Tensor [n, n] Bool
+  identityBool : {n : Nat} -> {ni : String} ->
+    AllConsistent [ni, ni] [Vect n, Vect n] => -- we shouldn't need this?
+    Tensor [n, n] [ni, ni] Bool
   identityBool = outerWith (==) (positions {sh=()}) (positions {sh=()})
 
   ||| An identity matrix with ones on the diagonal and zeros elsewhere
   ||| Analogous to numpy.eye
   public export
-  identity : Num a => {n : Nat} -> Tensor [n, n] a
+  identity : Num a => {n : Nat} -> {ni : String} -> 
+    AllConsistent [ni, ni] [Vect n, Vect n] => -- should not need this?
+    Tensor [n, n] [ni, ni] a
   identity = fromBool <$> identityBool
 
 namespace Range
@@ -87,24 +101,29 @@ namespace Range
     ||| A range of numbers [0, stop>
     public export
     arange : {stop : Nat} ->
-      Cast Nat a => Tensor [stop] a
+      {n : String} ->
+      Cast Nat a => Tensor [stop] [n] a
     arange {stop} = ># (cast . finToNat) <$> positions {f=Vect (stop)}
 
   namespace TwoArgs
     ||| A range of numbers [start, stop>
     public export
     arange : {default 0 start : Nat} -> {stop : Nat} ->
-      Cast Nat a => Tensor [minus stop start] a
+      {n : String} ->
+      Cast Nat a => Tensor [minus stop start] [n] a
     arange {start} {stop} = >#
       (cast . (+start) . finToNat) <$> positions {f=Vect (minus stop start)}
 
   ||| Here the type 'a' has to somehow be dependent on the shape?
-  rangeA : CTensor ?whatShape ?whatType
+  rangeA : CTensor ?whatShape ?whatNames @{?ac} ?whatType
 
 namespace Flip
   ||| Reverse a tensor along a given axis
   public export
-  flip : (axis : Fin (length shape)) -> Tensor shape a -> Tensor shape a
+  flip : {shape : Vect rank Nat} ->
+    (axis : Fin rank) ->
+    AllConsistent names (Vect <$> shape) =>
+    Tensor shape names a -> Tensor shape names a
 
 namespace Size
   {-----
@@ -113,11 +132,15 @@ namespace Size
   -----}
   ||| Number of elements in a non-cubical tensor
   public export
-  cSize : {shape : List Cont} -> CTensor shape a -> Nat
-
+  cSize : {shape : Vect rank Cont} ->
+    AllConsistent names shape =>
+    CTensor shape names a -> Nat
+  
   ||| Number of elements in a cubical tensor
   public export
-  size : {shape : List Nat} -> (0 _ : Tensor shape a) -> Nat
+  size : {shape : Vect rank Nat} ->
+    AllConsistent names (Vect <$> shape) =>
+    (0 _ : Tensor shape names a) -> Nat
   size {shape} _ = prod shape
 
 namespace Flatten
@@ -125,14 +148,19 @@ namespace Flatten
   ||| Requires that we have Foldable on all the components
   ||| In general we won't know the number of elements of a non-cubical tensor at compile time
   public export
-  cFlatten : Foldable (CTensor shape) => CTensor shape a -> List a
+  cFlatten : {0 shape : Vect rank Cont} ->
+    {0 names : Vect rank String} -> 
+    (ac : AllConsistent names shape) =>
+    Foldable (CTensor shape names) =>
+    CTensor shape names a -> List a
   cFlatten = toList
 
   ||| Flatten a cubical tensor into a vector
   ||| Number of elements is known at compile time
   ||| Can even be zero, if any of shape elements is zero
-  flatten : {shape : List Nat} ->
-    Tensor shape a -> Vect (prod shape) a
+  flatten : {shape : Vect rank Nat} ->
+    AllConsistent names (Vect <$> shape) =>
+    Tensor shape names a -> Vect (prod shape) a
   flatten t = ?flatten_rhs
 
   -- This was the old version with a strided implementation
@@ -143,8 +171,11 @@ namespace Flatten
 namespace Max
   ||| Maximum value in a tensor
   ||| Returns Nothing if the tensor is empty
-  max : Foldable (CTensor shape) => Ord a =>
-    CTensor shape a -> Maybe a
+  max : {0 shape : Vect rank Cont} ->
+    {0 names : Vect rank String} ->
+    (ac : AllConsistent names shape) =>
+    Foldable (CTensor shape names) => Ord a =>
+    CTensor shape names a -> Maybe a
   max = maxInList . cFlatten
 
   -- TODO Fix for strided
@@ -158,16 +189,19 @@ namespace OneHot
 
   public export
   oneHot : Num a => {n : Nat} ->
-    (i : Fin n) -> Tensor [n] a
-  oneHot i = set (zeros {shape=[Vect n]}) [i] 1
-
+    {name : String} ->
+    (i : Fin n) -> Tensor [n] [name] a
+  oneHot i = set (zeros {shape=[Vect n]}) [i] 1 
 
 namespace Triangular
+  -- should we have ni,ni here, or ni,nj?
   public export
   cTriBool : {c : Cont} ->
+    {ni : String} ->
     (ip : InterfaceOnPositions c MOrd) =>
     TensorMonoid c =>
-    (sh : c.Shp) -> CTensor [c, c] Bool
+    (ac : AllConsistent [ni, ni] [c, c]) =>
+    (sh : c.Shp) -> CTensor [c, c] [ni, ni] Bool
   cTriBool {ip = MkI {p}} sh
     = let cPositions = positions {sh=sh}
           pp : MOrd (c.Pos sh) := p sh
@@ -181,56 +215,77 @@ namespace Triangular
   -- triA sh = fromBool <$> cTriBool sh
 
   public export
-  triBool : {n : Nat} -> Tensor [n, n] Bool
+  triBool : {n : Nat} ->
+    {ni : String} ->
+    AllConsistent [ni, ni] [Vect n, Vect n] => -- should we need this?
+    Tensor [n, n] [ni, ni] Bool
   triBool = cTriBool ()
+
 
   ||| A matrix with ones on and below the diagonal, and zeros elsewhere
   ||| Analogous to numpy.tri
   public export
-  tri : Num a => {n : Nat} -> Tensor [n, n] a
+  tri : Num a => {n : Nat} ->
+    {ni : String} ->
+    AllConsistent [ni, ni] [Vect n, Vect n] => -- should we need this?
+    Tensor [n, n] [ni, ni] a
   tri = fromBool <$> triBool
 
   ||| Lower triangular part of a matrix. Elements above the diagonal are set to
   ||| zero. Analogous to numpy.tril
   public export
-  lowerTriangular : Num a => {n : Nat} -> Tensor [n, n] a -> Tensor [n, n] a
+  lowerTriangular : Num a => {n : Nat} ->
+    {ni : String} ->
+    AllConsistent [ni, ni] [Vect n, Vect n] =>
+    Tensor [n, n] [ni, ni] a ->
+    Tensor [n, n] [ni, ni] a
   lowerTriangular = (* tri)
 
   ||| Upper triangular part of a matrix. Elements below the diagonal are set to
   ||| zero. Analogous to numpy.triu(.., k=1)
   public export
-  upperTriangular : Num a => {n : Nat} -> Tensor [n, n] a -> Tensor [n, n] a
+  upperTriangular : Num a => {n : Nat} -> 
+    {ni : String} ->
+    AllConsistent [ni, ni] [Vect n, Vect n] =>
+    Tensor [n, n] [ni, ni] a -> Tensor [n, n] [ni, ni] a
   upperTriangular t = t * ((fromBool . not) <$> triBool)
 
   ||| Fill the elements of a tensor `t` with `fill` where `mask` is True
   public export
-  maskedFill : {shape : List Cont} -> Num a => All TensorMonoid shape =>
-    (t : CTensor shape a) ->
-    (mask : CTensor shape Bool) ->
+  maskedFill : {shape : Vect rank Cont} ->
+    {names : Vect rank String} ->
+    AllConsistent names shape =>
+    Num a => All TensorMonoid (toList' shape) =>
+    (t : CTensor shape names a) ->
+    (mask : CTensor shape names Bool) ->
     (fill : a) ->
-    CTensor shape a
+    CTensor shape names a
   maskedFill t mask fill = liftA2Tensor mask t <&>
     (\(maskVal, tVal) => if maskVal then fill else tVal)
 
-
 namespace Misc
   public export
-  sum : {shape : List Cont} ->
-    Algebra (CTensor shape) a =>
-    CTensor shape a -> a
+  sum : {shape : Vect rank Cont} ->
+    {names : Vect rank String} ->
+    AllConsistent names shape =>
+    Algebra (CTensor shape names) a =>
+    CTensor shape names a -> a
   sum = reduce
 
   public export
-  mean : {shape : List Nat} ->
+  mean : {shape : Vect rank Nat} ->
+    {names : Vect rank String} ->
+    AllConsistent names (Vect <$> shape) =>
     Cast Nat a =>
-    Fractional a =>
-    Algebra (Tensor shape) a =>
-    Tensor shape a -> a
-  mean t = reduce t / cast (size t)
+    Fractional a => 
+    Algebra (Tensor shape names) a =>
+    Tensor shape names a -> a
+  mean t = sum t / cast (size t)
 
   public export
-  variance : {n : Nat} -> Neg a => Fractional a => Cast Nat a =>
-    Tensor [n] a -> a
+  variance : {n : Nat} -> {ni : String} ->
+    Neg a => Fractional a => Cast Nat a =>
+    Tensor [n] [ni] a -> a
   variance t =
     let inputMinusMean = t - pure (mean {shape=[n]} t)
     in mean {shape=[n]} (inputMinusMean * inputMinusMean)
@@ -240,26 +295,31 @@ namespace Misc
 
 namespace Traversals
   public export
-  inorder : CTensor [BinTreeNode] a -> CTensor [List] a
+  inorder : CTensor [BinTreeNode] [b] a -> CTensor [List] [l] a
   inorder = extToVector . extMap BinTreeNode.inorder . vectorToExt
 
 namespace Random
   public export
+  {shape : Vect rank Nat} ->
+  {names : Vect rank String} ->
+  (ac : AllConsistent names (Vect <$> shape)) =>
   Random a =>
-  Applicative (Tensor shape) => -- again, should we need this?
-  Traversable (Tensor shape) =>
-  Random (Tensor shape a) where
+  Applicative (Tensor shape names) => -- again, should we need this?
+  Traversable (Tensor shape names) =>
+  Random (Tensor shape names a) where
     randomIO = sequence (pure randomIO)
+    randomRIO = ?qhwhwh
 
-    randomRIO (lo, hi) = sequence $ randomRIO <$> liftA2 lo hi
 
--- Idris can't find the parametric randomIO interface so reimpementing here
+-- Idris can't find the parametric randomIO interface so reimpementing here 
 public export
 random : Num a => Random a => HasIO io =>
-  (shape : List Nat) ->
-  Applicative (Tensor shape) =>
-  Traversable (Tensor shape) =>
-  io (Tensor shape a)
+  (shape : Vect rank Nat) ->
+  {names : Vect rank String} ->
+  AllConsistent names (Vect <$> shape) =>
+  Applicative (Tensor shape names) => 
+  Traversable (Tensor shape names) => 
+  io (Tensor shape names a)
 random shape = sequence $ pure $ randomRIO (0, 1)
 
 tt : Traversable (Vect 2)
@@ -268,16 +328,16 @@ tt = %search
 ttt : Traversable (Ext (Vect 2))
 ttt = %search
 
-tttt : Traversable (Tensor [2])
+tttt : Traversable (Tensor [2] ["i"])
 tttt = %search
 
-testRand : IO (Tensor [2, 3] Double)
-testRand = do
+testRand : IO (Tensor [2, 3] ["i", "j"] Double)
+testRand = do 
   t <- random [2,3]
   printLn $ show t
   pure t
 
-testRand2 : IO (Tensor [5] Double)
+testRand2 : IO (Tensor [5] ["i"] Double)
 testRand2 = random [5]
 
 testRand3 : IO Unit

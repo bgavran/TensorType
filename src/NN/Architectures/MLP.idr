@@ -11,13 +11,15 @@ import NN.Architectures.Activations
 ||| and flag for whether the last layer should have it
 public export
 multiLayerPerceptron : {a : Type} -> Num a =>
+  {axisName : String} ->
   {ieva : Cont} ->
-  (allAlg : AllAlgebra [ieva] a) =>
-  (allAppl : TensorMonoid ieva) =>
+  (allAlg : AllAlgebra [ieva] [axisName] a) =>
+  AllConsistent [axisName, axisName] [ieva, ieva] =>
+  TensorMonoid ieva =>
   (numLayers : Nat) ->
-  (activation : CTensor [ieva] a -\-> CTensor [ieva] a) ->
+  (activation : CTensor [ieva] [axisName] a -\-> CTensor [ieva] [axisName] a) ->
   {default False lastLayerActivation : Bool} ->
-  CTensor [ieva] a -\-> CTensor [ieva] a
+  CTensor [ieva] [axisName] a -\-> CTensor [ieva] [axisName] a
 multiLayerPerceptron 0 _ = id
 multiLayerPerceptron 1 activation {lastLayerActivation = False}
   = affinePara
@@ -27,22 +29,18 @@ multiLayerPerceptron (S (S k)) activation
   = composePara (composePara affinePara activation) (multiLayerPerceptron (S k) activation {lastLayerActivation = lastLayerActivation})
 
 
-
-
-
-
-
-public export
-threeLayerPerceptron : {inputSize, outputSize : Nat} ->
-  Tensor [inputSize] Double -\-> Tensor [outputSize] Double
-threeLayerPerceptron =
-  let hiddenDimension1 = inputSize * 10
-      hiddenDimension2 = inputSize * 10
-  in     affinePara
-     \>> trivialParam Tensor.sigmoid
-     \>> affinePara {x=Vect hiddenDimension1}
-     \>> trivialParam Tensor.sigmoid
-     \>> affinePara {x=Vect hiddenDimension2}
+-- public export
+-- threeLayerPerceptron : {inputSize, outputSize : Nat} ->
+--   AllConsistent [inName, outName] [Vect outputSize, Vect inputSize] =>
+--   Tensor [inputSize] [inName] Double -\-> Tensor [outputSize] [outName] Double
+-- threeLayerPerceptron =
+--   let hiddenDimension1 = inputSize * 10
+--       hiddenDimension2 = inputSize * 10
+--   in     affinePara
+--      \>> trivialParam Tensor.sigmoid
+--      \>> affinePara {x=Vect hiddenDimension1}
+--      \>> trivialParam Tensor.sigmoid
+--      \>> affinePara {x=Vect hiddenDimension2}
 
 
 

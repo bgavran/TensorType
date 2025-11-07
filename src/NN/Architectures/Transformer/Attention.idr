@@ -7,17 +7,20 @@ import NN.Architectures.Softargmax
 ||| Generalised form of attention
 public export
 crossAttention : {a : Type} -> Num a =>
-  {inputStructure, crossStructure, features : Cont} ->
-  (TensorMonoid features) =>
-  (TensorMonoid inputStructure) =>
-  (allAlg : AllAlgebra [inputStructure, features] a) =>
-  {default id causalMask : CTensor [crossStructure, inputStructure] a -> CTensor [crossStructure, inputStructure] a} ->
-  (softargmax : CTensor [inputStructure] a -> CTensor [inputStructure] a) ->
-  (q, v : CTensor [inputStructure, features] a) ->
-  (k : CTensor [crossStructure, features] a) ->
-  CTensor [crossStructure, features] a
-crossAttention {allAlg=Cons} {causalMask} softargmax q v k =
-  let attentionMatrix : CTensor [crossStructure, inputStructure] a
+  {inputStructure, crossStructure, features : Cont} -> {ni, nc, nf : String} ->
+  (ac1 : AllConsistent [ni, nf] [inputStructure, features]) =>
+  (ac2 : AllConsistent [nc, nf] [crossStructure, features]) =>
+  (ac3 : AllConsistent [nc, ni] [crossStructure, inputStructure]) =>
+  All TensorMonoid [inputStructure, features] =>
+  (allAlg : AllAlgebra [inputStructure, features] [ni, nf] a) =>
+  {default id causalMask : CTensor [crossStructure, inputStructure] [nc, ni] a -> CTensor [crossStructure, inputStructure] [nc, ni] a} ->
+  (softargmax : CTensor [inputStructure] [ni] a -> CTensor [inputStructure] [ni] a) ->
+  (q, v : CTensor [inputStructure, features] [ni, nf] a) ->
+  (k : CTensor [crossStructure, features] [nc, nf] a) ->
+  CTensor [crossStructure, features] [nc, nf] a
+crossAttention
+  {allAlg=Cons {rest=xx} } {allAppl=(::) _ _} {causalMask} softargmax q v k =
+  let attentionMatrix : CTensor [crossStructure, inputStructure] [nc, ni] a
       attentionMatrix = (q `matrixMatrixProduct` k)
   in (softargmax <-$> (causalMask attentionMatrix)) `matMul` v
 
