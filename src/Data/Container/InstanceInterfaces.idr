@@ -86,7 +86,7 @@ namespace ListInstances
   -- showListHelper (0 <| _) = ""
   -- showListHelper (1 <| index) = show $ index FZ
   -- showListHelper ((S k) <| index)
-  --   = let (s, rest) = removeBeginning index
+  --   = let (s, rest) = headTail index
   --     in show s ++ ", " ++ showListHelper (k <| rest)
 
   -- public export
