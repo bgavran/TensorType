@@ -16,6 +16,8 @@ import public Data.Tree
 
 import Misc
 
+%hide Data.Vect.fromList
+
 namespace ConversionFunctions
   public export
   toScalar : a -> Scalar' a
@@ -38,8 +40,8 @@ namespace ConversionFunctions
   public export
   fromList : List a -> List' a
   fromList [] = (0 <| absurd)
-  fromList (x :: xs) = let (l <| c) : List' a := fromList xs
-                       in (S l <| addBeginning x c)
+  fromList (x :: xs) = let (l <| c) = fromList xs
+                       in (S l <| cons x c)
 
   public export
   toList : List' a -> List a

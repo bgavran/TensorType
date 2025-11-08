@@ -36,11 +36,12 @@ namespace ListApplicative
     pure a = [a]
     fs <*> xs = uncurry ($) <$> listZip fs xs
 
-||| Starting with (Fin l -> x) and an extra x, we produce a map (Fin (S l) -> x) whose first element is the extra x 
+||| Analogue of `(::)` for lists. 
+||| Takes an element and prepends it to some 'vector' 
 public export
-addBeginning : x -> (Fin l -> x) -> (Fin (S l) -> x)
-addBeginning x _ FZ = x
-addBeginning _ f (FS k') = f k'
+cons : x -> (Fin l -> x) -> (Fin (S l) -> x)
+cons x _ FZ = x
+cons _ f (FS k') = f k'
 
 public export
 head : (Fin (S l) -> x) -> x
