@@ -44,7 +44,7 @@ namespace ConversionFunctions
   public export
   toList : List' a -> List a
   toList (0 <| _) = []
-  toList ((S k) <| ind) = let (x, c) = headTail ind in x :: toList (k <| c)
+  toList ((S k) <| ind) = head ind :: toList (k <| tail ind)
   
   public export
   fromVect : Vect n a -> Vect' n a

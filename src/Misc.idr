@@ -42,10 +42,13 @@ addBeginning : x -> (Fin l -> x) -> (Fin (S l) -> x)
 addBeginning x _ FZ = x
 addBeginning _ f (FS k') = f k'
 
-||| We produce the head and the tail of a vector
 public export
-headTail : (Fin (S l) -> x) -> (x, (Fin l -> x))
-headTail f = (f FZ, f . FS)
+head : (Fin (S l) -> x) -> x
+head f = f FZ
+
+public export
+tail : (Fin (S l) -> x) -> (Fin l -> x)
+tail f = f . FS
 
 ||| All but the last element of a 'vector'
 public export
