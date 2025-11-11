@@ -24,12 +24,12 @@ public export prefix 0 #
 
 ||| Convenience functions so we dont have to keep writing GetC
 public export
-(.shp) : ContA -> Type
-(.shp) c = (GetC c) .shp
+(.Shp) : ContA -> Type
+(.Shp) c = (GetC c) .Shp
 
 public export
-(.pos) : (c : ContA) -> c.shp -> Type
-(.pos) c sh = (GetC c) .pos sh
+(.Pos) : (c : ContA) -> c.Shp -> Type
+(.Pos) c sh = (GetC c) .Pos sh
 
 -- alternative method of using applicative instances, not sure yet if this is better
 public export
@@ -55,9 +55,9 @@ oneToTwoAppl @{Cons} = Cons
 --   composeExtensionsA conts a -> Ext (composeContainersA conts) a
 -- ToContainerComp {conts = []} ce = ce
 -- ToContainerComp {conts = [c]} ce = ce
--- ToContainerComp {conts = (c :: d :: cs)} (shp <| idx) = 
+-- ToContainerComp {conts = (c :: d :: cs)} (Shp <| idx) = 
 --   let rst = (ToContainerComp {conts=(d :: cs)}) . idx
---   in (shp <| shapeExt . rst) <| (\(cp ** fsh) => index (rst cp) fsh)
+--   in (Shp <| shapeExt . rst) <| (\(cp ** fsh) => index (rst cp) fsh)
 
 -- public export
 -- FromContainerComp : {conts : List ContA} ->
@@ -128,13 +128,13 @@ oneToTwoAppl @{Cons} = Cons
 -- ||| Hence, just like with EmptyExt we provide convenience functions to create this unit shape easily
 -- public export
 -- emptyShapeCubicalTensor : {shape : List Nat} ->
---   (composeContainersA (Vect <$> shape)) .shp
+--   (composeContainersA (Vect <$> shape)) .Shp
 -- emptyShapeCubicalTensor {shape = []} = ()
 -- emptyShapeCubicalTensor {shape = (_ :: _)}
 --   = () <| (\_ => emptyShapeCubicalTensor)
 
 -- shapeOfCubicalTensorIsUnit : {shape : List Nat} ->
---   (composeContainersA (Vect <$> shape)) .shp = ()
+--   (composeContainersA (Vect <$> shape)) .Shp = ()
 -- shapeOfCubicalTensorIsUnit {shape = []} = Refl
 -- shapeOfCubicalTensorIsUnit {shape = (s :: ss)}
 --   = rewrite shapeOfCubicalTensorIsUnit {shape = ss} in ?afasdf

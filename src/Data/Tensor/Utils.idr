@@ -154,7 +154,7 @@ namespace Max
   --maxA . FromCubicalTensor
 
 namespace OneHot
-  -- oneHotA : Num a => {c : Cont} -> (i : c .shp) -> CTensor [c] a
+  -- oneHotA : Num a => {c : Cont} -> (i : c .Shp) -> CTensor [c] a
 
   public export
   oneHot : Num a => {n : Nat} ->
@@ -167,17 +167,17 @@ namespace Triangular
   cTriBool : {c : Cont} ->
     (ip : InterfaceOnPositions c MOrd) =>
     AllApplicative [c] =>
-    (sh : c.shp) -> CTensor [c, c] Bool
+    (sh : c.Shp) -> CTensor [c, c] Bool
   cTriBool {ip = MkI {p}} sh
     = let cPositions = positions {sh=sh}
-          pp : MOrd (c.pos sh) := p sh
+          pp : MOrd (c.Pos sh) := p sh
       in outerWith (flip isSubTerm) cPositions cPositions
 
   -- public export
   -- triA : Num a => {c : Cont} ->
   --   (ip : InterfaceOnPositions c MOrd) =>
   --   AllApplicative [c] =>
-  --   (sh : c.shp) -> CTensor [c, c] a
+  --   (sh : c.Shp) -> CTensor [c, c] a
   -- triA sh = fromBool <$> cTriBool sh
 
   public export

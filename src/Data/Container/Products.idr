@@ -16,15 +16,14 @@ public export infixr 0 >@
 ||| Categorical product of containers
 public export
 (>*<) : Cont -> Cont -> Cont
-(shp !> pos) >*< (shp' !> pos')
-  = ((s, s') : (shp, shp')) !> Either (pos s) (pos' s')
+c1 >*< c2 = ((s, s') : (c1.Shp, c2.Shp)) !> (c1.Pos s, c2.Pos s')
 
 ||| Non-categorical product of containers, often also called
-||| 'Hancock' (Scotland), 'Dirichlet' (Spivak ), or 'Tensor product' (various)
+||| 'Hancock' (Scotland), 'Dirichlet' (Spivak), or 'Tensor product' (various)
 ||| Monoid with CUnit
 public export
 (><) : Cont -> Cont -> Cont
-(shp !> pos) >< (shp' !> pos') = ((s, s') : (shp, shp')) !> (pos s, pos' s')
+c1 >< c2 = ((s, s') : (c1.Shp, c2.Shp)) !> (c1.Pos s, c2.Pos s')
 
 
 ||| Coproduct of containers
@@ -39,19 +38,19 @@ public export
 ||| Monoid with Scalar
 public export
 (>@) : Cont -> Cont -> Cont
-c >@ d = (ex : Ext c d.shp) !> (cp : c.pos (shapeExt ex) ** d.pos (index ex cp))
+c >@ d = (ex : Ext c d.Shp) !> (cp : c.Pos (shapeExt ex) ** d.Pos (index ex cp))
 
 public export infixr 0 @>
 
 ||| Diagrammatic composition of containers
 public export
 (@>) : Cont -> Cont -> Cont
-c @> d = (ex : Ext d c.shp) !> (dp : d.pos (shapeExt ex) ** c.pos (index ex dp))
+c @> d = (ex : Ext d c.Shp) !> (dp : d.Pos (shapeExt ex) ** c.Pos (index ex dp))
 
 
 ||| Derivative of a container
-||| Given c=(shp !> pos) the derivative can be thought of as 
-||| a shape s : shp, a distinguished position p : pos s, and the set of *all other positions*
+||| Given c=(Shp !> pos) the derivative can be thought of as 
+||| a shape s : Shp, a distinguished position p : pos s, and the set of *all other positions*
 public export
 Deriv : (c : Cont) ->
   InterfaceOnPositions c DecEq =>

@@ -81,6 +81,6 @@ causalMask : {a : Type} -> Num a =>
   AllApplicative [c] =>
   CTensor [c, c] a -> CTensor [c, c] a
 causalMask attentionMatrix = 
-  let contShape : c.shp
+  let contShape : c.Shp
       contShape = shapeExt (shapeExt (GetT attentionMatrix))
   in maskedFill attentionMatrix (not <$> cTriBool contShape) minusInfinity

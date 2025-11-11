@@ -108,15 +108,15 @@ Tensor = foldr (>@) Scalar
 public export
 InternalLens : Cont -> Cont -> Cont
 InternalLens c d
-  = (f : ((x : c.shp) -> (y : d.shp ** d.pos y -> c.pos x)))
-    !> (xx : c.shp ** d.pos (fst (f xx)))
+  = (f : ((x : c.Shp) -> (y : d.Shp ** d.Pos y -> c.Pos x)))
+    !> (xx : c.Shp ** d.Pos (fst (f xx)))
 
 ||| From https://www.cs.ox.ac.uk/people/samuel.staton/papers/cie10.pdf
 public export
 CartesianClosure : Cont -> Cont -> Cont
 CartesianClosure c d
-  = (f : ((x : c.shp) -> (y : d.shp ** d.pos y -> Maybe (c.pos x))))
-    !> (xx : c.shp ** yy' : d.pos (fst (f xx)) ** ?cartesianClosureImpl)
+  = (f : ((x : c.Shp) -> (y : d.Shp ** d.Pos y -> Maybe (c.Pos x))))
+    !> (xx : c.Shp ** yy' : d.Pos (fst (f xx)) ** ?cartesianClosureImpl)
 
 ||| Constant container, positions do not depend on shapes
 ||| Some of the above containers can be refactored in terms of these

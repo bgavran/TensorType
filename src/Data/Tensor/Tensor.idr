@@ -555,7 +555,7 @@ namespace TensorInstances
     ||| Naperian instance here
     public export
     positions : {c : Cont} ->
-      {sh : c.shp} -> CTensor [c] (c.pos sh)
+      {sh : c.Shp} -> CTensor [c] (c.Pos sh)
     positions = extToVector positionsCont
 
   namespace ShowInstance
@@ -771,7 +771,7 @@ namespace SetterGetter
   data Index : (shape : List Cont) -> (t : CTensor shape dtype) -> Type where
     Nil : {val : dtype} -> Index [] (embed val)
     (::) : {t : CTensor (c :: cs) dtype} ->
-      (p : c.pos (shapeExt (extractTopExt t))) ->
+      (p : c.Pos (shapeExt (extractTopExt t))) ->
       Index cs (index (extractTopExt t) p) ->
       Index (c :: cs) t
   

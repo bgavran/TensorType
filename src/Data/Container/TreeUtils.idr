@@ -166,7 +166,7 @@ namespace ApplicativeRoseTree
       AtNode : {ts : (GetC c) `fullOf` (RoseTreeShape c)} ->
         RoseTreePos c (NodeS ts)
       SubTree : {ts : (GetC c) `fullOf` (RoseTreeShape c)} ->
-        (ps : c.pos (shapeExt ts)) -> -- position in a given list
+        (ps : c.Pos (shapeExt ts)) -> -- position in a given list
         RoseTreePos c (index ts ps) -> -- position in the shape of RoseTree at a location specified by ps
         RoseTreePos c (NodeS ts)
   
@@ -176,7 +176,7 @@ namespace ApplicativeRoseTree
       AtNode : {ts : (GetC c) `fullOf` (RoseTreeShape c)} ->
         RoseTreePosNode c (NodeS ts)
       SubTree : {ts : (GetC c) `fullOf` (RoseTreeShape c)} ->
-        (ps : c.pos (shapeExt ts)) -> -- position in a given list
+        (ps : c.Pos (shapeExt ts)) -> -- position in a given list
         RoseTreePosNode c (index ts ps) -> -- position in the sub-tree at the above defined position
         RoseTreePosNode c (NodeS ts)
 
@@ -185,7 +185,7 @@ namespace ApplicativeRoseTree
     data RoseTreePosLeaf : (c : ContA) -> (t : RoseTreeShape c) -> Type where
       AtLeaf : RoseTreePosLeaf c LeafS
       SubTree : {ts : (GetC c) `fullOf` (RoseTreeShape c)} ->
-        (ps : c.pos (shapeExt ts)) -> -- position in a given list
+        (ps : c.Pos (shapeExt ts)) -> -- position in a given list
         RoseTreePosLeaf c (index ts ps) -> -- position in the sub-tree at the above defined position
         RoseTreePosLeaf c (NodeS ts)
     

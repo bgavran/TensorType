@@ -11,8 +11,8 @@ import Misc
 public export
 record Ext (c : Cont) (x : Type) where
   constructor (<|)
-  shapeExt : c.shp
-  index : c.pos shapeExt -> x
+  shapeExt : c.Shp
+  index : c.Pos shapeExt -> x
 
 ||| Container c can be said to be "full off" a type x
 ||| `fullOf` is sometimes used as infix operator to aid readability
@@ -33,7 +33,7 @@ Functor ((Ext d) . (Ext c)) where
 ||| Container setter
 public export
 set : {c : Cont} -> InterfaceOnPositions c Eq =>
-  (e : Ext c x) -> c.pos (shapeExt e) -> x -> Ext c x
+  (e : Ext c x) -> c.Pos (shapeExt e) -> x -> Ext c x
 set {c=(s !> p)} @{MkI} (sh <| contentAt) i x
   = sh <| updateAt contentAt (i, x)
 
@@ -48,7 +48,7 @@ namespace ExtProofs
   public export
   mapIndexCont : {0 f : a -> b} -> {c : Cont} ->
     (l : c `fullOf` a) ->
-    (ps : c.pos (shapeExt (f <$> l))) ->
+    (ps : c.Pos (shapeExt (f <$> l))) ->
     f (index l (rewrite sym (mapShapeExt {f=f} l) in ps))
       = index (f <$> l) ps
   mapIndexCont {c=shp !> pos} (sh <| contentAt) ps = Refl
@@ -68,9 +68,9 @@ namespace EqExt
     shapesEqual : e1.shapeExt = e2.shapeExt
     ||| For each position in that shape, the values must be equal
     ||| Relying on rewrite to get the correct type for the position
-    valuesEqual : (p : c.pos (e1.shapeExt)) ->
+    valuesEqual : (p : c.Pos (e1.shapeExt)) ->
       e1.index p =
-      e2.index (rewrite__impl (c.pos) (sym shapesEqual) p)
+      e2.index (rewrite__impl (c.Pos) (sym shapesEqual) p)
     {-
     Another alternative is to use DecEq, and a different explicit rewrite
      -}

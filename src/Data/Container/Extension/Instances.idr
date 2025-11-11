@@ -113,5 +113,5 @@ public export
 ||| The definition in Data.Functor.positions is for Naperian containers
 ||| i.e. containers with a unit shape
 public export
-positionsCont : {sh : c.shp} -> Ext c (c.pos sh)
+positionsCont : {sh : c.Shp} -> Ext c (c.Pos sh)
 positionsCont = sh <| id

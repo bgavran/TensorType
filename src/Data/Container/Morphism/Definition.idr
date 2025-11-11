@@ -24,8 +24,8 @@ namespace DependentLenses
   public export
   record (=%>) (c1, c2 : Cont) where
     constructor (<%!)
-    fwd : c1.shp -> c2.shp
-    bwd : (x : c1.shp) -> c2.pos (fwd x) -> c1.pos x
+    fwd : c1.Shp -> c2.Shp
+    bwd : (x : c1.Shp) -> c2.Pos (fwd x) -> c1.Pos x
 
   %name (=%>) f, g, h
   
@@ -33,9 +33,15 @@ namespace DependentLenses
   ||| Constructor for closed dependent lens
   public export 
   (!%) : {0 c1, c2 : Cont} ->
-    ((x : c1.shp) -> (y : c2.shp ** (c2.pos y -> c1.pos x))) ->
+    ((x : c1.Shp) -> (y : c2.Shp ** (c2.Pos y -> c1.Pos x))) ->
     c1 =%> c2
   (!%) f = (\x => fst (f x)) <%! (\x => snd (f x))
+
+  public export
+  (%!) : {0 c1, c2 : Cont} ->
+    (f : c1 =%> c2) ->
+    (x : c1.Shp) -> (y : c2.Shp ** (c2.Pos y -> c1.Pos x))
+  (%!) f x = (f.fwd x ** f.bwd x)
   
   ||| Composition of dependent lenses
   public export
@@ -58,14 +64,14 @@ namespace DependentCharts
   public export
   record (=&>) (c1, c2 : Cont) where
     constructor (<&!)
-    fwd : c1.shp -> c2.shp
-    fwd' : (x : c1.shp) -> c1.pos x -> c2.pos (fwd x)
+    fwd : c1.Shp -> c2.Shp
+    fwd' : (x : c1.Shp) -> c1.Pos x -> c2.Pos (fwd x)
   
   
   ||| Constructor for closed dependent chart
   public export
   (!&) : {0 c1, c2 : Cont} ->
-    ((x : c1.shp) -> (y : c2.shp ** (c1.pos x -> c2.pos y))) ->
+    ((x : c1.Shp) -> (y : c2.Shp ** (c1.Pos x -> c2.Pos y))) ->
     c1 =&> c2
   (!&) f = (\x => fst (f x)) <&! (\x => snd (f x))
 
@@ -102,7 +108,7 @@ valContMap {c1=(shp !> pos)} {c2=(shp' !> pos')} (fwd <&! fwd')
 -- public export
 -- record (~%>) (c1, c2 : ContF R) where
 --   constructor (<~!)
---   fwd' : c1.shp' -> c2.shp'
+--   fwd' : c1.Shp' -> c2.Shp'
 
 
 -- upd : c1 ~%> c2 -> 
