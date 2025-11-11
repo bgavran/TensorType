@@ -55,7 +55,7 @@ exampleInput = ># [1, 5]
 
 public export
 exampleParam : Tensor [2, 2] Double
-exampleParam = ># [ [0.1, 0.2]
+exampleParam = ># [ [0.4, 0.2]
                   , [0.7, -3]]
 
 public export
@@ -66,8 +66,7 @@ public export
 layerParam : AffineLayerParams (Vect 2) (Vect 2) Double 
 layerParam = MkParams exampleParam exampleBias
 
-
 public export
 exampleOutput : Tensor [2] Double
-exampleOutput = Run (simpleNLayerNet 3) exampleInput
-  ((layerParam ** ()) ** (layerParam ** ()) ** layerParam) 
+exampleOutput = Run (simpleNLayerNet 2) exampleInput
+  ((layerParam ** ()) ** layerParam) 

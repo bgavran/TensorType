@@ -13,14 +13,14 @@ import Architectures.Utils
 ||| Single-head transformer layer
 ||| Only missing layernorm, otherwise a complete definition
 public export
-TransformerPara : {a : Type} -> Num a => Ord a =>
+Transformer : {a : Type} -> Num a => Ord a =>
   {inputStructure, features : Cont} ->
   (allAppl : AllApplicative [inputStructure, features]) =>
   (allAlg : AllAlgebra [inputStructure, features] a) =>
   {default id causalMask : CTensor [inputStructure, inputStructure] a -> CTensor [inputStructure, inputStructure] a} ->
   (softargmax : CTensor [inputStructure] a -> CTensor [inputStructure] a) ->
   CTensor [inputStructure, features] a -\-> CTensor [inputStructure, features] a
-TransformerPara {allAppl = Cons} {allAlg = Cons} softargmax
+Transformer {allAppl = Cons} {allAlg = Cons} softargmax
   = composePara (addResidual (SelfAttention softargmax)) (addResidual ffnet)
     where
       ffnet : CTensor [inputStructure, features] a -\-> CTensor [inputStructure, features] a

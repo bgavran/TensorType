@@ -10,6 +10,8 @@ record Para (a : Type) (b : Type) where
     Param : a -> Type
     Run : (x : a) -> Param x -> b
 
+%name Para fp, gp, hp
+
 public export infixr 0 -\->
 
 ||| Experimental infix notation, for now

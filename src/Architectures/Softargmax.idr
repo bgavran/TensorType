@@ -12,6 +12,7 @@ softargmax {temperature} t
   = let exps : CTensor [i] a := exp <$> (t <&> (/ temperature))
     in exps <&> (/ (reduce exps))
 
+-- TODO make softargmax a parametric function with temperature as the parameter
 
 
 
