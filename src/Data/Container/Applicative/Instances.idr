@@ -19,7 +19,7 @@ namespace ListApplicative
   ||| This arises out of the Prelude.Types List applicative 
   ||| Effectively it behaves like a cartesian product
   public export 
-  [cartProdInstance] Applicative List' where
+  Applicative List' where
     pure = fromList . pure
     fs <*> vs = fromList $ toList fs <*> toList vs
 
@@ -27,14 +27,21 @@ namespace ListApplicative
   listZip' : List' a -> List' b -> List' (a, b)
   listZip' l1 l2 = fromList $ listZip (toList l1) (toList l2)
 
-  ||| This another List applicative, behaving like the usual zip one
-  ||| It appears that List doesn't have the concrete Zippable instance written
-  ||| Only one in Data.Zippable that follows from Applicative, which isn't the one we want
-  ||| This is the one we use by default, as it's more useful for linear algebra
-  public export
-  Applicative List' where
-    pure = fromList . pure
-    fs <*> vs = fromList $ uncurry ($) <$> listZip (toList fs) (toList vs)
+  ||| Note that usually it is said that List has two applicative structures
+  ||| one defined above, and another one defined by `zipList` (Section 3 of 
+  ||| https://www.staff.city.ac.uk/~ross/papers/Constructors.pdf).
+  ||| However, note that such definitions rely on implciit laziness of the
+  ||| underlying language, and recast the type not to `List` but `CoList` (or
+  ||| usually called `LazyList`), i.e. a list with potentially infinite number
+  ||| of elements. 
+  ||| This allows them to define the `pure` and show that applicative laws hold.
+  ||| However, since we are working in Idris which is strict, this does not hold
+  ||| and we cannot lawfully make `List` an applicative functor in such a way.
+  ||| For instance, this is not a valid applicative instance, because unital 
+  ||| laws do not hold:
+  ||| Applicative List' where
+  |||   pure = fromList . pure
+  |||   fs <*> vs = fromList $ uncurry ($) <$> listZip (toList fs) (toList vs)
 
 
 namespace BinTreeLeafApplicative
