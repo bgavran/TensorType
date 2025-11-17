@@ -16,7 +16,7 @@ public export infixr 0 >@
 ||| Categorical product of containers
 public export
 (>*<) : Cont -> Cont -> Cont
-c1 >*< c2 = ((s, s') : (c1.Shp, c2.Shp)) !> (c1.Pos s, c2.Pos s')
+c1 >*< c2 = ((s, s') : (c1.Shp, c2.Shp)) !> Either (c1.Pos s) (c2.Pos s')
 
 ||| Non-categorical product of containers, often also called
 ||| 'Hancock' (Scotland), 'Dirichlet' (Spivak), or 'Tensor product' (various)
