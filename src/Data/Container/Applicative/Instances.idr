@@ -69,6 +69,16 @@ namespace BinTreeApplicative
     fs <*> vs = uncurry ($) <$> liftA2BinTree' fs vs
 
 
+namespace MaybeApplicative
+  public export
+  liftA2Maybe' : Maybe' a -> Maybe' b -> Maybe' (a, b)
+  liftA2Maybe' m1 m2 = fromConcreteTy $
+    liftA2 (toConcreteTy m1) (toConcreteTy m2)
+
+  public export
+  Applicative Maybe' where
+    pure a = fromConcreteTy $ Just a
+    fs <*> vs = uncurry ($) <$> liftA2Maybe' fs vs
 
 namespace ApplicativeInstances
   ||| Container with a single thing
@@ -88,9 +98,9 @@ namespace ApplicativeInstances
   -- Either = (#) Either
 
   -- ||| +1  
-  -- public export
-  -- Maybe : ContA
-  -- Maybe = (#) Maybe
+  public export
+  Maybe : ContA
+  Maybe = (#) Maybe
   
   public export
   List : ContA
