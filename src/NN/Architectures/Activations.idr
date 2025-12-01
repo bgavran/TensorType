@@ -1,4 +1,4 @@
-module Architectures.Activations
+module NN.Architectures.Activations
 
 import Data.Tensor
 import Data.Para

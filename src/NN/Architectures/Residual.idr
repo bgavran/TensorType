@@ -1,4 +1,4 @@
-module Architectures.Residual
+module NN.Architectures.Residual
 
 import Data.Para
 

@@ -1,10 +1,7 @@
 module Attention
 
 import Data.Tensor
-import Data.Para
-
-import Architectures.Softargmax
-import Architectures.Transformer.Attention
+import NN.Architectures
 
 {-------------------------------------------------------------------------------
 Attention example

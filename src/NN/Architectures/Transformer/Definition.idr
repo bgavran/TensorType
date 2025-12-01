@@ -1,14 +1,14 @@
-module Architectures.Transformer.Definition
+module NN.Architectures.Transformer.Definition
 
 import Data.Tensor
 import Data.Para
 
-import Architectures.Affine
-import Architectures.Residual
-import Architectures.MLP
-import Architectures.Activations
-import Architectures.Transformer.Attention
-import Architectures.Utils
+import NN.Architectures.Affine
+import NN.Architectures.Residual
+import NN.Architectures.MLP
+import NN.Architectures.Activations
+import NN.Architectures.Transformer.Attention
+import NN.Architectures.Utils
 
 ||| Single-head transformer layer
 ||| Only missing layernorm, otherwise a complete definition

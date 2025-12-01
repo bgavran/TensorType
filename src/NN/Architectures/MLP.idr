@@ -1,10 +1,10 @@
-module Architectures.MLP
+module NN.Architectures.MLP
 
 import Data.Tensor
 import Data.Para
 
-import Architectures.Affine
-import Architectures.Activations
+import NN.Architectures.Affine
+import NN.Architectures.Activations
 
 ||| N-layer multi-layer perceptron with a specified activation function,
 ||| and flag for whether the last layer should have it

@@ -1,4 +1,4 @@
-module Architectures.Utils
+module NN.Architectures.Utils
 
 import Data.Para
 import Data.Tensor

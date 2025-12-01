@@ -1,4 +1,4 @@
-module Architectures.Affine
+module NN.Architectures.Affine
 
 import Data.Tensor
 import Data.Para

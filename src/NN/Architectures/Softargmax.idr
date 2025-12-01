@@ -1,4 +1,4 @@
-module Architectures.Softargmax
+module NN.Architectures.Softargmax
 
 import Data.Tensor
 
