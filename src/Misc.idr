@@ -303,6 +303,15 @@ applyWhen False f a = a
 applyWhen True f a = f a
 
 
+public export
+record Iso (a, b : Type) where
+  constructor MkIso
+  forward : a -> b
+  backward : b -> a
+  forwardBackward : (x : a) -> backward (forward x) = x
+  backwardForward : (y : b) -> forward (backward y) = y
+
+
 namespace FinArithmetic
   ||| Like weakenN from Data.Fin, but where n is on the other side of +
   public export
