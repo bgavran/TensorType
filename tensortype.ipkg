@@ -16,45 +16,42 @@ brief = "Type-safe pure functional tensor processing framework, supporting non-c
 depends = contrib, elab-util
 
 -- modules to install
-modules = Data.Container,
-          Data.Container.Object.Definition,
-          Data.Container.Object.Instances,
-          Data.Container.Extension.Definition,
-          Data.Container.Extension.Instances,
-          Data.Container.Morphism.Definition,
-          Data.Container.Morphism.Instances,
-          Data.Container.Concrete.Definition,
-          Data.Container.Concrete.Instances,
-          Data.Container.Applicative.Definition,
-          Data.Container.Applicative.Instances,
-          Data.Container.Definitions,
-          Data.Container.Instances,
-          Data.Container.InstanceInterfaces,
-          Data.Container.Products,
-          Data.Container.TreeUtils,
-          Data.Container.SubTerm,
-          Data.Tensor,
-          Data.Tensor.Tensor,
-          Data.Tensor.Utils,
-          -- Data.Tensor.Einsum.EinsumExpr,
-          -- Data.Tensor.Einsum.EinsumElab,
-          -- Data.Tensor.Einsum.EinsumElabUtils,
-          Data.Para,
-          Data.Para.Para,
-          Data.Functor.Naperian,
-          Data.Tree,
-          Data.Algebra,
-          NN.Architectures,
-          NN.Architectures.Activations,
-          NN.Architectures.Residual,
-          NN.Architectures.Softargmax,
-          NN.Architectures.Affine,
-          NN.Architectures.MLP,
-          NN.Architectures.Transformer.Attention,
-          NN.Architectures.Transformer.Definition,
-          NN.Architectures.RNN,
-          NN.Architectures.Utils,
-          Misc
+modules = Data.Container
+        , Data.Container.Object.Definition
+        , Data.Container.Object.Instances
+        , Data.Container.Extension.Definition
+        , Data.Container.Extension.Instances
+        , Data.Container.Morphism.Definition
+        , Data.Container.Morphism.Instances
+        , Data.Container.Concrete.Definition
+        , Data.Container.Concrete.Instances
+        , Data.Container.Applicative.Definition
+        , Data.Container.Applicative.Instances
+        , Data.Container.Definitions
+        , Data.Container.Instances
+        , Data.Container.InstanceInterfaces
+        , Data.Container.Products
+        , Data.Container.TreeUtils
+        , Data.Container.SubTerm
+        , Data.Tensor
+        , Data.Tensor.Tensor
+        , Data.Tensor.Utils
+        , Data.Para
+        , Data.Para.Para
+        , Data.Functor.Naperian
+        , Data.Tree
+        , Data.Algebra
+        , NN.Architectures
+        , NN.Architectures.Activations
+        , NN.Architectures.Residual
+        , NN.Architectures.Softargmax
+        , NN.Architectures.Affine
+        , NN.Architectures.MLP
+        , NN.Architectures.Transformer.Attention
+        , NN.Architectures.Transformer.Definition
+        , NN.Architectures.RNN
+        , NN.Architectures.Utils
+        , Misc
 
 -- main file (i.e. file to load at REPL)
 -- main =
