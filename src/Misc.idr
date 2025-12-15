@@ -22,6 +22,22 @@ public export
 strength : Applicative f => a -> f b -> f (a, b)
 strength a fb = liftA2 (pure a) fb
 
+
+||| Graph of a dependent function
+public export
+graph : {t : a -> Type} ->
+  (g : (x : a) -> t x) ->
+  a -> (x : a ** t x)
+graph g x = (x ** g x)
+
+||| Version of `map` for dependent function
+||| Note that here `x : a` is identity in some sense, it comes from `f a`
+public export
+dependentMap : Functor f => {t : a -> Type} ->
+  (g : (x : a) -> t x) ->
+  f a -> f (x : a ** t x)
+dependentMap g fa = map (graph g) fa
+
 ||| Analogue of `(::)` for lists. 
 ||| Takes an element and prepends it to some 'vector' 
 public export
