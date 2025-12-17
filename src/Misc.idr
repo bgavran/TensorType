@@ -69,16 +69,21 @@ takeFin : (s : Fin (S n)) -> Vect n a -> Vect (finToNat s) a
 takeFin FZ _ = []
 takeFin (FS s) (x :: xs) = x :: takeFin s xs
 
-||| We also incldue minus infinity because of computation causal masks within
-||| attention: we need to have a number such that `exp minusInfinity = 0`.
+||| We also include minus infinity because of the necessity to compute
+||| causal masks within the attention mechanism.
+||| For rules that `exp` should satisfy, see https://arxiv.org/abs/1911.04790
+||| We also have
+||| `exp . log = id`, `log . exp = id`, `exp minusInfinity = 0`...
 public export
-interface Exp a where
+interface Num a => Exp a where
   exp : a -> a
+  log : a -> a
   minusInfinity : a
 
 public export
 Exp Double where
   exp = Prelude.exp
+  log = Prelude.log
   minusInfinity = cast "-inf.0"
 
 public export
@@ -126,9 +131,10 @@ listZip _ _ = []
 public export
 maxInList : Ord a => List a -> Maybe a
 maxInList [] = Nothing
+maxInList [x] = Just x
 maxInList (x :: xs) = do
   mx <- maxInList xs
-  pure (Prelude.max x mx)
+  pure (max x mx)
 
 ||| Dual to concat from Data.Vect
 public export
