@@ -15,9 +15,9 @@ logSumExp t = do
   c <- max t
   pure $ c + log (reduce (t <&> (\x => exp $ x - c)))
 
-|||| Log(softargmax(x)), but computationally efficient and numerically stable
-|||| Used for computing cross-entropy loss
-|||| Returns empty tensor for empty input
+||| Log(softargmax(x)), but computationally efficient and numerically stable
+||| Used for computing cross-entropy loss
+||| Returns empty tensor for empty input
 public export
 logSoftargmax : {i : Cont} -> Exp a => Ord a => Neg a =>
   Foldable (CTensor [i]) =>

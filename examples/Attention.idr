@@ -16,8 +16,8 @@ SelfAttentionMat : {n, d : Nat} ->
   {default False causalMask : Bool} ->
   Tensor [n, d] Double -\-> Tensor [n, d] Double
 SelfAttentionMat {causalMask} = case causalMask of
-  False => SelfAttention softargmax
-  True => SelfAttention {causalMask=Attention.causalMask} softargmax
+  False => SelfAttention softargmaxImpl
+  True => SelfAttention {causalMask=Attention.causalMask} softargmaxImpl
 
 
 ||| Let's fix a simple input matrix
@@ -46,7 +46,7 @@ outputMatrix = Run (SelfAttentionMat {causalMask=True}) inputMatrix params
 SelfAttentionTree : {d : Nat} ->
   CTensor [BinTreeLeaf, Vect d] Double -\->
   CTensor [BinTreeLeaf, Vect d] Double
-SelfAttentionTree = SelfAttention softargmax
+SelfAttentionTree = SelfAttention softargmaxImpl
 
 ||| We fix a simple input tree
 ||| Notably, the set of parameters can be the same as the one for matrices

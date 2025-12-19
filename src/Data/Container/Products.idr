@@ -2,9 +2,12 @@ module Data.Container.Products
 
 import Data.DPair
 import Decidable.Equality
+import Data.Vect
+import Data.Vect.Quantifiers
 
 import Data.Container.Object.Definition
 import Data.Container.Extension.Definition
+import Control.Monad.Distribution
 
 import Misc
 
@@ -12,8 +15,10 @@ public export infixr 0 ><
 public export infixr 0 >*<
 public export infixr 0 >+<
 public export infixr 0 >@
+public export infixr 0 <%>
 
 ||| Categorical product of containers
+||| Monoid with UnitCont
 public export
 (>*<) : Cont -> Cont -> Cont
 c1 >*< c2 = ((s, s') : (c1.Shp, c2.Shp)) !> Either (c1.Pos s) (c2.Pos s')
@@ -27,6 +32,7 @@ c1 >< c2 = ((s, s') : (c1.Shp, c2.Shp)) !> (c1.Pos s, c2.Pos s')
 
 
 ||| Coproduct of containers
+||| Monoid with Empty
 public export
 (>+<) : Cont -> Cont -> Cont
 c1 >+< c2 = (es : Either c1.Shp c2.Shp) !> either c1.Pos c2.Pos es
@@ -44,6 +50,32 @@ public export infixr 0 @>
 public export
 (@>) : Cont -> Cont -> Cont
 c @> d = (ex : Ext d c.Shp) !> (dp : d.Pos (shapeExt ex) ** c.Pos (index ex dp))
+
+public export
+data AllPos : {cs : Vect n Cont} -> All Shp cs -> Type where
+  Nil : AllPos []
+  (::) : {0 cs : Vect m Cont} -> {0 ss : All Shp cs} ->
+    Pos c s -> AllPos {cs=cs} ss -> AllPos {cs=(c::cs)} (s :: ss)
+
+
+
+||| Probabilistic product of containers
+||| Convex combination of shapes, and a product of positions
+public export
+ConvexComb : {n : Nat} -> Vect n Cont -> Cont
+ConvexComb xs = ((p, shp) : (Dist n, All Shp xs)) !> AllPos shp
+
+-- DCont : (n : Nat) -> Cont
+-- DCont n = (_ : Dist n) !> Unit
+-- 
+-- ProdCont : Vect n Cont -> Cont 
+-- ProdCont xs = (ys : All Shp xs) !> AllPos ys
+-- 
+-- DistCont : Vect n Cont -> Cont
+-- DistCont xs = ProdCont xs >< DCont
+
+--(<%>) : Cont -> Cont -> Cont
+--c <%> d = (Tensor [2] Double, (c1.Shp, c2.Shp)) !> 
 
 
 ||| Derivative of a container

@@ -41,6 +41,7 @@ modules = Data.Container
         , Data.Functor.Naperian
         , Data.Tree
         , Data.Algebra
+        , Control.Monad.Distribution
         , NN.Architectures
         , NN.Architectures.Activations
         , NN.Architectures.Residual

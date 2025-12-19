@@ -4,6 +4,7 @@ import Data.Vect
 import System.Random
 import Data.Fin.Arith
 import Data.List.Quantifiers
+import Data.Vect.Quantifiers
 import Decidable.Equality
 import Decidable.Equality.Core
 import Data.String
@@ -12,63 +13,52 @@ import Data.List1
 
 %hide Builtin.infixr.(#)
 
-||| Definition of liftA2 in terms of (<*>)
-public export
-liftA2 : Applicative f => f a -> f b -> f (a, b)
-liftA2 fa fb = ((,) <$> fa) <*> fb
+namespace Applicative
+  ||| Definition of liftA2 in terms of (<*>)
+  public export
+  liftA2 : Applicative f => f a -> f b -> f (a, b)
+  liftA2 fa fb = ((,) <$> fa) <*> fb
+  
+  ||| Tensorial strength
+  public export
+  strength : Applicative f => a -> f b -> f (a, b)
+  strength a fb = liftA2 (pure a) fb
+  
+  ||| Pointwise Num structure for Applicative functors
+  public export
+  [applicativeNum] Num a => Applicative f => Num (f a) where
+    xs + ys = uncurry (+) <$> liftA2 xs ys
+    xs * ys = uncurry (*) <$> liftA2 xs ys
+    fromInteger = pure . fromInteger
 
-||| Tensorial strength
-public export
-strength : Applicative f => a -> f b -> f (a, b)
-strength a fb = liftA2 (pure a) fb
+namespace NaperianVect
+  ||| Analogue of `(::)` for vectors, in a Naperian form
+  ||| Takes an element and prepends it to some 'vector' 
+  public export
+  cons : x -> (Fin l -> x) -> (Fin (S l) -> x)
+  cons x _ FZ = x
+  cons _ f (FS k') = f k'
+  
+  public export
+  head : (Fin (S l) -> x) -> x
+  head f = f FZ
+  
+  public export
+  tail : (Fin (S l) -> x) -> (Fin l -> x)
+  tail f = f . FS
+  
+  ||| All but the last element of a 'vector'
+  public export
+  init : (Fin (S n) -> a) -> Fin n -> a
+  init f x = f (weaken x)
+  
+  ||| Analogus to take in Data.Vect, but for Fin
+  public export 
+  takeFin : (s : Fin (S n)) -> Vect n a -> Vect (finToNat s) a
+  takeFin FZ _ = []
+  takeFin (FS s) (x :: xs) = x :: takeFin s xs
 
-
-||| Graph of a dependent function
-public export
-graph : {t : a -> Type} ->
-  (g : (x : a) -> t x) ->
-  a -> (x : a ** t x)
-graph g x = (x ** g x)
-
-||| Version of `map` for dependent function
-||| Note that here `x : a` is identity in some sense, it comes from `f a`
-public export
-dependentMap : Functor f => {t : a -> Type} ->
-  (g : (x : a) -> t x) ->
-  f a -> f (x : a ** t x)
-dependentMap g fa = map (graph g) fa
-
-||| Analogue of `(::)` for lists. 
-||| Takes an element and prepends it to some 'vector' 
-public export
-cons : x -> (Fin l -> x) -> (Fin (S l) -> x)
-cons x _ FZ = x
-cons _ f (FS k') = f k'
-
-public export
-head : (Fin (S l) -> x) -> x
-head f = f FZ
-
-public export
-tail : (Fin (S l) -> x) -> (Fin l -> x)
-tail f = f . FS
-
-||| All but the last element of a 'vector'
-public export
-init : (Fin (S n) -> a) -> Fin n -> a
-init f x = f (weaken x)
-
-public export
-updateAt : Eq a => (a -> b) -> (a, b) -> (a -> b)
-updateAt f (i, val) i' = if i == i' then val else f i'
-
-
-||| Analogus to take in Data.Vect, but for Fin
-public export 
-takeFin : (s : Fin (S n)) -> Vect n a -> Vect (finToNat s) a
-takeFin FZ _ = []
-takeFin (FS s) (x :: xs) = x :: takeFin s xs
-
+||| Interface fo the Exponential
 ||| We also include minus infinity because of the necessity to compute
 ||| causal masks within the attention mechanism.
 ||| For rules that `exp` should satisfy, see https://arxiv.org/abs/1911.04790
@@ -93,14 +83,6 @@ interface Sqrt a where
 public export
 Sqrt Double where
   sqrt = Prelude.sqrt
-
-
-||| Pointwise Num structure for Applicative functors
-public export
-[applicativeNum] Num a => Applicative f => Num (f a) where
-  xs + ys = uncurry (+) <$> liftA2 xs ys
-  xs * ys = uncurry (*) <$> liftA2 xs ys
-  fromInteger = pure . fromInteger
 
 namespace Vect
   public export
@@ -144,25 +126,6 @@ unConcat {n = (S k)} xs = let (f, s) = splitAt m xs
                           in f :: unConcat s
 
 
-
-||| Interface describing how a type can be displayed as a 2d grid of characters
-public export
-interface Display (a : Type) where
-  display : (x : a) -> (h : Nat ** w : Nat ** Vect h ((Vect w) Char))
-
--- ||| Any type that implements Display can be shown as a string
--- public export
--- {a : Type} -> Display a => Show a where
---   show x = let (h ** w ** xs) = display x
---                ss = toList (intersperse "\n" (pack . toList <$> xs)) -- add intercalate here, and newline
---            in fastUnlines ss
-
--- public export
--- Display Char where
---   display x = (1 ** 1 ** [[x]])
-
-
-
 namespace RandomUtils
 -- Probably there's a faster way to do this
 -- public export
@@ -182,22 +145,12 @@ namespace RandomUtils
 
 
 
-
-
 -- for reshaping a tensor
-rr : {n, x, y : Nat}
+rrrrr : {n, x, y : Nat}
   -> Fin (S n)
   -> {auto prf : n = x * y}
   -> (Fin (S x), Fin (S y))
   -- -> Data.Fin.Arith.(*) (Fin (S x)) (Fin (S y))
-
-
-||| There is a similar function in Data.Fin.Arith, which has the smallest
-||| possible bound. This one does not, but has a simpler type signature.
-public export
-multFin : {m, n : Nat} -> Fin m -> Fin n -> Fin (m * n)
-multFin {n = (S _)} FZ y = FZ
-multFin {n = (S _)} (FS x) y = y + weaken (multFin x y)
 
 
 ||| Splits xs at each occurence of delimeter (general version for lists)
@@ -325,6 +278,24 @@ applyWhen False f a = a
 applyWhen True f a = f a
 
 
+namespace All
+  namespace Vect
+    public export
+    rewriteAllMap : {xs : Vect n a} ->
+      All p (f <$> xs) ->
+      All (p . f) xs
+    rewriteAllMap {xs = []} [] = []
+    rewriteAllMap {xs = (x :: xs)} (a :: as) = a :: rewriteAllMap as
+  
+  namespace List
+    public export
+    rewriteAllMap : {xs : List a} ->
+      All p (f <$> xs) ->
+      All (p . f) xs
+    rewriteAllMap {xs = []} [] = []
+    rewriteAllMap {xs = (x :: xs)} (a :: as) = a :: rewriteAllMap as
+
+
 public export
 record Iso (a, b : Type) where
   constructor MkIso
@@ -335,6 +306,13 @@ record Iso (a, b : Type) where
 
 
 namespace FinArithmetic
+  ||| There is a similar function in Data.Fin.Arith, which has the smallest
+  ||| possible bound. This one does not, but has a simpler type signature.
+  public export
+  multFin : {m, n : Nat} -> Fin m -> Fin n -> Fin (m * n)
+  multFin {n = (S _)} FZ y = FZ
+  multFin {n = (S _)} (FS x) y = y + weaken (multFin x y)
+
   ||| Like weakenN from Data.Fin, but where n is on the other side of +
   public export
   weakenN' : (0 n : Nat) -> Fin m -> Fin (n + m)
@@ -437,76 +415,43 @@ allSuccThenProdSucc : (xs : List Nat) -> {auto ps : All IsSucc xs} -> IsSucc (pr
 allSuccThenProdSucc [] {ps = []} = ItIsSucc
 allSuccThenProdSucc (_ :: xs') {ps = p :: _} = multSucc p (allSuccThenProdSucc xs')
 
--- t : Bool -> Type
--- t False = Int
--- t True = (String, String, String)
--- 
--- f : (b : Bool) -> t b
--- f False = 3
--- f True = ?hole2
+
+public export
+updateAt : Eq a => (a -> b) -> (a, b) -> (a -> b)
+updateAt f (i, val) i' = if i == i' then val else f i'
 
 
-testt : (shape : List Nat) -> Type
-testt [] = Unit
-testt (x :: xs) = (Fin x, testt xs)
+||| Graph of a dependent function
+public export
+graph : {t : a -> Type} ->
+  (g : (x : a) -> t x) ->
+  a -> (x : a ** t x)
+graph g x = (x ** g x)
 
-ggh : (shape : List Nat) -> testt shape
-
-
-interface Interface1 a where
-  constructor MkInterface1
-  getInterface1 : a
-
-interface Interface1 t => Interface2 t where
-  constructor MkInterface2
-  getInterface2 : t
-
-Interface1 Nat where
-  getInterface1 = 3
-
-[four] Interface1 Nat where
-  getInterface1 = 4
-
-getBoth : (i : Interface2 a) => (a, a)
-getBoth = (getInterface1, getInterface2)
+||| Version of `map` for dependent function
+||| Note that here `x : a` is identity in some sense, it comes from `f a`
+public export
+dependentMap : Functor f => {t : a -> Type} ->
+  (g : (x : a) -> t x) ->
+  f a -> f (x : a ** t x)
+dependentMap g fa = map (graph g) fa
 
 
-ll : Num a => List a
+||| Interface describing how a type can be displayed as a 2d grid of characters
+public export
+interface Display (a : Type) where
+  display : (x : a) -> (h : Nat ** w : Nat ** Vect h ((Vect w) Char))
 
-ll2 : List (Num a => a)
+-- ||| Any type that implements Display can be shown as a string
+-- public export
+-- {a : Type} -> Display a => Show a where
+--   show x = let (h ** w ** xs) = display x
+--                ss = toList (intersperse "\n" (pack . toList <$> xs)) -- add intercalate here, and newline
+--            in fastUnlines ss
 
-lk : (a :  Type ** List (Interface1 a => a))
-lk = (Nat ** [3, 5])
-
--- private prefix 0 #
--- record ApplF (lprop : Vect m ((Type -> Type) -> Type)) where
---   constructor (#)
---   F : Type -> Type
---   {auto 0 prf : All (\p => p F) lprop}
-
-interface MyInterface f where
-  tttt : (a -> b) -> (f a -> f b)
-
-
--- ex0 : List (ApplF [Functor, Applicative])
--- ex0 = [# Vect 4]
--- 
--- ex1 : List (ApplF [Functor, Applicative])
--- ex1 = [# List, # Vect 4]
--- 
--- ex2 : List (ApplF [Functor, Applicative])
--- ex2 = [# Maybe, # List, # Vect 100]
-
-data Repr : Type -> Type where
-  MkRepr : (a -> Int) -> Repr a
-
-failing
-  shouldNotTypeCheck : List (ApplF [Functor, Applicative])
-  shouldNotTypeCheck = [# Repr]
-
-  aIntt : Int
-  aIntt = 3
-
+-- public export
+-- Display Char where
+--   display x = (1 ** 1 ** [[x]])
 
 
 
@@ -544,23 +489,19 @@ filter'' p [] = (0 ** [])
 filter'' p (x :: xs) with (filter' p xs)
   _ | (_ ** xs') = if p x then (_ ** x :: xs') else (_ ** xs')
 
-
--- g : String
--- g = assert_total "asdf"
-
 {-
 Prelude.absurd : Uninhabited t => t -> a
 
- -}
+-}
 
-h : {n : Nat} -> Vect n a -> Nat
-h xs = n
-
-
-g : {0 n : Nat} -> Vect n a -> Nat
-g [] = 0
-g (x :: xs) = 1 + (g xs)
-
-proof2 : (v : Vect n a) -> g v = n
-proof2 [] = Refl
-proof2 (x :: xs) = cong (1 +) (proof2 xs)
+-- h : {n : Nat} -> Vect n a -> Nat
+-- h xs = n
+-- 
+-- 
+-- g : {0 n : Nat} -> Vect n a -> Nat
+-- g [] = 0
+-- g (x :: xs) = 1 + (g xs)
+-- 
+-- proof2 : (v : Vect n a) -> g v = n
+-- proof2 [] = Refl
+-- proof2 (x :: xs) = cong (1 +) (proof2 xs)

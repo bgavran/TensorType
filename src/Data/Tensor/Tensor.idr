@@ -318,6 +318,7 @@ namespace TensorInstances
     public export
     {shape : List Cont} -> Exp a => AllApplicative shape => Exp (CTensor shape a) where
       exp = (exp <$>)
+      log = (log <$>)
       minusInfinity = pure minusInfinity
 
 
