@@ -286,6 +286,13 @@ namespace All
       All (p . f) xs
     rewriteAllMap {xs = []} [] = []
     rewriteAllMap {xs = (x :: xs)} (a :: as) = a :: rewriteAllMap as
+
+    public export
+    rewriteAllMap' : {xs : Vect n a} ->
+      All (p . f) xs ->
+      All p (f <$> xs)
+    rewriteAllMap' {xs = []} [] = []
+    rewriteAllMap' {xs = (x :: xs)} (a :: as) = a :: rewriteAllMap' as
   
   namespace List
     public export
@@ -294,6 +301,7 @@ namespace All
       All (p . f) xs
     rewriteAllMap {xs = []} [] = []
     rewriteAllMap {xs = (x :: xs)} (a :: as) = a :: rewriteAllMap as
+
 
 
 public export
