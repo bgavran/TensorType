@@ -312,7 +312,7 @@ TensorType's implementation hinges on three interdependent components:
 * Efficiency:
   * In-place operations/views, and research on feasibility of linear types for doing so
   * Support for different tensor representation in the backend, and their tracking at the type level:
-    * Strided (at various levels; boxed, bytes, but also column/row major, including research on feasibility of strides for non-cubical tensors)
+    * Strided (at various levels; boxed, bytes, but also column/row major, including research on feasibility of [strides for non-cubical tensors](https://en.wikipedia.org/wiki/Iliffe_vector))
     * Sparse
     * Tabulated/delayed (for Naperian tensors)
   * Systematic optimisation via a FFI to a low-level kernel
