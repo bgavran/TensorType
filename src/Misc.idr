@@ -58,7 +58,7 @@ namespace NaperianVect
   takeFin FZ _ = []
   takeFin (FS s) (x :: xs) = x :: takeFin s xs
 
-||| Interface fo the Exponential
+||| Interface for the Exponential
 ||| We also include minus infinity because of the necessity to compute
 ||| causal masks within the attention mechanism.
 ||| For rules that `exp` should satisfy, see https://arxiv.org/abs/1911.04790
@@ -140,8 +140,8 @@ namespace RandomUtils
 
   public export
   Random a => Random b => Random (a, b) where
-    randomIO = ?what
-    randomRIO (lo, hi) = ?what2
+    randomIO = ?randomIO_rhs_1
+    randomRIO (lo, hi) = ?randomRIO_rhs_2
 
 
 
