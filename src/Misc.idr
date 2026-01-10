@@ -31,7 +31,7 @@ namespace Applicative
     xs * ys = uncurry (*) <$> liftA2 xs ys
     fromInteger = pure . fromInteger
 
-namespace NaperianVect
+namespace VectNaperianUtils
   ||| Analogue of `(::)` for vectors, in a Naperian form
   ||| Takes an element and prepends it to some 'vector' 
   public export
@@ -117,6 +117,17 @@ maxInList [x] = Just x
 maxInList (x :: xs) = do
   mx <- maxInList xs
   pure (max x mx)
+
+
+public export
+argmax : Ord a => IsSucc n => Vect n a -> Fin n 
+argmax [x] = FZ
+argmax (x :: x' :: xs) = if x > index maxRest (x' :: xs) then FZ else FS maxRest
+  where maxRest = argmax (x' :: xs)
+
+public export
+argmin : Ord a => IsSucc n => Vect n a -> Fin n
+argmin = argmax @{Reverse} 
 
 ||| Dual to concat from Data.Vect
 public export
