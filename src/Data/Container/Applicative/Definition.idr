@@ -10,14 +10,17 @@ import Misc
 -- not all of this is used, and likely can be simplified
 
 
-||| Applicative Container
-||| Consists of a container and a proof that its extension is an applicative functor
-||| Defined using Idris' auto as we'd like to avoid directly providing this
+||| Applicative Container: a container together with a proof that its extension 
+||| is an applicative functor.
+||| Equivalent to a monoid in the category of containers with the tensor product
+||| i.e. to a monoid on shapes, and for every shape, a comonoid on positions.
+||| Currently extensions for ergonomics, and defined using Idris' auto as
+||| generally we'd like to avoid directly providing the instance.
+||| In the future, perhaps using tensor product formulation will be cleaner
 public export
 record ContA where
   constructor (#)
   GetC : Cont
-  ||| Question: can we state this without referencing the extension?
   {auto applPrf : Applicative (Ext GetC)}
 
 public export prefix 0 #

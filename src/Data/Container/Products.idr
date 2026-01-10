@@ -58,9 +58,10 @@ data AllPos : {cs : Vect n Cont} -> All Shp cs -> Type where
     Pos c s -> AllPos {cs=cs} ss -> AllPos {cs=(c::cs)} (s :: ss)
 
 
-
 ||| Probabilistic product of containers
 ||| Convex combination of shapes, and a product of positions
+||| This is equivalent to the n-ary Hancock tensor product of containers, 
+||| together with a choice of a point inside an n-simplex
 public export
 ConvexComb : {n : Nat} -> Vect n Cont -> Cont
 ConvexComb xs = ((p, shp) : (Dist n, All Shp xs)) !> AllPos shp
