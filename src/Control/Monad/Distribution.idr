@@ -2,6 +2,8 @@ module Control.Monad.Distribution
 
 import Data.Vect
 import Data.Vect.Quantifiers
+import Control.Monad.Identity
+import Misc
 
 ||| Convex combination of a finite set of types
 ||| Since this is used in `Data.Container.Products.ConvexComb`, we cannot use
@@ -15,21 +17,23 @@ data Dist : (i : Nat) -> Type where
 ||| Do we need `tys`?
 public export
 interface Monad m => MonadSample m where
-  sample : Dist i -> m (Fin i)
+  sample : {i : Nat} -> IsSucc i => Dist i -> m (Fin i)
 
 
--- public export
--- Logits : {tys : Vect i Type} -> Dist i -> Vect i Double
--- Logits (MkDist logits _) = logits
--- 
--- public export
--- Types : Dist i -> Vect i Type
--- Types (MkDist {tys} _ _) = tys
--- 
--- public export
--- Terms : (d : Dist i) -> HVect (Types d)
--- Terms (MkDist logits terms) = terms
+||| Trivial sampler, always picks the first element
+public export
+[pickFirst] MonadSample (Identity) where
+  sample {i = (S k)} (MkDist xs) = Id FZ
 
+||| Max sampler, always picks the element with the highest logit
+public export
+[pickMax] MonadSample (Identity) where
+  sample {i = (S k)} (MkDist xs) = Id (argmax xs)
+
+||| Min sampler, always picks the element with the lowest logit
+public export
+[pickMin] MonadSample (Identity) where
+  sample {i = (S k)} (MkDist xs) = Id (argmin xs)
 
 -- ||| Convex combination of a finite set of types
 -- public export
