@@ -9,6 +9,7 @@ import Decidable.Equality
 import Decidable.Equality.Core
 import Data.String
 import Data.List
+import Data.Fin
 import Data.List1
 
 %hide Builtin.infixr.(#)
@@ -31,9 +32,9 @@ namespace Applicative
     xs * ys = uncurry (*) <$> liftA2 xs ys
     fromInteger = pure . fromInteger
 
+||| Duplicate of utilities for Data.Vect in their Naperian form
 namespace VectNaperianUtils
-  ||| Analogue of `(::)` for vectors, in a Naperian form
-  ||| Takes an element and prepends it to some 'vector' 
+  ||| Analogue of `(::)`
   public export
   cons : x -> (Fin l -> x) -> (Fin (S l) -> x)
   cons x _ FZ = x
@@ -47,42 +48,16 @@ namespace VectNaperianUtils
   tail : (Fin (S l) -> x) -> (Fin l -> x)
   tail f = f . FS
   
-  ||| All but the last element of a 'vector'
+  ||| All but the last element
   public export
   init : (Fin (S n) -> a) -> Fin n -> a
   init f x = f (weaken x)
   
-  ||| Analogus to take in Data.Vect, but for Fin
+  ||| Analogus to `Data.Vect.take`
   public export 
   takeFin : (s : Fin (S n)) -> Vect n a -> Vect (finToNat s) a
   takeFin FZ _ = []
   takeFin (FS s) (x :: xs) = x :: takeFin s xs
-
-||| Interface for the Exponential
-||| We also include minus infinity because of the necessity to compute
-||| causal masks within the attention mechanism.
-||| For rules that `exp` should satisfy, see https://arxiv.org/abs/1911.04790
-||| We also have
-||| `exp . log = id`, `log . exp = id`, `exp minusInfinity = 0`...
-public export
-interface Num a => Exp a where
-  exp : a -> a
-  log : a -> a
-  minusInfinity : a
-
-public export
-Exp Double where
-  exp = Prelude.exp
-  log = Prelude.log
-  minusInfinity = cast "-inf.0"
-
-public export
-interface Sqrt a where
-  sqrt : a -> a
-
-public export
-Sqrt Double where
-  sqrt = Prelude.sqrt
 
 namespace Vect
   public export
@@ -96,6 +71,25 @@ namespace Vect
   prod [] = fromInteger 1
   prod (x :: xs) = x * prod xs
 
+  public export
+  argmax : Ord a => IsSucc n => Vect n a -> Fin n 
+  argmax [x] = FZ
+  argmax (x :: x' :: xs) = if x > index maxRest (x' :: xs) then FZ else FS maxRest
+    where maxRest = argmax (x' :: xs)
+  
+  public export
+  argmin : Ord a => IsSucc n => Vect n a -> Fin n
+  argmin = argmax @{Reverse} 
+  
+  ||| Dual to concat from Data.Vect
+  public export
+  unConcat : {n, m : Nat} -> Vect (n * m) a -> Vect n (Vect m a)
+  unConcat {n = 0} _ = []
+  unConcat {n = (S k)} xs = let (f, s) = splitAt m xs
+                            in f :: unConcat s
+
+
+
 namespace List
   public export
   sum : Num a => List a -> a
@@ -105,36 +99,167 @@ namespace List
   prod : Num a => List a -> a
   prod = foldr (*) (fromInteger 1)
 
-public export
-listZip : List a -> List b -> List (a, b)
-listZip (x :: xs) (y :: ys) = (x, y) :: listZip xs ys
-listZip _ _ = []
+  public export
+  listZip : List a -> List b -> List (a, b)
+  listZip (x :: xs) (y :: ys) = (x, y) :: listZip xs ys
+  listZip _ _ = []
+  
+  public export
+  maxInList : Ord a => List a -> Maybe a
+  maxInList [] = Nothing
+  maxInList [x] = Just x
+  maxInList (x :: xs) = do
+    mx <- maxInList xs
+    pure (max x mx)
 
-public export
-maxInList : Ord a => List a -> Maybe a
-maxInList [] = Nothing
-maxInList [x] = Just x
-maxInList (x :: xs) = do
-  mx <- maxInList xs
-  pure (max x mx)
 
 
-public export
-argmax : Ord a => IsSucc n => Vect n a -> Fin n 
-argmax [x] = FZ
-argmax (x :: x' :: xs) = if x > index maxRest (x' :: xs) then FZ else FS maxRest
-  where maxRest = argmax (x' :: xs)
+namespace FinArithmetic
+  ||| Like weakenN from Data.Fin, but where n is on the other side of +
+  public export
+  weakenN' : (0 n : Nat) -> Fin m -> Fin (n + m)
+  weakenN' n x = rewrite plusCommutative n m in weakenN n x
 
-public export
-argmin : Ord a => IsSucc n => Vect n a -> Fin n
-argmin = argmax @{Reverse} 
+  ||| Like weakenN, but with mutliplication
+  ||| Like shiftMul, but without changing the value of the index
+  public export
+  weakenMultN : {n : Nat} ->
+    (m : Nat) -> {auto prf : IsSucc m} ->
+    (i : Fin n) -> Fin (m * n)
+  weakenMultN (S 0) {prf = ItIsSucc} i = rewrite multOneLeftNeutral n in i
+  weakenMultN (S (S k)) {prf = ItIsSucc} i = weakenN' n (weakenMultN (S k) i)
 
-||| Dual to concat from Data.Vect
+  multRightUnit : (m : Nat) -> m * 1 = m
+  multRightUnit 0 = Refl
+  multRightUnit (S k) = cong S (multRightUnit k)
+
+  multRightZeroCancel : (m : Nat) -> m * 0 = 0
+  multRightZeroCancel 0 = Refl
+  multRightZeroCancel (S k) = multRightZeroCancel k
+
+  ||| Variant of `shift` from Data.Fin, but with multiplication
+  ||| Given an index i : Fin n, it recasts it as one where steps are stride sized
+  ||| That is, returns stride * i : Fin (stride * n)
+  ||| Implemented by recursing on i, adding stride each time
+  public export
+  shiftMul : {n : Nat} ->
+    (stride : Nat) -> {auto prf : IsSucc stride} ->
+    (i : Fin n) -> Fin (n * stride)
+  shiftMul (S s) {prf = ItIsSucc} FZ = FZ
+  shiftMul stride (FS i) = shift stride (shiftMul stride i)
+
+  shiftMulTest : shiftMul {n=3} 5 1 = 5
+  shiftMulTest = Refl
+
+  ||| Analogous to strengthen from Data.Fin
+  ||| Attempts to strengthen the bound on Fin (m + n) to Fin m
+  ||| If it doesn't succeed, then returns the remainder in Fin n
+  public export
+  strengthenN : {m, n : Nat} -> Fin (m + n) -> Either (Fin m) (Fin n)
+  strengthenN {m = 0} x = Right x
+  strengthenN {m = (S k)} FZ = Left FZ
+  strengthenN {m = (S k)} (FS x) with (strengthenN x)
+    _ | (Left p) = Left $ FS p
+    _ | (Right q) = Right q
+  -- strengthenN {m = 0} x = Nothing
+  -- strengthenN {m = (S k)} FZ = Just FZ
+  -- strengthenN {m = (S k)} (FS x) with (strengthenN x)
+  --   _ | Nothing = Nothing
+  --   _ | (Just p) = Just $ FS p
+    --= let t = strengthenN x
+    --  in ?strengthenN_rhs_3
+
+  -- strengthenN {n = 0} x = Just x
+  -- strengthenN {m = 0} {n = (S k)} FZ = Nothing
+  -- strengthenN {m = (S j)} {n = (S k)} FZ = Just FZ
+  -- strengthenN {m} {n = (S k)} (FS x)
+  --   = let t = strengthenN x
+  --         v = Fin.FS
+  --     in ?what -- strengthenN x
+
+
+  --         restCount = indexCount is -- fpn = 13 : Fin (20)
+  -- iCTest1 : indexCount {shape = [3, 4, 5]} [1, 2, 3] = 33
+  -- iCTest1 = ?iCTest_rhs
+  
+  ||| Like finS, but without wrapping
+  ||| finS' last = last
+  public export
+  finS' : {n : Nat} -> Fin n -> Fin n
+  finS' {n = 1} x = x
+  finS' {n = (S (S k))} FZ = FS FZ
+  finS' {n = (S (S k))} (FS x) = FS $ finS' x
+  --finS' {n = S _} x = case strengthen x of
+  --    Nothing => x
+  --    Just y => FS y
+
+  
+  ||| Adds two Fin n, and bounds the result
+  ||| Meaning (93:Fin 5) + (4 : Fin 5) = 4
+  public export
+  addFinsBounded : {n : Nat} -> Fin n -> Fin n -> Fin n
+  addFinsBounded x FZ = x
+  addFinsBounded x (FS y) = addFinsBounded (finS' x) (weaken y)
+
+  finSTest : finS' {n = 5} 3 = 4
+  finSTest = Refl
+
+  finSTest2 : finS' {n = 5} 4 = 4
+  finSTest2 = Refl
+
+  ||| Divides a Fin by 2, rounding down
+  public export
+  half : (k : Fin n) -> Fin n
+  half FZ = FZ
+  half (FS FZ) = FZ
+  half (FS (FS x)) = weakenN' 2 x
+
+  ||| Computes the midway index between two bounds
+  public export
+  mid : (low : Fin n) -> (high : Fin n) ->
+    {auto prf : So (high >= low)} ->
+    Fin n
+  mid FZ high = half high
+  mid (FS x) (FS y) {prf} = FS (mid x y)
+
+||| Given a non-empty sorted vector `xs`, finds the "right bin", i.e. the index 
+||| of the smallest element between the bounds that `x` is not bigger than.
+||| If `x` is bigger than the highest element, returns `Nothing`
+||| `findBinBetween [2,7,10] 1 0 2 = Just 0`
+||| `findBinBetween [2,7,10] 3 0 2 = Just 1`
+||| `findBinBetween [2,7,10] 9 0 2 = Just 2`
+||| `findBinBetween [2,7,10] 7 0 2 = Just 2`
+||| `findBinBetween [1,2,3,4,5] 6 0 4 = Nothing`
 public export
-unConcat : {n, m : Nat} -> Vect (n * m) a -> Vect n (Vect m a)
-unConcat {n = 0} _ = []
-unConcat {n = (S k)} xs = let (f, s) = splitAt m xs
-                          in f :: unConcat s
+findBinBetween : Ord a => {n : Nat} -> (xs : Vect (S n) a) ->
+  (x : a) ->
+  (lowInd : Fin (S n)) -> (highInd : Fin (S n)) ->
+  {auto prf : So (highInd >= lowInd)} ->
+  Maybe (Fin (S n))
+findBinBetween xs x lowInd highInd = case x > index highInd xs of
+  True => Nothing -- rule out the case where x is bigger
+  False => case x <= index lowInd xs of
+    True => Just lowInd
+    False => let midInd = mid lowInd highInd
+             in case compare x (index midInd xs) of
+               LT => findBinBetween xs x lowInd midInd {prf = believe_me ()}
+               EQ => Just midInd
+               GT => findBinBetween xs x (finS' midInd) highInd {prf = believe_me ()}
+
+||| Todo can this eventually be generalised to non-cubical tensors?
+||| Given a non-empty sorted vector `xs`, finds the "right bin", i.e. the index 
+||| of the smallest element between the bounds that `x` is not bigger than.
+||| If `x` is bigger than the highest element, returns `Nothing`
+||| `findBin [2,7,10] 1 = Just 0`
+||| `findBin [2,7,10] 3 = Just 1`
+||| `findBin [2,4,6,8] 7 = Just 3`
+public export
+findBin : Ord a => {n : Nat} ->
+  (xs : Vect (S n) a) -> (x : a) -> Maybe (Fin (S n))
+findBin {n = 0} (x' :: []) x = case x' <= x of
+  True => Just FZ
+  False => Nothing
+findBin {n = (S k)} xs x = findBinBetween xs x 0 last
 
 
 namespace RandomUtils
@@ -322,108 +447,6 @@ record Iso (a, b : Type) where
   backward : b -> a
   forwardBackward : (x : a) -> backward (forward x) = x
   backwardForward : (y : b) -> forward (backward y) = y
-
-
-namespace FinArithmetic
-  ||| There is a similar function in Data.Fin.Arith, which has the smallest
-  ||| possible bound. This one does not, but has a simpler type signature.
-  public export
-  multFin : {m, n : Nat} -> Fin m -> Fin n -> Fin (m * n)
-  multFin {n = (S _)} FZ y = FZ
-  multFin {n = (S _)} (FS x) y = y + weaken (multFin x y)
-
-  ||| Like weakenN from Data.Fin, but where n is on the other side of +
-  public export
-  weakenN' : (0 n : Nat) -> Fin m -> Fin (n + m)
-  weakenN' n x = rewrite plusCommutative n m in weakenN n x
-  
-  ||| Like weakenN, but with mutliplication
-  ||| Like shiftMul, but without changing the value of the index
-  public export
-  weakenMultN : {n : Nat} ->
-    (m : Nat) -> {auto prf : IsSucc m} ->
-    (i : Fin n) -> Fin (m * n)
-  weakenMultN (S 0) {prf = ItIsSucc} i = rewrite multOneLeftNeutral n in i
-  weakenMultN (S (S k)) {prf = ItIsSucc} i = weakenN' n (weakenMultN (S k) i)
-
-  multRightUnit : (m : Nat) -> m * 1 = m
-  multRightUnit 0 = Refl
-  multRightUnit (S k) = cong S (multRightUnit k)
-
-  multRightZeroCancel : (m : Nat) -> m * 0 = 0
-  multRightZeroCancel 0 = Refl
-  multRightZeroCancel (S k) = multRightZeroCancel k
-
-  ||| Variant of `shift` from Data.Fin, but with multiplication
-  ||| Given an index i : Fin n, it recasts it as one where steps are stride sized
-  ||| That is, returns stride * i : Fin (stride * n)
-  ||| Implemented by recursing on i, adding stride each time
-  public export
-  shiftMul : {n : Nat} ->
-    (stride : Nat) -> {auto prf : IsSucc stride} ->
-    (i : Fin n) -> Fin (n * stride)
-  shiftMul (S s) {prf = ItIsSucc} FZ = FZ
-  shiftMul stride (FS i) = shift stride (shiftMul stride i)
-
-  shiftMulTest : shiftMul {n=3} 5 1 = 5
-  shiftMulTest = Refl
-
-  ||| Analogous to strengthen from Data.Fin
-  ||| Attempts to strengthen the bound on Fin (m + n) to Fin m
-  ||| If it doesn't succeed, then returns the remainder in Fin n
-  public export
-  strengthenN : {m, n : Nat} -> Fin (m + n) -> Either (Fin m) (Fin n)
-  strengthenN {m = 0} x = Right x
-  strengthenN {m = (S k)} FZ = Left FZ
-  strengthenN {m = (S k)} (FS x) with (strengthenN x)
-    _ | (Left p) = Left $ FS p
-    _ | (Right q) = Right q
-  -- strengthenN {m = 0} x = Nothing
-  -- strengthenN {m = (S k)} FZ = Just FZ
-  -- strengthenN {m = (S k)} (FS x) with (strengthenN x)
-  --   _ | Nothing = Nothing
-  --   _ | (Just p) = Just $ FS p
-    --= let t = strengthenN x
-    --  in ?strengthenN_rhs_3
-
-  -- strengthenN {n = 0} x = Just x
-  -- strengthenN {m = 0} {n = (S k)} FZ = Nothing
-  -- strengthenN {m = (S j)} {n = (S k)} FZ = Just FZ
-  -- strengthenN {m} {n = (S k)} (FS x)
-  --   = let t = strengthenN x
-  --         v = Fin.FS
-  --     in ?what -- strengthenN x
-
-
---         restCount = indexCount is -- fpn = 13 : Fin (20)
--- iCTest1 : indexCount {shape = [3, 4, 5]} [1, 2, 3] = 33
--- iCTest1 = ?iCTest_rhs
-  
-  ||| Like finS, but without wrapping
-  ||| finS' last = last
-  public export
-  finS' : {n : Nat} -> Fin n -> Fin n
-  finS' {n = 1} x = x
-  finS' {n = (S (S k))} FZ = FS FZ
-  finS' {n = (S (S k))} (FS x) = FS $ finS' x
-  --finS' {n = S _} x = case strengthen x of
-  --    Nothing => x
-  --    Just y => FS y
-
-  finSTest : finS' {n = 5} 3 = 4
-  finSTest = Refl
-
-  finSTest2 : finS' {n = 5} 4 = 4
-  finSTest2 = Refl
-  
-  
-  ||| Adds two Fin n, and bounds the result
-  ||| Meaning (93:Fin 5) + (4 : Fin 5) = 4
-  public export
-  addFinsBounded : {n : Nat} -> Fin n -> Fin n -> Fin n
-  addFinsBounded x FZ = x
-  addFinsBounded x (FS y) = addFinsBounded (finS' x) (weaken y)
-
 
 public export
 multSucc : {m, n : Nat} -> IsSucc m -> IsSucc n -> IsSucc (m * n)

@@ -37,6 +37,7 @@ softargmaxImpl : {i : Cont} -> Fractional a => Exp a => Ord a => Neg a =>
   CTensor [i] a -> CTensor [i] a
 softargmaxImpl {temperature} t = exp <$> logSoftargmax (t <&> (/ temperature))
 
+||| Softargmax as a parametric map, with temperature as a parameter
 public export
 softargmax : {i : Cont} ->
   {a : Type} -> Fractional a => Exp a => Ord a => Neg a =>

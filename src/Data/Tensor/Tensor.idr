@@ -5,6 +5,7 @@ import public Data.Fin.Split
 
 import public Data.Container
 import Data.Container.Object.Instances as Cont
+import public Data.Num
 
 import public Misc
 
@@ -210,6 +211,24 @@ namespace TensorFromConcrete
     (allConcrete : AllConcrete shape) =>
     CTensor shape a -> concreteTypeTensor shape a
   (#>) = toConcreteTy
+
+  public export infixr 0 >#>, #>#
+
+  public export
+  (>#>) : {shapeOld, shapeNew : List Cont} ->
+    (allConcreteOld : AllConcrete shapeOld) =>
+    (allConcreteNew : AllConcrete shapeNew) =>
+    (CTensor shapeOld a -> CTensor shapeNew b) ->
+    concreteTypeTensor shapeOld a -> concreteTypeTensor shapeNew b
+  (>#>) f ct = #> (f (># ct))
+
+  public export
+  (#>#) : {shapeOld, shapeNew : List Cont} ->
+    (allConcreteOld : AllConcrete shapeOld) =>
+    (allConcreteNew : AllConcrete shapeNew) =>
+    (concreteTypeTensor shapeOld a -> concreteTypeTensor shapeNew b) ->
+    CTensor shapeOld a -> CTensor shapeNew b
+  (#>#) f t = ># (f (#> t))
 
 
 namespace TensorInstances

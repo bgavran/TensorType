@@ -243,6 +243,12 @@ namespace Misc
     in mean {shape=[n]} (inputMinusMean * inputMinusMean)
 
 
+  public export
+  cumulativeSum : {n : Nat} -> Num a =>
+    Tensor [n] a -> Tensor [n] a
+  cumulativeSum = (#>#) (scanl1 (+))
+
+
 
 namespace Traversals
   public export
