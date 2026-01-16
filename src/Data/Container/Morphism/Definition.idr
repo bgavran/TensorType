@@ -38,7 +38,7 @@ namespace DependentLenses
 
   public export
   (.fwd) : c1 =%> c2 -> c1.Shp -> c2.Shp
-  (.fwd) x y = ((%! x) y).fst
+  (.fwd) f y = ((%! f) y).fst
 
   ||| Composition of dependent lenses
   public export
