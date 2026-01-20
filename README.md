@@ -309,6 +309,9 @@ TensorType's implementation hinges on three interdependent components:
   * Type-safe einsum
   * Type-safe broadcasting, stacking, padding, etc. for both cubical and applicative tensors
   * Common linear algebra operations
+  * Neural network facilities:
+    * Automatic differentiation (forward/backward mode AD, differentiation through products, sums, (co)inductive types)
+    * Parameter management (initialisation, updates)
 * Efficiency:
   * In-place operations/views, and research on feasibility of linear types for doing so
   * Support for different tensor representation in the backend, and their tracking at the type level:

@@ -155,7 +155,11 @@ interface Display (a : Type) where
 -- Display Char where
 --   display x = (1 ** 1 ** [[x]])
 
-
+-- public export
+-- Num Unit where
+--   fromInteger _ = ()
+--   () * () = ()
+--   () + () = ()
 
 namespace RandomUtils
 -- Probably there's a faster way to do this

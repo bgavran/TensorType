@@ -55,6 +55,16 @@ modules = Data.Container
         , NN.Architectures.RNN
         , NN.Architectures.Utils
         , Misc
+        , Data.Autodiff.AdditiveContainer
+        , Data.Autodiff.AdditiveContainer.Object.Definition
+        , Data.Autodiff.AdditiveContainer.Object.Instances
+        , Data.Autodiff.AdditiveContainer.Morphism.Definition
+        , Data.Autodiff.AdditiveContainer.Product.Definitions
+        , Data.Autodiff.Core
+        , Data.Autodiff.Core.DType
+        , Data.Autodiff.Core.Forward
+        , Data.Autodiff.Core.Backward
+        , Data.Autodiff.Examples
 
 -- main file (i.e. file to load at REPL)
 -- main =
