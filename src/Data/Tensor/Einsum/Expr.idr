@@ -9,7 +9,8 @@ import Decidable.Equality
 import Data.String
 import Language.Reflection
 
-import Data.Unique
+import Data.Unique.Vect
+import Data.Unique.List
 import Data.Tensor
 import Data.Functor.Naperian
 import Misc
@@ -84,6 +85,8 @@ namespace EinsumToString
   public export 
   ooChar : EinsumExpr Char
   ooChar = MkEinsumExpr [['i', 'j'], ['j', 'k']] ['i', 'k']
+
+
 
 ||| Machinery for parsing a string into an EinsumExpr
 ||| We focus on parsing into EinsumExpr Char ("ij,jk->ik")
@@ -183,16 +186,16 @@ failing
   esFail : EinsumStrExpr
   esFail = EinsumChar "ij->xx"
 
-||| Inductive representation of a heterogeneous list of variable-shape tensors 
-||| It exposes the shape information the type, and allows us to use the usual 
-||| list syntax like [t1, t2] with tensors of different shapes
-||| This means that shape parameter can be inferred by the typechecker, instead
-||| of needing to be manually supplied
-||| For instance, f : TensorList shapes -> ... can consume f [m, n, k] where these are tensors of all different shaeps
-public export
-data CTensorList : List (List Cont) -> Type -> Type where
-  Nil : CTensorList [] a
-  (::) : CTensor sh a -> CTensorList shapes a -> CTensorList (sh :: shapes) a
+-- ||| Inductive representation of a heterogeneous list of variable-shape tensors 
+-- ||| It exposes the shape information the type, and allows us to use the usual 
+-- ||| list syntax like [t1, t2] with tensors of different shapes
+-- ||| This means that shape parameter can be inferred by the typechecker, instead
+-- ||| of needing to be manually supplied
+-- ||| For instance, f : TensorList shapes -> ... can consume f [m, n, k] where these are tensors of all different shaeps
+-- public export
+-- data CTensorList : List (List Cont) -> Type -> Type where
+--   Nil : CTensorList [] a
+--   (::) : CTensor sh a -> CTensorList shapes a -> CTensorList (sh :: shapes) a
 
 public export
 inputType : EinsumStrExpr -> Type
@@ -237,12 +240,11 @@ Manual: can't generate implicit variables? Not sure how to do it at all?
 
 
 
-t1 : Tensor [2, 3] Double
+t1 : Tensor [2, 3] ["i", "j"] Double
 t1 = ># [ [1, 2, 3], [4, 5, 6] ]
 
-t2 : Tensor [3, 4] Double
+t2 : Tensor [3, 4] ["i", "j"] Double
 t2 = ># [ [1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12] ]
-
 
 ||| The name for an axis is an arbitrary string, usually a single character
 AxisName : Type
