@@ -27,7 +27,7 @@ namespace IsNo
     _ | _           | (No contra) = ItIsNo 
   
   public export
-  [uniqueUninhabited] {a : Type} -> {x : a} -> (de : DecEq a) =>
+  [uniqueUninhabited] {0 a : Type} -> {x : a} -> (de : DecEq a) =>
   Uninhabited (IsNo (Equality.decEq x x)) where
     uninhabited y with (decEq x x)
       _ | (Yes _) with (y)
