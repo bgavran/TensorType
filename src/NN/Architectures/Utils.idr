@@ -5,9 +5,14 @@ import Data.Tensor
 
 ||| Batching only works simply when we have a non-dependent Para
 public export
-paraMapFirstAxis : {cs : List Cont} -> Num a => All TensorMonoid cs =>
-  (pf : CTensor cs a -\-> CTensor ds a) ->
+paraMapFirstAxis : {c : Axis} ->
+  {cs : Vect rank Axis} -> AxesConsistent cs =>
+  {ds : Vect rank' Axis} -> AxesConsistent ds =>
+  NewAxisConsistent c cs =>
+  NewAxisConsistent c ds =>
+  Num a =>
+  (pf : Tensor cs a -\-> Tensor ds a) ->
   (nonDep : IsNotDependent pf) =>
-  CTensor (c :: cs) a -\-> CTensor (c :: ds) a
+  Tensor (c :: cs) a -\-> Tensor (c :: ds) a
 paraMapFirstAxis (MkPara (const pType) f) {nonDep = MkNonDep pType f} = MkPara
   (\_ => pType) (\t, p => flip f p <-$> t)

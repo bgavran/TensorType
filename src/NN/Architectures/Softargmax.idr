@@ -4,12 +4,12 @@ import Data.Tensor
 
 ||| Commonly known as 'softmax'
 public export
-softargmax : {i : Cont} -> {ni : String} -> Fractional a => Exp a =>
-  (allAlg : AllAlgebra [i] [ni] a) =>
+softargmax : {i : Axis} -> Fractional a => Exp a =>
+  (allAlg : AllAlgebra [i] a) =>
   {default 1 temperature : a} ->
-  CTensor [i] [ni] a -> CTensor [i] [ni] a
+  Tensor [i] a -> Tensor [i] a
 softargmax {temperature} t
-  = let exps : CTensor [i] [ni] a := exp <$> (t <&> (/ temperature))
+  = let exps : Tensor [i] a := exp <$> (t <&> (/ temperature))
     in exps <&> (/ (reduce exps))
 
 -- TODO make softargmax a parametric function with temperature as the parameter

@@ -86,8 +86,6 @@ namespace EinsumToString
   ooChar : EinsumExpr Char
   ooChar = MkEinsumExpr [['i', 'j'], ['j', 'k']] ['i', 'k']
 
-
-
 ||| Machinery for parsing a string into an EinsumExpr
 ||| We focus on parsing into EinsumExpr Char ("ij,jk->ik")
 ||| Other options are possible, i.e. "[bt,inp],[inp,out]->[bt,out]"

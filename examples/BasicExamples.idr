@@ -9,7 +9,7 @@ import Data.Tensor
 ----------------------------------------
 
 ||| Now you can construct Tensors directly:
-t0 : Tensor [3, 4] Double
+t0 : Tensor ["j" ~~> 3, "k" ~~> 4] Double
 t0 = ># [ [0, 1, 2, 3]
         , [4, 5, 6, 7]
         , [8, 9, 10, 11]]
@@ -19,42 +19,42 @@ Here `>#` behaves like a constructor: it takes a concrete value and turns it int
 
 You can also use functions analogous to numpy's, such as `np.arange` and `np.reshape`:
 --------------------}
-t1 : Tensor [6] Double
+t1 : Tensor ["i" ~~> 6] Double
 t1 = arange
 
 -- These implicit arguments will not be necessary in the future
-t2 : Tensor [2, 3] Double
-t2 = reshape {oldShape=[6], newShape=[2, 3]} t1
+t2 : Tensor ["i" ~~> 2, "j" ~~> 3] Double
+t2 = reshape t1
 
 {-
 where the difference between numpy is that these operations are typechecked
 - meaning they fail at compile-time if you supply an array with the wrong shape.
 -}
 failing
-  failConcrete : Tensor [3, 4] Double
+  failConcrete : Tensor ["j" ~~> 3, "k" ~~> 4] Double
   failConcrete = ># [ [0, 1, 2, 3, 999]
                     , [4, 5, 6, 7]
                     , [8, 9, 10, 11]]
 
 failing
-  failReshape : Tensor [7, 2] Double
+  failReshape : Tensor ["i" ~~> 7, "j" ~~> 2] Double
   failReshape = arange {n=7}
 
 ||| You can perform all sorts of familiar numeric operations:
-exampleSum : Tensor [3, 4] Double
+exampleSum : Tensor ["j" ~~> 3, "k" ~~> 4] Double
 exampleSum = t0 + t0
 
-exampleOp : Tensor [3, 4] Double
+exampleOp : Tensor ["j" ~~> 3, "k" ~~> 4] Double
 exampleOp = abs (- (t0 * t0) <&> (+7))
 
 ||| including standard linear algebra
 dotExample : Tensor [] Double
 dotExample = dot t1 (t1 <&> (+5))
 
-matMulExample : Tensor [2, 4] Double
+matMulExample : Tensor ["i" ~~> 2, "k" ~~> 4] Double
 matMulExample = matMul t2 t0
 
-transposeExample : Tensor [4, 3] Double
+transposeExample : Tensor ["k" ~~> 4, "j" ~~> 3] Double
 transposeExample = transposeMatrix t0
 
 {--------------------
@@ -63,11 +63,11 @@ add tensors of different shapes, or perform matrix multiplication if the
 dimensions of matrices don't match.
 --------------------}
 failing
-  sumFail : Tensor [3, 4] Double
+  sumFail : Tensor ["j" ~~> 3, "k" ~~> 4] Double
   sumFail = t0 + t1
 
 failing
-  matMulFail : Tensor [7] Double
+  matMulFail : Tensor ["i" ~~> 7] Double
   matMulFail = matMul t0 t1
 
 ||| Like in numpy, you can safely index into tensors, set values of tensors, and perform slicing:
@@ -80,9 +80,9 @@ indexExample = t0 @@ [1, 2]
 -- setExample : Tensor [3, 4]
 -- setExample = set t0 [1, 3] 99
 
-||| Takes the first two rows, and 1st column of t0
-sliceExample : Tensor [2, 1] Double
-sliceExample = take [2, 1] t0
+-- ||| Takes the first two rows, and 1st column of t0
+-- sliceExample : Tensor ["j" ~~> 2, "k" ~~> 1] Double
+-- sliceExample = take [2, 1] t0
 
 -- Which will all fail if you go out of bounds
 failing
@@ -90,14 +90,14 @@ failing
   indexExampleFail = t1 @@ [7, 2]
 
 failing
-  sliceFail : Tensor [10, 2] Double
+  sliceFail : Tensor ["j" ~~> 10, "k" ~~> 2] Double
   sliceFail = take [10, 2] t0
 
 {---------------------------------------
 **And most importantly, you can do all of this with *non-cubical* tensors.** These describe tensors whose shape isn't rectangular/cubical, but can be branching/recursive/higher-order. We will see in a moment what that means. These tensors are described via 'containers' and the corresponding datatype named `CTensor` (standing for "Container Tensor").
 We have already seen this datatype -- as matter of fact every `Tensor` we have seen was secretly desugared to `CTensor` internally:
 ---------------------------------------}
-t0Again : CTensor [Vect 3, Vect 4] Double
+t0Again : Tensor ["j" ~> Vect 3, "k" ~> Vect 4] Double
 t0Again = t0
 
 {--------------------
@@ -105,8 +105,8 @@ Here `Vect` does not refer to `Vect` from `Data.Vect`, but rather the `Vect` con
 
 Everything we can do with `Tensor` we can do with `CTensor`, including building concrete tensors:
 --------------------}
-t1again : CTensor [Vect 6] Double
-t1again = ># [1,2,3,4,5,6]
+t1again : Tensor ["i" ~> Vect 6] Double
+t1again = arange
 
 {--------------------
 The real power of container tensors comes from using other containers in the place of `Vect`. Here is a container `BinTree` of binary trees recast as a tree-tensor:
@@ -117,7 +117,7 @@ The real power of container tensors comes from using other containers in the pla
     / \
 (-42)  46 
 --------------------}
-treeExample1 : CTensor [BinTree] Double
+treeExample1 : Tensor ["myTree" ~> BinTree] Double
 treeExample1 = ># Node 60 (Node 7 (Leaf (-42)) (Leaf 46)) (Leaf 2)
 
 {--------------------
@@ -127,13 +127,13 @@ Unlike `Vect`, this container allows us to store an arbitrary number of elements
   / \
 100  4
 --------------------}
-treeExample2 : CTensor [BinTree] Double
+treeExample2 : Tensor ["myTree" ~> BinTree] Double
 treeExample2 = ># Node 5 (Leaf 100) (Leaf 4)
 
 {--------------------
 Perhaps surpisingly, all linear algebra operations follow smoothly. The example below is the _dot product of trees_. The fact that these trees don't have the same number of elements is irrelevant; what matters is that the container defining them (`BinTree`) is the same.
 --------------------}
-dotProductTree : CTensor [] Double
+dotProductTree : Tensor [] Double
 dotProductTree = dot treeExample1 treeExample2
 
 {--------------------
@@ -145,7 +145,7 @@ Here's a tree-tensor with values only on its leaves:
     / \
 (-42)  46 
 --------------------}
-treeLeafExample : CTensor [BinTreeLeaf] Double
+treeLeafExample : Tensor ["myTree" ~> BinTreeLeaf] Double
 treeLeafExample = ># Node' (Node' (Leaf (-42)) (Leaf 46)) (Leaf 2)
 
 {--------------------
@@ -156,15 +156,15 @@ and here's a tree-tensor with values only on its nodes:
     / \
    *   * 
 --------------------}
-treeNodeExample : CTensor [BinTreeNode] Double
+treeNodeExample : Tensor ["myTree" ~> BinTreeNode] Double
 treeNodeExample = ># Node 60 (Node 7 Leaf' Leaf')  Leaf'
 
 ||| And this can get very complex and nested, as `exTree3` and `exTree4` show.
 ||| But it still fully type-checked, and working as you'd expect.
-treeExample3 : CTensor [BinTreeNode, Vect 2] Double
+treeExample3 : Tensor ["myTree" ~> BinTreeNode, "j" ~> Vect 2] Double
 treeExample3 = ># Node [4,1] (Node [17, 4] Leaf' Leaf') Leaf'
 
-treeExample4 : CTensor [BinTreeNode, BinTreeLeaf, Vect 3] Double
+treeExample4 : Tensor ["myTree" ~> BinTreeNode, "myTreeLeaf" ~> BinTreeLeaf, "k" ~> Vect 3] Double
 treeExample4 = >#
   Node (Node'
           (Leaf [1,2,3])
@@ -207,5 +207,5 @@ Here is the in-order traversal of `treeExample1` from above.
 
 Can also use Utils.Traversals.inorder
 --------------------}
-traversalExample : CTensor [List] Double
+traversalExample : Tensor ["myTree" ~> List] Double
 traversalExample = restructure (wrapIntoVector inorder) treeExample1

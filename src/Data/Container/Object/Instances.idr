@@ -1,10 +1,12 @@
 module Data.Container.Object.Instances
 
 import Data.Fin
+import Data.List.Quantifiers
 
 import public Data.Container.Object.Definition
 import public Data.Container.Product.Definitions
 import public Data.Container.TreeUtils
+import public Misc
 
 ||| Empty container, isomorphic to Void
 ||| As a polynomial functor: F(X) = 0
@@ -135,3 +137,26 @@ Nap b = Const Unit b
 
 -- Some more examples that require the Applicative constraint can be found in
 -- `Data.Container.Object.Applicative`
+
+
+namespace Cubical
+  ||| Temporary measure for cubical tensors
+  ||| Later can be generalised to arbitrary containers
+  public export
+  data IsCubical : Cont -> Type where
+    MkIsCubical : (n : Nat) -> IsCubical (Vect n)
+
+  public export
+  dim : (0 c : Cont) -> IsCubical c => Nat
+  dim _ @{(MkIsCubical n)} = n
+
+  public export
+  cubicalShape : (shape : List Cont) -> (ac : All IsCubical shape) => List Nat
+  cubicalShape [] {ac = []} = []
+  cubicalShape (_ :: ss) {ac = ((MkIsCubical n) :: _)}
+    = n :: cubicalShape ss
+
+  public export
+  size : (shape : List Cont) -> (ac : All IsCubical shape) => Nat
+  size ss = prod (cubicalShape ss)
+

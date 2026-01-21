@@ -36,6 +36,7 @@ modules = Data.Container
         , Data.Container.TreeUtils
         , Data.Container.SubTerm
         , Data.Tensor
+        , Data.Tensor.Axis
         , Data.Tensor.Tensor
         , Data.Tensor.Utils
         , Data.Layout
@@ -46,7 +47,7 @@ modules = Data.Container
         , Data.Algebra
         , Data.Unique.List
         , Data.Unique.Vect
-        , Data.Tensor.Einsum.Expr
+        -- , Data.Tensor.Einsum.Expr
         , NN.Architectures
         , NN.Architectures.Activations
         , NN.Architectures.Residual

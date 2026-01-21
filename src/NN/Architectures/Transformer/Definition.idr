@@ -14,15 +14,18 @@ import NN.Architectures.Utils
 ||| Only missing layernorm, otherwise a complete definition
 public export
 Transformer : {a : Type} -> Num a => Ord a =>
-  {inputStructure, features : Cont} ->
-  (TensorMonoid inputStructure) =>
-  (TensorMonoid features) =>
+  {inputStructure, features : Axis} ->
+  (ac : AxesConsistent [inputStructure, features]) =>
+  (TensorMonoid inputStructure.ToCont) =>
+  (TensorMonoid features.ToCont) =>
   (allAlg : AllAlgebra [inputStructure, features] a) =>
-  {default id causalMask : CTensor [inputStructure, inputStructure] a -> CTensor [inputStructure, inputStructure] a} ->
-  (softargmax : CTensor [inputStructure] a -> CTensor [inputStructure] a) ->
-  CTensor [inputStructure, features] a -\-> CTensor [inputStructure, features] a
-Transformer {allAlg = Cons} softargmax
+  {default id causalMask : Tensor [inputStructure, inputStructure] a ->
+                           Tensor [inputStructure, inputStructure] a} ->
+  (softargmax : Tensor [inputStructure] a -> Tensor [inputStructure] a) ->
+  Tensor [inputStructure, features] a -\-> Tensor [inputStructure, features] a
+Transformer {ac  = _ :: [NewAxis NotInEmptyVect],
+             allAlg = Cons} softargmax
   = composePara (addResidual (SelfAttention softargmax)) (addResidual ffnet)
     where
-      ffnet : CTensor [inputStructure, features] a -\-> CTensor [inputStructure, features] a
+      ffnet : Tensor [inputStructure, features] a -\-> Tensor [inputStructure, features] a
       ffnet = paraMapFirstAxis (multiLayerPerceptron {a=a} {ieva=features} 2 (trivialParam relu) {lastLayerActivation=False})

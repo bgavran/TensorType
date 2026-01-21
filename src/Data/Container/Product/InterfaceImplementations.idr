@@ -23,10 +23,18 @@ TensorMonoid List where
   tensorM = !% \(n, m) => (n * m ** splitProd) 
 
 ||| Follows Applicative instance in `Data.Vect`, i.e. zip
+-- export
+-- TensorMonoid (Vect n) where
+--   tensorN = !% \() => (() ** const ())
+--   tensorM = !% \((), ()) => (() ** \i => (i, i))
+
+||| Basically covers vectors
+||| Follows Applicative instance in `Data.Vect`, i.e. zip
 export
-TensorMonoid (Vect n) where
-  tensorN = !% \() => (() ** const ())
-  tensorM = !% \((), ()) => (() ** \i => (i, i))
+IsCubical c => TensorMonoid c where
+  tensorN @{(MkIsCubical n)} = !% \() => (() ** \_ => ())
+  tensorM @{(MkIsCubical n)} = !% \((), ()) => (() ** \i => (i, i))
+
 
 namespace BinTreeUtils
   public export

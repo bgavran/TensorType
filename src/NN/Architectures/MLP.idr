@@ -11,15 +11,13 @@ import NN.Architectures.Activations
 ||| and flag for whether the last layer should have it
 public export
 multiLayerPerceptron : {a : Type} -> Num a =>
-  {axisName : String} ->
-  {ieva : Cont} ->
-  (allAlg : AllAlgebra [ieva] [axisName] a) =>
-  AllConsistent [axisName, axisName] [ieva, ieva] =>
-  TensorMonoid ieva =>
+  {ieva : Axis} ->
+  (allAlg : AllAlgebra [ieva] a) =>
+  TensorMonoid ieva.ToCont =>
   (numLayers : Nat) ->
-  (activation : CTensor [ieva] [axisName] a -\-> CTensor [ieva] [axisName] a) ->
+  (activation : Tensor [ieva] a -\-> Tensor [ieva] a) ->
   {default False lastLayerActivation : Bool} ->
-  CTensor [ieva] [axisName] a -\-> CTensor [ieva] [axisName] a
+  Tensor [ieva] a -\-> Tensor [ieva] a
 multiLayerPerceptron 0 _ = id
 multiLayerPerceptron 1 activation {lastLayerActivation = False}
   = affinePara
