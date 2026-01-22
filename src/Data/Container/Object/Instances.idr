@@ -98,7 +98,18 @@ public export
 Tensor : List Cont -> Cont
 Tensor = foldr (>@) Scalar
 
--- TODO what is "Tensor" with hancock product? with cartesian product?
+public export
+CartesianTensor : List Cont -> Cont
+CartesianTensor = foldr (>*<) UnitCont
+
+public export
+HancockTensor : List Cont -> Cont
+HancockTensor = foldr (><) Scalar
+
+public export
+CoproductTensor : List Cont -> Cont
+CoproductTensor = foldr (>+<) Empty
+
 -- TODO duoidal structure between with hancock product and composition
 
 ||| Every lens gives rise to a container
