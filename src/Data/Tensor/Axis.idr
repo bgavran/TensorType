@@ -118,6 +118,37 @@ data AxesConsistent : Vect n Axis -> Type where
   (::) : NewAxisConsistent a as -> AxesConsistent as -> AxesConsistent (a :: as)
 
 
+||| Proof that an axis name is in the shape type
+public export
+data InAxes : AxisName -> Vect n Axis -> Type where
+  Here : {as : Vect k Axis} -> InAxes axisName ((axisName ~> a) :: as)
+  There : {as : Vect k Axis} -> InAxes axisName as -> InAxes axisName (a :: as)
+
+public export
+removeAllOccurrences : AxisName -> Vect n Axis -> (m : Nat ** Vect m Axis)
+removeAllOccurrences name axes = filter (\a => a.name /= name) axes
+
+||| A proof that filtering preserves the property that axes are consistent
+public export
+filterPreservesConsistent : {shape : Vect n Axis} ->
+  (ac : AxesConsistent shape) =>
+  (p : Axis -> Bool) ->
+  AxesConsistent (snd $ filter p shape)
+filterPreservesConsistent {shape = []} p = []
+filterPreservesConsistent {shape=(s::ss)} {ac = (a :: as)} p with (filter p ss)
+  _ | (k ** ss') = case p s of
+      True => ?ai 
+      False => ?bi -- case p s of
+
+public export
+removingAllOccurencesIsConsistent : {shape : Vect n Axis} ->
+  AxesConsistent shape =>
+  (toDelete : AxisName) ->
+  (inAxes : InAxes toDelete shape) =>
+  AxesConsistent (snd $ removeAllOccurrences toDelete shape)
+removingAllOccurencesIsConsistent toDelete @{inAxes} = ?remm
+
+
 aa : {c : Axis} -> AxesConsistent [c, c]
 aa = %search
 

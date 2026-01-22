@@ -459,9 +459,30 @@ namespace TensorInstances
     -- Algebra (CTensor [c]) (CTensor [] a) where
     --   reduce t = embed $ reduce $ vectorToExt $ extract <$> t
 
-    ||| Since we have non-unique axis labels, this likely needs to be 
-    ||| implemented after `dot`
+    -- The comment below is probably not as relevant anymore
+    -- ||| Since we have non-unique axis labels, this likely needs to be 
+    -- ||| implemented after `dot`
     namespace ReduceAxis
+      public export
+      reduceAxis : {shape : Vect rank Axis} ->
+        AxesConsistent shape =>
+        (toDelete : AxisName) ->
+        (inAxes : InAxes toDelete shape) =>
+        Tensor (snd $ removeAllOccurrences toDelete shape) {ac=removingAllOccurencesIsConsistent {shape=shape} toDelete} a
+        
+
+      --reduce : {rank : Nat} ->
+      --  {shape : Vect (S rank) Cont} ->
+      --  {names : Vect (S rank) String} ->
+      --  (ac : AllConsistent names shape) =>
+      --  CTensor shape names a ->
+      --  (toDelete : String) ->
+      --  (inAxes : Elem toDelete names) =>
+      --  (alg : Algebra (Ext (index (elemToFin inAxes) shape))
+      --    (CTensor (drop (FS (elemToFin inAxes)) shape)
+      --             (DropElem.drop names inAxes)
+      --             {ac=allConsistentAfterDropElems {toDelete=toDelete} {names=names} {shape=shape}}
+      --             a)
 
 {-
       public export
