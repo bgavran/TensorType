@@ -22,7 +22,6 @@ You can also use functions analogous to numpy's, such as `np.arange` and `np.res
 t1 : Tensor ["i" ~~> 6] Double
 t1 = arange
 
--- These implicit arguments will not be necessary in the future
 t2 : Tensor ["i" ~~> 2, "j" ~~> 3] Double
 t2 = reshape t1
 

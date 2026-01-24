@@ -20,11 +20,17 @@ import public Misc
 
 {-------------------------------------------------------------------------------
 {-------------------------------------------------------------------------------
-This file defines the main construction of this repository `CTensor`, and
-provides instances and utilities for working with them.
-`CTensor` is a datatype which is simply a wrapper around the extension of
-a composition of containers.
+This file defines the main datatype of this repository: `Tensor`, and
+utilities and instances for working with it.
 
+`Tensor` implements and generalies
+1) `np.array` from NumPy 
+2) `torch.Tensor` from PyTorch
+3) `tf.Tensor` from TensorFlow
+as well as tensors which are defined in other libraries. 
+
+
+In this file `Tensor` is simply a wrapper around the extension of an eponymous container: `Cont.Tensor` which itself is simply a composition of containers.
 
 Provided instances include:
 Functor, Applicative, Foldable, Naperian, Algebra, Eq, Show, Num, Neg, Abs,
@@ -38,17 +44,12 @@ Functionality includes:
 * Getters
 * Setters (TODO)
 * Functionality for general reshaping such as views, traversals
-* Concrete reshape for cubical tensors
+* Concrete reshape for cubical tensors that fails if there is a size mismatch
 
 -------------------------------------------------------------------------------}
 -------------------------------------------------------------------------------}
 
 ||| Tensor is the core datatype of TensorType
-||| It implements and generalises
-||| 1) `np.array` from NumPy 
-||| 2) `torch.Tensor` from PyTorch
-||| 2) `tf.Tensor` from TensorFlow
-
 ||| Implementation-wise, it adds the functionality of names to a container
 ||| as well as... a wrapper around `Ext (Tensor shape) a` to
 ||| help type inference, but also one which checks which
@@ -424,7 +425,6 @@ namespace TensorInstances
     * Algebra (CTensor [d]) (CTensor [e] a)
     * Algebra (CTensor [e]) (CTensor [] a)
     -}
-
 
     public export
     reduceTensor : {shape : TensorShape rank} ->
@@ -1078,7 +1078,7 @@ Ex3 : Tensor ["i" ~~> 2, "j" ~~> 6] Integer
 Ex3 = reshape Ex2
 
 namespace SetterGetter
-  ||| Machinery for indexing into a Tensor
+  ||| Machinery for indexing into a Tensor based on absolute positions
   ||| It depends on shape, but also on the tensor t itself
   ||| Provides a compile-time guarantee that we won't be out of bounds
   ||| This dependency is not needed for cubical tensors

@@ -12,7 +12,7 @@ import Derive.Prelude
 ||| are stored in the physical memory, which is in 1D linear order.
 ||| There are two options: row-major and column-major format
 ||| NumPy, PyTorch, TensorFlow and JAX use row-major indexing
-||| The idea is that once linearised:
+||| The idea is that once linearised, with:
 ||| - row-major the last index of the array varies fastest
 ||| - column-major the first index of the array varies fastest
 public export
@@ -65,24 +65,3 @@ indexFinProd : {m, n : Nat} ->
 indexFinProd RowMajor row col = indexProd row col
 indexFinProd ColumnMajor row col = 
   replace {p = Fin} (sym $ multCommutative m n) (indexProd {m=n} {n=m} col row)
-
-||| Possibly not needed anymore?
-||| Convert a linear index into a multi-dimensional index.
-||| Generalizes splitFinProd to arbitrary dimensions.
-|||
-||| For a tensor of shape [2, 3, 4] with 24 elements:
-|||   - Row-major: last dimension varies fastest
-|||   - Column-major: first dimension varies fastest
-|||
-||| @ shape the shape of the tensor
-||| @ lo    the memory layout order
-||| @ idx   a linear index into the flattened tensor
-public export
-splitShape : {shape : List Nat} ->
-  (lo : LayoutOrder) ->
-  Fin (foldr (*) 1 shape) ->
-  All Fin shape
-splitShape {shape = []} _ _ = []
-splitShape {shape = (n :: ns)} lo idx =
-  let (i, rest) = splitFinProd {m=n} {n=foldr (*) 1 ns} lo idx
-  in i :: splitShape lo rest

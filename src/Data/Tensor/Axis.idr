@@ -8,34 +8,62 @@ import Data.Container
 import Data.Unique.Vect
 import Misc
 
-{-
+{-------------------------------------------------------------------------------
+{-------------------------------------------------------------------------------
+
 Design choices:
 1) Are axis names bound local to a tensor, or do they persist globally?
 2) Can a tensor contain duplicate axis names? (Yes?)
 3) How does contraction work?
   3.1) Given `t : Tensor [BatchSize, BatchSize] Double`, what is `dotGeneral t`?
 
+"instead of having 'names' be transient bindings to axes that require validation at each einsum function call invocation, and which dissapear right after the said function call, I'm attempting to build in a naming system into the core tensor calculus that persists with the lifetime of the underlying tensor. Similar to Python's XArray"
+
+
+Need to figure out how `reduce name t` acts when:
+1) `name="BatchSize"` and `t : Tensor [BatchSize, BatchSize] Double`
+  - Should sum up the diagonal?
+2) `name="BatchSize"` and `t : Tensor [BatchSize] Double`
+  - Should sum up the vector?
+3) `name="BatchSize"` and `t : Tensor [BatchSize, SeqLen, BatchSize] Double`
+  - Should sum up the diagonal slices of SeqLen
+
+I suppose this is about iterators
+iterating through 
+
+
 
 -- axes names persist globally, but are only checked for incompatibilities during
 -- tensor formation or tensor operations. Otherwise we'd have to track contexts manually
 
-Language should track context?
 
-"instead of having 'names' be transient bindings to axes that require validation at each einsum function call invocation, and which dissapear right after the said function call, I'm attempting to build in a naming system into the core tensor calculus that persists with the lifetime of the underlying tensor. Similar to Python's XArray"
+--- Consistency checking: ----------------- 
+We check consistency at each call site.
+Alternatively if we were building a programming languge we'd check consistency with each declaration. That is, writing something like:
+```idris
+BatchSize1 : Axis
+BatchSize1 = "batchSize" ~> Vect 128
 
+BatchSize2 : Axis
+BatchSize2 = "batchSize" ~> Vect 129
+```
+would throw an error on the line `BatchSize2 = ...` because we're redeclaring "batchSize" which already exists.
+
+------------------------------------------- 
 
 Similar projects/ideas:
 * XArray: https://docs.xarray.dev/en/stable/
 * Haliax: https://github.com/marin-community/haliax
 
--}
+-------------------------------------------------------------------------------}
+-------------------------------------------------------------------------------}
 
 ||| The name for an axis is an arbitrary string
 public export
 AxisName : Type
 AxisName = String
 
-public export infixr 0 ~> -- Constructor for containre-based axes
+public export infixr 0 ~> -- Constructor for container-based axes
 public export infixr 0 ~~> -- 'Constructor' for cubical axes
 
 ||| An axis is a container (representing its size) together with its name
@@ -48,6 +76,15 @@ record Axis where
 public export
 rename : Axis -> AxisName -> Axis
 rename a str = str ~> a.cont
+
+
+||| In some cases we TensorType might need to assign a name to an axis that
+||| will not be exposed to the user.
+||| This is the default name for such cases
+public export
+TTinternalName : AxisName
+TTinternalName = "__tensortype_tempaxis__"
+
 
 namespace Cubical
   ||| A "constructor" for cubical axes
@@ -135,6 +172,12 @@ namespace TensorShape
         (index (elemToFin e) (toVect as)).cont = a.cont ->
         NewAxisConsistent a as
 
+  ||| Convenience function, turns it also into a list
+  ||| Because `Data.Container` uses lists with tensors
+  public export
+  conts : TensorShape k -> List Cont
+  conts ts = cont <$> toList ts
+
   ||| Names of the axes in a tensor shape
   public export
   axisNames : TensorShape k -> Vect k AxisName
@@ -147,8 +190,8 @@ namespace TensorShape
 
   ||| Size of a tensor shape, i.e. its number of elements
   public export
-  size : (shape : TensorShape k) -> All IsCubical (toVect shape) => Nat
-  size shape = size (toVect shape)
+  size : (shape : TensorShape k) -> All IsCubical (conts shape) => Nat
+  size shape = size (conts shape)
 
   -- public export
   -- AxesConsistent : Vect (S k) Axis -> Type
@@ -187,12 +230,6 @@ namespace TensorShape
   -- be fine... 
   axisConsistentSym (ExistingAxis (There Here) _) impossible
   axisConsistentSym (ExistingAxis (There (There later)) _) impossible
-
-  ||| Convenience function, turns it also into a list
-  ||| Because `Data.Container` uses lists with tensors
-  public export
-  conts : TensorShape k -> List Cont
-  conts ts = toList ts <&> \a => a.cont
 
   ||| Proof that an axis name is in the shape type
   public export

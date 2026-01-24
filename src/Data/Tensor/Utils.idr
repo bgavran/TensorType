@@ -51,7 +51,6 @@ namespace ZerosOnes
     Tensor shape a
   ones = tensorReplicate (fromInteger 1)
 
-  ||| Todo is it possible to do this without pattern matching like this? 
   ||| An identity matrix with True on the diagonal and False elsewhere
   public export
   identityBool : {0 c : Axis} -> IsCubical c =>
@@ -86,7 +85,7 @@ namespace Range
   namespace TwoArgs
     ||| A range of numbers [start, stop>
     public export
-    arange : {0 start : Axis} -> {0 stop : Axis} -> {result : AxisName} ->
+    arange : {default (TTinternalName ~~> 0) start : Axis} -> {0 stop : Axis} -> {result : AxisName} ->
       (cStart : IsCubical start) => (cStop : IsCubical stop) =>
       Cast Nat a => Tensor [result ~~> minus (dim stop) (dim start)] a
     arange {cStart=(MkIsCubical _ n)} {cStop=(MkIsCubical _ m)}
@@ -122,23 +121,18 @@ namespace Flatten
   ||| Requires that we have Foldable on all the components
   ||| In general we won't know the number of elements of a non-cubical tensor at compile time
   public export
-  cFlatten : {0 shape : TensorShape rank} ->
+  flatten : {0 shape : TensorShape rank} ->
     Foldable (Tensor shape) =>
     Tensor shape a -> List a
-  cFlatten = toList
+  flatten = toList
 
   ||| Flatten a cubical tensor into a vector
   ||| Number of elements is known at compile time
   ||| Can even be zero, if any of shape elements is zero
-  flatten : {shape : TensorShape rank} ->
-    All IsCubical (toVect shape) =>
+  flattenCubical : {shape : TensorShape rank} ->
+    All IsCubical (conts shape) =>
     Tensor shape a -> Vect (size shape) a
-  flatten t = ?flatten_rhs
-
-  -- This was the old version with a strided implementation
-  -- flatten : {shape : List Nat} ->
-  --   Tensor shape a -> Vect (prod shape) a
-  -- flatten (ToCubicalTensor (TS ex)) = extract <$> toVect ex
+  flattenCubical = toVect . extMap (flattenCubical DefaultLayoutOrder) . GetT
 
 namespace Max
   ||| Maximum value in a tensor
@@ -146,13 +140,7 @@ namespace Max
   max : {0 shape : TensorShape rank} ->
     Foldable (Tensor shape) => Ord a =>
     Tensor shape a -> Maybe a
-  max = maxInList . cFlatten
-
-  -- TODO Fix for strided
-  -- max {shape = []} t = maxA (FromCubicalTensor t)
-  -- max {shape = (s :: ss)} t = let tt = maxA (FromCubicalTensor t) in ?max_rhs_1
-  -- maxA maxA . FromCubicalTensor  -- t = let tt = FromCubicalTensor t in maxA tt
-  --maxA . FromCubicalTensor
+  max = maxInList . flatten
 
 namespace OneHot
   public export

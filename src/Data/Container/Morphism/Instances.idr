@@ -19,8 +19,8 @@ public export
 extMap : {c, d : Cont} ->
   c =%> d ->
   Ext c a -> Ext d a
-extMap (!% f) (sh <| index) = let (y ** ky) = f sh
-                              in y <| (index . ky)
+extMap f (sh <| index) = let (y ** ky) = (%!) f sh
+                         in y <| (index . ky)
 
 
 ||| Wraps a dependent lens `c =%> d`
@@ -34,29 +34,30 @@ wrapIntoVector (!% f) =
   !% \e => let (y ** ky) = f (shapeExt e)
            in (y <| \_ => () ** \(cp ** ()) => (ky cp ** ()))
 
+
 ||| Layout-aware depenent lens flattening a cubical tensor
 public export
-flatten : {shape : List Cont} ->
+flattenCubical : {shape : List Cont} ->
   (ac : All IsCubical shape) =>
   LayoutOrder ->
   Tensor shape =%> Vect (size shape)
-flatten {shape = [], ac=[]} _ = !% \() => (() ** \FZ => ())
-flatten {shape = (_ :: ss), ac=((MkIsCubical n) :: as)} lo
+flattenCubical {shape = [], ac=[]} _ = !% \() => (() ** \FZ => ())
+flattenCubical {shape = (_ :: ss), ac=((MkIsCubical n) :: as)} lo
   = !% \(() <| t) => (() ** \idx =>
-      let (!% recBackward) = flatten {shape = ss} lo
+      let (!% recBackward) = flattenCubical {shape = ss} lo
           (i, rest) = splitFinProd lo idx
           (_ ** backRec) = recBackward (t i)
       in (i ** backRec rest))
 
 ||| Layout-aware dependent lens unflattening a tensor
 public export
-unflatten : {shape : List Cont} ->
+unflattenCubical : {shape : List Cont} ->
   (ac : All IsCubical shape) =>
   LayoutOrder ->
   Vect (size shape) =%> Tensor shape
-unflatten {shape = [], ac=[]} lo = !% \() => (() ** \() => FZ)
-unflatten {shape = (_ :: ss), ac=((MkIsCubical n) :: as)} lo =
-  let (!% f) = unflatten {shape = ss} lo
+unflattenCubical {shape = [], ac=[]} lo = !% \() => (() ** \() => FZ)
+unflattenCubical {shape = (_ :: ss), ac=((MkIsCubical n) :: as)} lo =
+  let (!% f) = unflattenCubical {shape = ss} lo
       (innerShape ** innerBack) = f ()
   in !% \() => ((() <| \_ => innerShape) ** (\(cp ** restPos) =>
     indexFinProd lo cp (innerBack restPos)))
@@ -78,7 +79,9 @@ reshape : {oldShape, newShape : List Cont} ->
   LayoutOrder ->
   {auto prf : size oldShape = size newShape} ->
   Tensor oldShape =%> Tensor newShape
-reshape lo = flatten lo %>> reshapeFlattenedTensor %>> unflatten lo
+reshape lo = flattenCubical lo
+         %>> reshapeFlattenedTensor
+         %>> unflattenCubical lo
 
 -- need to organise this
 namespace BinTree
