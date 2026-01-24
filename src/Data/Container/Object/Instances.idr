@@ -135,28 +135,55 @@ public export
 Nap : Type -> Cont
 Nap b = Const Unit b
 
--- Some more examples that require the Applicative constraint can be found in
--- `Data.Container.Object.Applicative`
-
 
 namespace Cubical
-  ||| Temporary measure for cubical tensors
-  ||| Later can be generalised to arbitrary containers
+  {-
+  A container is said to be:
+  * Finite: when for every shape the set of positions is finite.
+    * Examples: vectors, lists, but also finite binary trees.
+  * Naperian: when the set of shapes is `Unit`. This means that there is only one set of positions for that container.
+    * Examples: Scalar, UnitCont, Pair, Vect n, Stream.
+    * Notably, the `Stream` example shows us Naperian does not imply Finite
+  * Cubical: when it is both Finite and Naperian.
+    * Examples: for any `n : Nat`, `Vect n`. Those are all the examples, up to isomorphism
+    * Notably, this also includes, a container whose unique set of positions is the set of positions of binary trees of a particular shape. But this is isomorphic to the `Vect k` container, where `k` is the number of positions in that binary tree.
+  -}
+  -- TODO, define `Finite` datatype? Perhaps by using `idris2-finite`?
+
+  ||| A container is `Naperian` when there is only one set of shapes, and
+  ||| thus only one set of positions for that container
+  public export
+  data IsNaperian : Cont -> Type where
+    MkIsNaperian : (pos : Type) -> IsNaperian (Const Unit pos)
+
+  ||| A container is cubical whenever it is Finite and Naperian
+  ||| Effectively, captures `Vect n` containers, up to isomorphism
   public export
   data IsCubical : Cont -> Type where
-    MkIsCubical : (n : Nat) -> IsCubical (Vect n)
+    MkIsCubical : (n : Nat) -> IsCubical (Const Unit (Fin n))
 
+  public export
+  dimHelper : IsCubical c -> Nat
+  dimHelper (MkIsCubical n) = n
+
+  ||| We call dimension the size of the set of positions of a finite container 
   public export
   dim : (0 c : Cont) -> IsCubical c => Nat
-  dim _ @{(MkIsCubical n)} = n
+  dim _ @{ic} = dimHelper ic
 
+  ||| Helper function allowing `shape` in `cubicalShape` to have zero annotation
   public export
-  cubicalShape : (shape : List Cont) -> (ac : All IsCubical shape) => List Nat
-  cubicalShape [] {ac = []} = []
-  cubicalShape (_ :: ss) {ac = ((MkIsCubical n) :: _)}
-    = n :: cubicalShape ss
+  cubicalShapeHelper : All IsCubical shape -> List Nat
+  cubicalShapeHelper [] = []
+  cubicalShapeHelper (ic :: ics) = dimHelper ic :: cubicalShapeHelper ics
 
+  ||| Given a list of cubical containers, return the list of their dimensions
   public export
-  size : (shape : List Cont) -> (ac : All IsCubical shape) => Nat
-  size ss = prod (cubicalShape ss)
+  cubicalShape : (0 shape : List Cont) -> All IsCubical shape => List Nat
+  cubicalShape _ @{ac} = cubicalShapeHelper ac
+
+  ||| Size of a list of cubical containers is the product of their dimensions
+  public export
+  size : (0 shape : List Cont) -> All IsCubical shape => Nat
+  size shape = prod (cubicalShape shape)
 

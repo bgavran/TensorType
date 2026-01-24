@@ -15,16 +15,15 @@ import NN.Architectures.Utils
 public export
 Transformer : {a : Type} -> Num a => Ord a =>
   {inputStructure, features : Axis} ->
-  (ac : AxesConsistent [inputStructure, features]) =>
-  (TensorMonoid inputStructure.ToCont) =>
-  (TensorMonoid features.ToCont) =>
+  (ac : NewAxisConsistent inputStructure [features]) =>
+  (TensorMonoid inputStructure.cont) =>
+  (TensorMonoid features.cont) =>
   (allAlg : AllAlgebra [inputStructure, features] a) =>
   {default id causalMask : Tensor [inputStructure, inputStructure] a ->
                            Tensor [inputStructure, inputStructure] a} ->
   (softargmax : Tensor [inputStructure] a -> Tensor [inputStructure] a) ->
   Tensor [inputStructure, features] a -\-> Tensor [inputStructure, features] a
-Transformer {ac  = _ :: [NewAxis NotInEmptyVect],
-             allAlg = Cons} softargmax
+Transformer {allAlg = Cons} softargmax
   = composePara (addResidual (SelfAttention softargmax)) (addResidual ffnet)
     where
       ffnet : Tensor [inputStructure, features] a -\-> Tensor [inputStructure, features] a

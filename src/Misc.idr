@@ -91,30 +91,32 @@ namespace DropElem
 
 public export
 data NotElem : DecEq a => (x : a) -> (xs : Vect n a) -> Type where
-  NotInEmptyVect : DecEq a => {x : a} -> NotElem x []
-  NotInNonEmptyVect : DecEq a => {x, y : a} ->
+  NotInEmptyVect : DecEq a => {0 x : a} -> NotElem x []
+  NotInNonEmptyVect : DecEq a => {0 x, y : a} ->
     (xs : Vect n a) ->
     IsNo (decEq x y) ->
     (ne : NotElem x xs) =>
     NotElem x (y :: xs)
 
--- public export
--- notEqualNotElem : DecEq a =>
---   {x, y : a} ->
---   (neq : IsNo (decEq x y)) ->
---   NotElem x [y]
--- notEqualNotElem neq = NotInNonEmptyVect [] neq
--- 
--- %hint
--- public export
--- notEqualNotElem2 : DecEq a =>
---   {x, y : a} ->
---   (neq : IsNo (decEq x y)) ->
---   NotElem y [x]
--- notEqualNotElem2 neq = notEqualNotElem {x=y} {y=x} (isNoSym neq)
+public export
+notEqualNotElem : DecEq a =>
+  {0 x, y : a} ->
+  (neq : IsNo (decEq x y)) ->
+  NotElem x [y]
+notEqualNotElem neq = NotInNonEmptyVect [] neq
 
--- notEqualNotElem neq = notEqualNotElem {x=y} {y=x} (isNoSym neq)
 
+||| If an element `i` is not in the singleton list `[j]`, then `j` is not in
+||| the singleton list `[i]`
+public export
+notElemSym : DecEq a => {i, j : a} -> NotElem i [j] -> NotElem j [i]
+notElemSym (NotInNonEmptyVect [] isNo) = notEqualNotElem (isNoSym isNo)
+
+||| If an element `i` is in the singleton list `[j]`, then `j` is in the 
+||| singleton list `[i]`
+public export
+elemSym : DecEq a => {i, j : a} -> Elem i [j] -> Elem j [i]
+elemSym Here = Here
 
 ||| This already exists in Data.Vect.Elem, but it is not marked with %hint
 emptyIsUninhabited : NotElem "i" []

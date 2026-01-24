@@ -8,8 +8,6 @@ import Data.Container
 import Data.Unique.Vect
 import Misc
 
-%hide Syntax.PreorderReasoning.Ops.infixl.(<~)
-
 {-
 Design choices:
 1) Are axis names bound local to a tensor, or do they persist globally?
@@ -24,6 +22,11 @@ Design choices:
 Language should track context?
 
 "instead of having 'names' be transient bindings to axes that require validation at each einsum function call invocation, and which dissapear right after the said function call, I'm attempting to build in a naming system into the core tensor calculus that persists with the lifetime of the underlying tensor. Similar to Python's XArray"
+
+
+Similar projects/ideas:
+* XArray: https://docs.xarray.dev/en/stable/
+* Haliax: https://github.com/marin-community/haliax
 
 -}
 
@@ -40,64 +43,49 @@ public export
 record Axis where
   constructor (~>)
   name : AxisName
-  ToCont : Cont
+  cont : Cont
 
 public export
 rename : Axis -> AxisName -> Axis
-rename a str = str ~> a.ToCont
+rename a str = str ~> a.cont
 
 namespace Cubical
+  ||| A "constructor" for cubical axes
   public export
   (~~>) : AxisName -> Nat -> Axis
   (~~>) axisName n = axisName ~> Vect n
-  
+
+  ||| Follows the pattern of `IsCubical` from `Data.Container.Object.Instances`
   public export
   data IsCubical : Axis -> Type where
-    MkIsCubical : (axisName : AxisName) -> (n : Nat) ->
-      IsCubical (axisName ~~> n)
+    MkIsCubical : (name : AxisName) -> (n : Nat) -> IsCubical (name ~~> n)
 
-  -- public export
-  -- cubicalAxisToCont : IsCubical c => IsCubical (c.ToCont)
-  -- cubicalAxisToCont @{MkIsCubical _ n} = MkIsCubical n
-
-  -- %hint
-  -- public export
-  -- cubicalToTensorMonoid : IsCubical c => TensorMonoid (c.ToCont)
-  -- cubicalToTensorMonoid @{(MkIsCubical _ n)} = %search
-
-  -- testtt : IsCubical c => TensorMonoid (c.ToCont)
-  -- testtt = %search
-
+  public export
+  dimHelper : {0 a : Axis} -> IsCubical a -> Nat
+  dimHelper (MkIsCubical _ n) = n
 
   public export
   dim : (0 a : Axis) -> IsCubical a => Nat
-  dim _ @{(MkIsCubical _ n)} = n
+  dim _ @{ic} = dimHelper ic
 
-  
   public export
-  cubicalShape : (shape : Vect r Axis) -> (ac : All IsCubical shape) => List Nat
-  cubicalShape [] {ac = []} = []
-  cubicalShape ((_ ~> Vect n) :: ss) {ac = ((MkIsCubical _ n) :: ns)}
-    = n :: cubicalShape ss
-  
+  cubicalShapeHelper : {0 shape : Vect r Axis} ->
+    All IsCubical shape -> List Nat
+  cubicalShapeHelper [] = []
+  cubicalShapeHelper (ic :: ns) = dimHelper ic :: cubicalShapeHelper ns
+
+  ||| Given a list of cubical axes, return the list of their dimensions
+  public export
+  cubicalShape : (0 shape : Vect r Axis) -> All IsCubical shape => List Nat
+  cubicalShape _ @{ac} = cubicalShapeHelper ac
+
   ||| Size of a cubical tensor, i.e. its number of elements
   public export
-  size : (shape : Vect r Axis) -> (ac : All IsCubical shape) => Nat
+  size : (0 shape : Vect r Axis) -> (ac : All IsCubical shape) => Nat
   size ss = prod (cubicalShape ss)
 
-||| Convenience function, turns it also into a list
-||| Because `Data.Container` uses lists with tensors
-public export
-conts : Vect n Axis -> List Cont
-conts as = toList' (ToCont <$> as)
 
-public export
-allCubicalAxisToCont : {shape : Vect r Axis} ->
-  All IsCubical shape -> All IsCubical (conts shape)
-allCubicalAxisToCont {shape = []} [] = []
-allCubicalAxisToCont {shape = ((_ ~> _) :: ss)} ((MkIsCubical _ n) :: ics)
-  = MkIsCubical n :: allCubicalAxisToCont ics
-
+{-
 ||| Given some axes, we cannot add one with the same name but a different 
 ||| container
 public export
@@ -107,7 +95,7 @@ data NewAxisConsistent : Axis -> Vect n Axis -> Type where
     NewAxisConsistent a as
   ExistingAxis : {0 a : Axis} -> {0 as : Vect n Axis} ->
     (e : Elem (Axis.name a) (Axis.name <$> as)) ->
-    ToCont (index (elemToFin e) as) = ToCont a ->
+    (index (elemToFin e) as).cont = a.cont ->
     NewAxisConsistent a as
 
 
@@ -116,17 +104,144 @@ public export
 data AxesConsistent : Vect n Axis -> Type where
   Nil : AxesConsistent []
   (::) : NewAxisConsistent a as -> AxesConsistent as -> AxesConsistent (a :: as)
+-}
+
+namespace TensorShape
+  mutual
+    public export
+    data TensorShape : (rank : Nat) ->Type where
+      Nil : TensorShape 0
+      (::) : (a : Axis) -> (as : TensorShape k) ->
+        (ac : NewAxisConsistent a as) =>
+        TensorShape (S k)
+
+    public export
+    toVect : TensorShape k -> Vect k Axis
+    toVect [] = []
+    toVect (a :: as) = a :: toVect as
+
+    public export
+    toList : TensorShape k -> List Axis
+    toList [] = []
+    toList (a :: as) = a :: toList as
+
+    public export
+    data NewAxisConsistent : Axis -> TensorShape k -> Type where
+      NewAxis : {0 a : Axis} -> {0 as : TensorShape k} ->
+        NotElem a.name (Axis.name <$> toVect as) ->
+        NewAxisConsistent a as
+      ExistingAxis : {0 a : Axis} -> {0 as : TensorShape k} ->
+        (e : Elem a.name (Axis.name <$> toVect as)) ->
+        (index (elemToFin e) (toVect as)).cont = a.cont ->
+        NewAxisConsistent a as
+
+  ||| Names of the axes in a tensor shape
+  public export
+  axisNames : TensorShape k -> Vect k AxisName
+  axisNames ts = name <$> toVect ts
+
+  ||| Sizes of the axes in a tensor shape
+  public export
+  axisSizes : TensorShape k -> Vect k Cont
+  axisSizes ts = cont <$> toVect ts
+
+  ||| Size of a tensor shape, i.e. its number of elements
+  public export
+  size : (shape : TensorShape k) -> All IsCubical (toVect shape) => Nat
+  size shape = size (toVect shape)
+
+  -- public export
+  -- AxesConsistent : Vect (S k) Axis -> Type
+  -- AxesConsistent (x :: xs) = NewAxisConsistent x xs
+
+  -- namespace Concrete
+  --   data TensorShape : (rank : Nat) -> Vect rank Axis -> Type where
+  --     Nil : TensorShape 0 []
+  --     (::) : (a : Axis) ->
+  --       {cs : Vect k Axis} -> (as : TensorShape k cs) ->
+  --       NewAxisConsistent 
+  --       
+  --       TensorShape (S k) (a :: as)
+      
+
+    
+  test1 : TensorShape 2
+  test1 = ["batchSize" ~> Vect 128, "seqLen" ~> List]
+
+  test2 : TensorShape 3
+  test2 = ["batchSize" ~> Vect 128, "seqLen" ~> List, "batchSize" ~> Vect 128]
+
+  failing
+    test3 : TensorShape 2
+    test3 = ["batchSize" ~> Vect 128, "batchSize" ~> Vect 13]
 
 
-||| Proof that an axis name is in the shape type
-public export
-data InAxes : AxisName -> Vect n Axis -> Type where
-  Here : {as : Vect k Axis} -> InAxes axisName ((axisName ~> a) :: as)
-  There : {as : Vect k Axis} -> InAxes axisName as -> InAxes axisName (a :: as)
+  ||| If an axis `i` can be added into a singleton list `[j]`, then
+  ||| the axis `j` can be added into a singleton list `[i]`
+  %hint
+  public export
+  axisConsistentSym : {i, j : Axis} ->
+    NewAxisConsistent i [j] -> NewAxisConsistent j [i]
+  axisConsistentSym (NewAxis ne) = NewAxis (notElemSym ne)
+  -- For some reason we can't pattern match on `Here`? The proof should still 
+  -- be fine... 
+  axisConsistentSym (ExistingAxis (There Here) _) impossible
+  axisConsistentSym (ExistingAxis (There (There later)) _) impossible
 
-public export
-removeAllOccurrences : AxisName -> Vect n Axis -> (m : Nat ** Vect m Axis)
-removeAllOccurrences name axes = filter (\a => a.name /= name) axes
+  ||| Convenience function, turns it also into a list
+  ||| Because `Data.Container` uses lists with tensors
+  public export
+  conts : TensorShape k -> List Cont
+  conts ts = toList ts <&> \a => a.cont
+
+  ||| Proof that an axis name is in the shape type
+  public export
+  data InAxes : AxisName -> TensorShape k -> Type where
+    Here : {as : TensorShape k} ->
+      NewAxisConsistent (axisName ~> a) as =>
+      InAxes axisName ((axisName ~> a) :: as)
+    There : {as : TensorShape k} ->
+      InAxes axisName as ->
+      NewAxisConsistent a as =>
+      InAxes axisName (a :: as)
+
+  public export
+  removeAllOccurrences : (name : AxisName) ->
+    TensorShape n ->
+    (m : Nat ** ts : TensorShape m ** NotElem name (Axis.name <$> toVect ts))
+  removeAllOccurrences name [] = (0 ** [] ** NotInEmptyVect)
+  removeAllOccurrences name (a :: as) = case a.name == name of
+    True => removeAllOccurrences name as
+    False => let (k ** ts' ** notInTs) = removeAllOccurrences name as
+             in (S k ** (::) a ts' @{?bibibi} ** ?vnvnn)
+
+  -- ||| Proof that an axis name is in the shape type
+  -- public export
+  -- data InAxes : AxisName -> Vect n Axis -> Type where
+  --   Here : {as : Vect k Axis} -> InAxes axisName ((axisName ~> a) :: as)
+  --   There : {as : Vect k Axis} -> InAxes axisName as -> InAxes axisName (a :: as)
+  
+
+--||| The shape of a tensor is not just a list of containers, but also
+--||| a) their names, and b) a proof that the names are consistently bound
+--public export
+--record TensorShape where
+--  constructor MkTensorShape
+--  tRank : Nat
+--  tShape : Vect tRank Axis
+--  tAxesConsistent : AxesConsistent tShape
+
+{-
+
+-- public export
+-- allCubicalAxisToCont : {shape : Vect r Axis} ->
+--   All IsCubical shape -> All IsCubical (conts shape)
+-- allCubicalAxisToCont {shape = []} [] = []
+-- allCubicalAxisToCont {shape = ((_ ~> _) :: ss)} ((MkIsCubical _ n) :: ics)
+--   = MkIsCubical n :: allCubicalAxisToCont ics
+
+
+
 
 ||| A proof that filtering preserves the property that axes are consistent
 public export
@@ -135,10 +250,12 @@ filterPreservesConsistent : {shape : Vect n Axis} ->
   (p : Axis -> Bool) ->
   AxesConsistent (snd $ filter p shape)
 filterPreservesConsistent {shape = []} p = []
-filterPreservesConsistent {shape=(s::ss)} {ac = (a :: as)} p with (filter p ss)
-  _ | (k ** ss') = case p s of
-      True => ?ai 
-      False => ?bi -- case p s of
+filterPreservesConsistent {shape=(s::ss)} {ac = ((NewAxis x) :: as)} p = ?aiii_0
+filterPreservesConsistent {shape=(s::ss)} {ac = ((ExistingAxis e prf) :: as)} p = ?aiii_1
+-- -- with (filter p ss)
+--   _ | (k ** ss') = case p s of
+--       True => ?ai 
+--       False => ?bi -- case p s of
 
 public export
 removingAllOccurencesIsConsistent : {shape : Vect n Axis} ->

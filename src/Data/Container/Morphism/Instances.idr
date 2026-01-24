@@ -80,7 +80,6 @@ reshape : {oldShape, newShape : List Cont} ->
   Tensor oldShape =%> Tensor newShape
 reshape lo = flatten lo %>> reshapeFlattenedTensor %>> unflatten lo
 
-||| This is simply a rewrite  
 -- need to organise this
 namespace BinTree
   public export
@@ -113,29 +112,15 @@ namespace BinTreeNode
   inorder : BinTreeNode =%> List
   inorder = !% \b => (numNodes b ** inorderBackward b)
 
-
-  -- TODO reshape commented out for the same reason as reshapeTensorA is
-  -- public export
-  -- reshape : {oldShape, newShape : List Nat} ->
-  --   Tensor oldShape a ->
-  --   {auto prf : prod oldShape = prod newShape} ->
-  --   Tensor newShape a
-
--- Need to do some rewriting for preorder
-public export
-preorderBinTreeNode : (b : BinTreeShape) -> Fin (numNodes b) -> BinTreePosNode b
-preorderBinTreeNode (NodeS lt rt) x = ?preorderBinTreeNode_rhs_1
---preorderBinTreeNode (NodeS lt rt) n with (strengthenN {m=numNodes lt} n)
---  _ | Left p = ?whl
---  _ | Right FZ = ?whn
---  _ | Right (FS g) = ?whr
-
-public export
-maybeToList : Maybe =%> List
-maybeToList = !% \b => case b of 
-  False => (0 ** absurd)
-  True => (1 ** \_ => ())
-
+  -- Need to do some rewriting for preorder
+  public export
+  preorderBinTreeNode : (b : BinTreeShape) ->
+    Fin (numNodes b) -> BinTreePosNode b
+  preorderBinTreeNode (NodeS lt rt) x = ?preorderBinTreeNode_rhs_1
+  --preorderBinTreeNode (NodeS lt rt) n with (strengthenN {m=numNodes lt} n)
+  --  _ | Left p = ?whl
+  --  _ | Right FZ = ?whn
+  --  _ | Right (FS g) = ?whr
 
 -- public export
 -- traverseLeaf : (x : BinTreeShape) -> FinBinTreeLeaf x -> Fin (numLeaves x)
@@ -143,3 +128,9 @@ maybeToList = !% \b => case b of
 -- traverseLeaf (NodeS lt rt) (GoLeft x) = weakenN (numLeaves rt) (traverseLeaf lt x)
 -- traverseLeaf (NodeS lt rt) (GoRight x) = shift (numLeaves lt) (traverseLeaf rt x)
 -- 
+
+public export
+maybeToList : Maybe =%> List
+maybeToList = !% \b => case b of 
+  False => (0 ** absurd)
+  True => (1 ** \_ => ())

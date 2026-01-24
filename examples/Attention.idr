@@ -10,8 +10,6 @@ Will run self attention as usual, on matrices, and then on trees
 -------------------------------------------------------------------------------}
 
 ||| We'll first instantiate self attention as a parametric map on matrices
-||| `n` here represents the length of sequence
-||| `d` here represents the number of tokens
 SelfAttentionMat : {n, d : Nat} ->
   {default False causalMask : Bool} ->
   Tensor ["seqLen" ~~> n, "numTokens" ~~> d] Double -\->
@@ -19,7 +17,6 @@ SelfAttentionMat : {n, d : Nat} ->
 SelfAttentionMat {causalMask} = case causalMask of
   False => SelfAttention softargmax
   True => SelfAttention {causalMask=Attention.causalMask} softargmax
-
 
 ||| Let's fix a simple input matrix
 inputMatrix : Tensor ["seqLen" ~~> 3, "numTokens" ~~> 2] Double

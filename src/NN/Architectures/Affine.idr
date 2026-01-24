@@ -8,7 +8,7 @@ import Data.Para
 public export
 record AffineLayerParams
   (x, y : Axis)
-  {auto ac : AxesConsistent [y, x]}
+  {auto ac : NewAxisConsistent y [x]}
   (a : Type) where
   constructor MkParams
   weights : Tensor [y, x] a
@@ -16,19 +16,19 @@ record AffineLayerParams
 
 public export
 affineImpl : {x, y : Axis} ->
-  AxesConsistent [y, x] =>
+  NewAxisConsistent y [x] =>
   Num a =>
   AllAlgebra [x] a =>
-  TensorMonoid x.ToCont => TensorMonoid y.ToCont =>
+  TensorMonoid x.cont => TensorMonoid y.cont =>
   Tensor [x] a -> AffineLayerParams x y a -> Tensor [y] a
 affineImpl input (MkParams weights bias)
   = matrixVectorProduct weights input + bias
 
 public export
 affinePara : {x, y : Axis} -> {a : Type} -> Num a =>
-  AxesConsistent [y, x] =>
+  NewAxisConsistent y [x] =>
   AllAlgebra [x] a =>
-  TensorMonoid x.ToCont => TensorMonoid y.ToCont =>
+  TensorMonoid x.cont => TensorMonoid y.cont =>
   Tensor [x] a -\-> Tensor [y] a
 affinePara = MkPara
   (const (AffineLayerParams x y a))

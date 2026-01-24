@@ -35,20 +35,18 @@ namespace CommonNames
   Vector c a = Tensor [c] a
   
   public export
-  Matrix : (row, col : Axis) -> AxesConsistent [row, col] => (a : Type) -> Type
+  Matrix : (row, col : Axis) -> NewAxisConsistent row [col] => (a : Type) -> Type
   Matrix row col a = Tensor [row, col] a
 
 namespace ZerosOnes
   public export
-  zeros : Num a => {shape : Vect rank Axis} ->
-    AxesConsistent shape =>
+  zeros : Num a => {shape : TensorShape rank} ->
     All TensorMonoid (conts shape) => 
     Tensor shape a
   zeros = tensorReplicate (fromInteger 0)
 
   public export
-  ones : Num a => {shape : Vect rank Axis} ->
-    AxesConsistent shape =>
+  ones : Num a => {shape : TensorShape rank} ->
     All TensorMonoid (conts shape) => 
     Tensor shape a
   ones = tensorReplicate (fromInteger 1)
@@ -97,10 +95,9 @@ namespace Range
 namespace Flip
   ||| Reverse a tensor along a given axis
   public export
-  flip : {shape : Vect rank Axis} ->
-    AxesConsistent shape =>
+  flip : {shape : TensorShape rank} ->
     (axis : Fin rank) ->
-    IsCubical (index axis shape) =>
+    IsCubical (index axis (toVect shape)) =>
     Tensor shape a -> Tensor shape a
 
 namespace Size
@@ -110,25 +107,22 @@ namespace Size
   -----}
   ||| Number of elements in a non-cubical tensor
   public export
-  cSize : {shape : Vect rank Axis} ->
-    AxesConsistent shape =>
+  cSize : {shape : TensorShape rank} ->
     Tensor shape a -> Nat
   
   ||| Number of elements in a cubical tensor
   public export
-  size : {shape : Vect rank Axis} ->
-    AxesConsistent shape =>
-    All IsCubical shape =>
+  size : {shape : TensorShape rank} ->
+    All IsCubical (toVect shape) =>
     (0 _ : Tensor shape a) -> Nat
-  size {shape} _ = size shape
+  size {shape} _ = size (toVect shape)
 
 namespace Flatten
   ||| Flatten a non-cubical tensor into a list
   ||| Requires that we have Foldable on all the components
   ||| In general we won't know the number of elements of a non-cubical tensor at compile time
   public export
-  cFlatten : {0 shape : Vect rank Axis} ->
-    AxesConsistent shape =>
+  cFlatten : {0 shape : TensorShape rank} ->
     Foldable (Tensor shape) =>
     Tensor shape a -> List a
   cFlatten = toList
@@ -136,9 +130,8 @@ namespace Flatten
   ||| Flatten a cubical tensor into a vector
   ||| Number of elements is known at compile time
   ||| Can even be zero, if any of shape elements is zero
-  flatten : {shape : Vect rank Axis} ->
-    AxesConsistent shape =>
-    All IsCubical shape =>
+  flatten : {shape : TensorShape rank} ->
+    All IsCubical (toVect shape) =>
     Tensor shape a -> Vect (size shape) a
   flatten t = ?flatten_rhs
 
@@ -150,8 +143,7 @@ namespace Flatten
 namespace Max
   ||| Maximum value in a tensor
   ||| Returns Nothing if the tensor is empty
-  max : {0 shape : Vect rank Axis} ->
-    AxesConsistent shape =>
+  max : {0 shape : TensorShape rank} ->
     Foldable (Tensor shape) => Ord a =>
     Tensor shape a -> Maybe a
   max = maxInList . cFlatten
@@ -173,12 +165,12 @@ namespace Triangular
   -- should we have ni,ni here, or ni,nj?
   public export
   cTriBool : {c : Axis} ->
-    (ip : InterfaceOnPositions c.ToCont MOrd) =>
-    TensorMonoid c.ToCont =>
-    (sh : c.ToCont.Shp) -> Tensor [c, c] Bool
+    (ip : InterfaceOnPositions c.cont MOrd) =>
+    TensorMonoid c.cont =>
+    (sh : c.cont.Shp) -> Tensor [c, c] Bool
   cTriBool {ip = MkI {p}} sh
     = let cPositions = positions {sh=sh}
-          pp : MOrd (c.ToCont.Pos sh) := p sh
+          pp : MOrd (c.cont.Pos sh) := p sh
       in outerWith (flip isSubTerm) cPositions cPositions
 
   -- public export
@@ -217,8 +209,7 @@ namespace Triangular
 
   ||| Fill the elements of a tensor `t` with `fill` where `mask` is True
   public export
-  maskedFill : {shape : Vect rank Axis} ->
-    AxesConsistent shape =>
+  maskedFill : {shape : TensorShape rank} ->
     Num a => All TensorMonoid (conts shape) =>
     (t : Tensor shape a) ->
     (mask : Tensor shape Bool) ->
@@ -229,16 +220,14 @@ namespace Triangular
 
 namespace Misc
   public export
-  sum : {shape : Vect rank Axis} ->
-    AxesConsistent shape =>
+  sum : {shape : TensorShape rank} ->
     Algebra (Tensor shape) a =>
     Tensor shape a -> a
   sum = reduce
 
   public export
-  mean : {shape : Vect rank Axis} ->
-    All IsCubical shape =>
-    AxesConsistent shape =>
+  mean : {shape : TensorShape rank} ->
+    All IsCubical (toVect shape) =>
     Cast Nat a =>
     Fractional a => 
     Algebra (Tensor shape) a =>
@@ -261,8 +250,7 @@ namespace Traversals
 
 namespace Random
   public export
-  {shape : Vect rank Axis} ->
-  AxesConsistent shape =>
+  {shape : TensorShape rank} ->
   Random a =>
   Applicative (Tensor shape) => -- again, should we need this?
   Traversable (Tensor shape) =>
@@ -274,9 +262,8 @@ namespace Random
 -- Idris can't find the parametric randomIO interface so reimpementing here 
 public export
 random : Num a => Random a => HasIO io =>
-  (shape : Vect rank Axis) ->
-  All IsCubical shape =>
-  AxesConsistent shape =>
+  (shape : TensorShape rank) ->
+  All IsCubical (toVect shape) =>
   Applicative (Tensor shape) => 
   Traversable (Tensor shape) => 
   io (Tensor shape a)

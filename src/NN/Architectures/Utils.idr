@@ -6,10 +6,8 @@ import Data.Tensor
 ||| Batching only works simply when we have a non-dependent Para
 public export
 paraMapFirstAxis : {c : Axis} ->
-  {cs : Vect rank Axis} -> AxesConsistent cs =>
-  {ds : Vect rank' Axis} -> AxesConsistent ds =>
-  NewAxisConsistent c cs =>
-  NewAxisConsistent c ds =>
+  {cs : TensorShape rank} -> {ds : TensorShape rank'} ->
+  NewAxisConsistent c cs => NewAxisConsistent c ds =>
   Num a =>
   (pf : Tensor cs a -\-> Tensor ds a) ->
   (nonDep : IsNotDependent pf) =>

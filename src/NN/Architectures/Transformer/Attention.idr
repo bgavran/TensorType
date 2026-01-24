@@ -8,10 +8,10 @@ import NN.Architectures.Softargmax
 public export
 crossAttention : {a : Type} -> Num a =>
   {inputStructure, crossStructure, features : Axis} ->
-  (acif : AxesConsistent [inputStructure, features]) =>
-  (accf : AxesConsistent [crossStructure, features]) =>
-  (acci : AxesConsistent [crossStructure, inputStructure]) =>
-  TensorMonoid inputStructure.ToCont => TensorMonoid features.ToCont =>
+  (acif : NewAxisConsistent inputStructure [features]) =>
+  (accf : NewAxisConsistent crossStructure [features]) =>
+  (acci : NewAxisConsistent crossStructure [inputStructure]) =>
+  TensorMonoid inputStructure.cont => TensorMonoid features.cont =>
   (allAlg : AllAlgebra [inputStructure, features] a) =>
   {default id causalMask : Tensor [crossStructure, inputStructure] a ->
                            Tensor [crossStructure, inputStructure] a} ->
@@ -20,11 +20,7 @@ crossAttention : {a : Type} -> Num a =>
   (q, v : Tensor [inputStructure, features] a) ->
   (k : Tensor [crossStructure, features] a) ->
   Tensor [crossStructure, features] a
-crossAttention {acif=_ :: [NewAxis NotInEmptyVect], 
-                acci=_ :: [NewAxis NotInEmptyVect],
-                allAlg=Cons {rest=xx},
-                causalMask}
-  softargmax q v k =
+crossAttention {allAlg=Cons {rest=xx}, causalMask} softargmax q v k =
   let attentionMatrix : Tensor [crossStructure, inputStructure] a
       attentionMatrix = q `matrixMatrixProduct` k
   in (softargmax <-$> (causalMask attentionMatrix)) `matMul` v
@@ -33,9 +29,9 @@ crossAttention {acif=_ :: [NewAxis NotInEmptyVect],
 public export
 selfAttention : {a : Type} -> Num a =>
   {inputStructure, features : Axis} ->
-  AxesConsistent [inputStructure, features] =>
-  (TensorMonoid inputStructure.ToCont) =>
-  (TensorMonoid features.ToCont) =>
+  NewAxisConsistent inputStructure [features] =>
+  (TensorMonoid inputStructure.cont) =>
+  (TensorMonoid features.cont) =>
   (allAlg : AllAlgebra [inputStructure, features] a) =>
   {default id causalMask : Tensor [inputStructure, inputStructure] a ->
                            Tensor [inputStructure, inputStructure] a} ->
@@ -56,9 +52,9 @@ record SelfAttentionParams (features : Axis) (a : Type) where
 public export
 SAImpl : {a : Type} -> Num a =>
   {inputStructure, features : Axis} ->
-  (ac : AxesConsistent [inputStructure, features]) =>
-  (TensorMonoid inputStructure.ToCont) =>
-  (TensorMonoid features.ToCont) =>
+  (ac : NewAxisConsistent inputStructure [features]) =>
+  (TensorMonoid inputStructure.cont) =>
+  (TensorMonoid features.cont) =>
   (allAlg : AllAlgebra [inputStructure, features] a) =>
   {default id causalMask : Tensor [inputStructure, inputStructure] a ->
                            Tensor [inputStructure, inputStructure] a} ->
@@ -66,9 +62,8 @@ SAImpl : {a : Type} -> Num a =>
   (input : Tensor [inputStructure, features] a) ->
   (params : SelfAttentionParams features a) ->
   Tensor [inputStructure, features] a
-SAImpl {ac = _ :: [NewAxis NotInEmptyVect],
-       allAlg = Cons,
-       causalMask} softargmax input (MkSAParams queryMat valueMat keyMat)
+SAImpl {allAlg = Cons, causalMask}
+  softargmax input (MkSAParams queryMat valueMat keyMat)
   = let queries = queryMat `matrixMatrixProduct` input
         keys = keyMat `matrixMatrixProduct` input
         values = valueMat `matrixMatrixProduct` input
@@ -78,8 +73,8 @@ SAImpl {ac = _ :: [NewAxis NotInEmptyVect],
 public export
 SelfAttention : {a : Type} -> Num a =>
   {inputStructure, features : Axis} ->
-  AxesConsistent [inputStructure, features] =>
-  (TensorMonoid inputStructure.ToCont) => (TensorMonoid features.ToCont) =>
+  NewAxisConsistent inputStructure [features] =>
+  (TensorMonoid inputStructure.cont) => (TensorMonoid features.cont) =>
   (allAlg : AllAlgebra [inputStructure, features] a) =>
   {default id causalMask : Tensor [inputStructure, inputStructure] a ->
                            Tensor [inputStructure, inputStructure] a} ->
@@ -97,10 +92,10 @@ SelfAttention {causalMask} softargmax = MkPara
 public export
 causalMask : {a : Type} -> Num a =>
   {c : Axis} -> Exp a =>
-  InterfaceOnPositions c.ToCont MOrd =>
-  TensorMonoid c.ToCont =>
+  InterfaceOnPositions c.cont MOrd =>
+  TensorMonoid c.cont =>
   Tensor [c, c] a -> Tensor [c, c] a
 causalMask attentionMatrix =
-  let contShape : c.ToCont.Shp
+  let contShape : c.cont.Shp
       contShape = shapeExt (shapeExt (GetT attentionMatrix))
   in maskedFill attentionMatrix (not <$> cTriBool contShape) minusInfinity

@@ -16,10 +16,11 @@ export typebind infixr 0 !>
 
 %name Cont c, c', c''
 
-||| Convenience datatype storing the property that
-||| a container `c` has an interface `i` on its positions
+||| Convenience datatype for storing the data that a container `c` has an
+||| interface `i` on its positions
+||| TODO does the argument of MkI need to be auto implicit?
 public export
 data InterfaceOnPositions : (c : Cont) -> (i : Type -> Type) -> Type where
-  ||| For every shape s the set of positions c.Pos s has that interface
+  ||| For every shape `s` the set of positions `c.Pos s` has that interface
   MkI : (p : (s : c.Shp) -> i (c.Pos s)) =>
     InterfaceOnPositions c i

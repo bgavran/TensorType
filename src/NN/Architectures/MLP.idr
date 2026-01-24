@@ -13,7 +13,7 @@ public export
 multiLayerPerceptron : {a : Type} -> Num a =>
   {ieva : Axis} ->
   (allAlg : AllAlgebra [ieva] a) =>
-  TensorMonoid ieva.ToCont =>
+  TensorMonoid ieva.cont =>
   (numLayers : Nat) ->
   (activation : Tensor [ieva] a -\-> Tensor [ieva] a) ->
   {default False lastLayerActivation : Bool} ->

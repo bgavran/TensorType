@@ -16,14 +16,12 @@ sigmoid x = ex / (1 + ex) where ex = exp x
 
 namespace Tensor
   public export
-  relu : Ord a => Num a => {shape : Vect rank Axis} ->
-    AxesConsistent shape =>
+  relu : Ord a => Num a => {shape : TensorShape rank} ->
     Tensor shape a -> Tensor shape a
   relu t = relu <$> t
  
   public export
   sigmoid : Fractional a => Exp a =>
-    {0 shape : Vect rank Axis} ->
-    AxesConsistent shape =>
+    {0 shape : TensorShape rank} ->
     Tensor shape a -> Tensor shape a
   sigmoid t = sigmoid <$> t

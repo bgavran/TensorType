@@ -31,7 +31,6 @@ namespace DependentLenses
 
   %name (=%>) f, g, h
 
-
   public export
   (%!) : c1 =%> c2 -> (x : c1.Shp) -> (y : c2.Shp ** (c2.Pos y -> c1.Pos x))
   (%!) (!% f) x = f x
