@@ -14,6 +14,10 @@ import Misc
 Design choices:
 1) Are axis names bound local to a tensor, or do they persist globally?
 2) Can a tensor contain duplicate axis names? (Yes?)
+3) Does tensor contraction allow duplicate axis names
+  * in the input (yes, this is what Einsum also allows)
+  * in the output (no, because otherwise its not clear what should happen)
+    * this means that we can't write `einsum("i,i->ii")`
 3) How does contraction work?
   3.1) Given `t : Tensor [BatchSize, BatchSize] Double`, what is `dotGeneral t`?
 
@@ -78,12 +82,12 @@ rename : Axis -> AxisName -> Axis
 rename a str = str ~> a.cont
 
 
-||| In some cases we TensorType might need to assign a name to an axis that
-||| will not be exposed to the user.
+||| In some cases we TensorType might need to assign a default name to an axis,
+||| one which is internal and will not be exposed to the user.
 ||| This is the default name for such cases
 public export
-TTinternalName : AxisName
-TTinternalName = "__tensortype_tempaxis__"
+TTInternalName : AxisName
+TTInternalName = "__tensortype_tempaxis__"
 
 
 namespace Cubical
@@ -122,27 +126,6 @@ namespace Cubical
   size ss = prod (cubicalShape ss)
 
 
-{-
-||| Given some axes, we cannot add one with the same name but a different 
-||| container
-public export
-data NewAxisConsistent : Axis -> Vect n Axis -> Type where
-  NewAxis : {0 a : Axis} -> {0 as : Vect n Axis} ->
-    NotElem (Axis.name a) (Axis.name <$> as) ->
-    NewAxisConsistent a as
-  ExistingAxis : {0 a : Axis} -> {0 as : Vect n Axis} ->
-    (e : Elem (Axis.name a) (Axis.name <$> as)) ->
-    (index (elemToFin e) as).cont = a.cont ->
-    NewAxisConsistent a as
-
-
-||| Axes forming a tensor cannot have the same name but different containers
-public export
-data AxesConsistent : Vect n Axis -> Type where
-  Nil : AxesConsistent []
-  (::) : NewAxisConsistent a as -> AxesConsistent as -> AxesConsistent (a :: as)
--}
-
 namespace TensorShape
   mutual
     public export
@@ -158,11 +141,6 @@ namespace TensorShape
     toVect (a :: as) = a :: toVect as
 
     public export
-    toList : TensorShape k -> List Axis
-    toList [] = []
-    toList (a :: as) = a :: toList as
-
-    public export
     data NewAxisConsistent : Axis -> TensorShape k -> Type where
       NewAxis : {0 a : Axis} -> {0 as : TensorShape k} ->
         NotElem a.name (Axis.name <$> toVect as) ->
@@ -171,6 +149,11 @@ namespace TensorShape
         (e : Elem a.name (Axis.name <$> toVect as)) ->
         (index (elemToFin e) (toVect as)).cont = a.cont ->
         NewAxisConsistent a as
+
+  public export
+  toList : TensorShape k -> List Axis
+  toList [] = []
+  toList (a :: as) = a :: toList as
 
   ||| Convenience function, turns it also into a list
   ||| Because `Data.Container` uses lists with tensors
@@ -193,21 +176,6 @@ namespace TensorShape
   size : (shape : TensorShape k) -> All IsCubical (conts shape) => Nat
   size shape = size (conts shape)
 
-  -- public export
-  -- AxesConsistent : Vect (S k) Axis -> Type
-  -- AxesConsistent (x :: xs) = NewAxisConsistent x xs
-
-  -- namespace Concrete
-  --   data TensorShape : (rank : Nat) -> Vect rank Axis -> Type where
-  --     Nil : TensorShape 0 []
-  --     (::) : (a : Axis) ->
-  --       {cs : Vect k Axis} -> (as : TensorShape k cs) ->
-  --       NewAxisConsistent 
-  --       
-  --       TensorShape (S k) (a :: as)
-      
-
-    
   test1 : TensorShape 2
   test1 = ["batchSize" ~> Vect 128, "seqLen" ~> List]
 
@@ -217,7 +185,6 @@ namespace TensorShape
   failing
     test3 : TensorShape 2
     test3 = ["batchSize" ~> Vect 128, "batchSize" ~> Vect 13]
-
 
   ||| If an axis `i` can be added into a singleton list `[j]`, then
   ||| the axis `j` can be added into a singleton list `[i]`
@@ -231,42 +198,71 @@ namespace TensorShape
   axisConsistentSym (ExistingAxis (There Here) _) impossible
   axisConsistentSym (ExistingAxis (There (There later)) _) impossible
 
-  ||| Proof that an axis name is in the shape type
+  ||| Proof that an axis name appears in a tensor shape n times
+  ||| The proof indirectly carries data of the exact indices where it appears
+  ||| Notably, can appear zero times, this case is needed for recursion
   public export
-  data InAxes : AxisName -> TensorShape k -> Type where
-    Here : {as : TensorShape k} ->
+  data InShape : AxisName -> TensorShape k -> Nat -> Type where
+    Here : {as : TensorShape k} -> InShape axisName as n =>
       NewAxisConsistent (axisName ~> a) as =>
-      InAxes axisName ((axisName ~> a) :: as)
-    There : {as : TensorShape k} ->
-      InAxes axisName as ->
+      InShape axisName ((axisName ~> a) :: as) (S n)
+    There : {as : TensorShape k} -> InShape axisName as n =>
       NewAxisConsistent a as =>
-      InAxes axisName (a :: as)
+      InShape axisName (a :: as) n
+
+
+  ||| Recovers the axis from a shape given its name, and a prof that it is there
+  ||| Recovers the first occurence
+  public export
+  (.getByName) : (shape : TensorShape k) ->
+    (axisName : AxisName) -> 
+    (inShape : InShape axisName shape n) ->
+    IsSucc n =>
+    Axis
+  (.getByName) ((axisName ~> a) :: as) axisName Here = axisName ~> a
+  (.getByName) (a :: as) axisName (There @{is}) = as.getByName axisName is
+
+  -- ||| Proof that an axis name is in a tensor shape
+  -- ||| There might be multiple axes that match, this contains the proof
+  -- ||| for one of them/in
+  -- public export
+  -- data InShape : AxisName -> TensorShape k -> Type where
+  --   Here : {as : TensorShape k} ->
+  --     NewAxisConsistent (axisName ~> a) as =>
+  --     InShape axisName ((axisName ~> a) :: as)
+  --   There : {as : TensorShape k} ->
+  --     InShape axisName as ->
+  --     NewAxisConsistent a as =>
+  --     InShape axisName (a :: as)
 
   public export
-  removeAllOccurrences : (name : AxisName) ->
-    TensorShape n ->
-    (m : Nat ** ts : TensorShape m ** NotElem name (Axis.name <$> toVect ts))
-  removeAllOccurrences name [] = (0 ** [] ** NotInEmptyVect)
-  removeAllOccurrences name (a :: as) = case a.name == name of
-    True => removeAllOccurrences name as
-    False => let (k ** ts' ** notInTs) = removeAllOccurrences name as
-             in (S k ** (::) a ts' @{?bibibi} ** ?vnvnn)
+  removeAllOccurrences : {k, n : Nat} ->(shape : TensorShape k) ->
+    (toDelete : AxisName) ->
+    (inShape : InShape toDelete shape n) =>
+    (m : Nat ** TensorShape m)
+  removeAllOccurrences {n=0} shape toDelete = (k ** shape)
+  removeAllOccurrences ((toDelete ~> a) :: ss) toDelete @{Here @{is}}
+    = removeAllOccurrences ss toDelete @{is}
+  removeAllOccurrences (s :: ss) toDelete @{There @{is}}
+    = let (m ** ss') = removeAllOccurrences ss toDelete @{is}
+      in (S m ** (::) {ac=(believe_me ())} s ss') -- should write this later
+
+  --public export
+  --removeAllOccurrences : (name : AxisName) ->
+  --  TensorShape n ->
+  --  (m : Nat ** ts : TensorShape m ** NotElem name (Axis.name <$> toVect ts))
+  --removeAllOccurrences name [] = (0 ** [] ** NotInEmptyVect)
+  --removeAllOccurrences name (a :: as) = case a.name == name of
+  --  True => removeAllOccurrences name as
+  --  False => let (k ** ts' ** notInTs) = removeAllOccurrences name as
+  --           in (S k ** (::) a ts' @{?bibibi} ** ?vnvnn)
 
   -- ||| Proof that an axis name is in the shape type
   -- public export
-  -- data InAxes : AxisName -> Vect n Axis -> Type where
-  --   Here : {as : Vect k Axis} -> InAxes axisName ((axisName ~> a) :: as)
-  --   There : {as : Vect k Axis} -> InAxes axisName as -> InAxes axisName (a :: as)
+  -- data InShape : AxisName -> Vect n Axis -> Type where
+  --   Here : {as : Vect k Axis} -> InShape axisName ((axisName ~> a) :: as)
+  --   There : {as : Vect k Axis} -> InShape axisName as -> InShape axisName (a :: as)
   
-
---||| The shape of a tensor is not just a list of containers, but also
---||| a) their names, and b) a proof that the names are consistently bound
---public export
---record TensorShape where
---  constructor MkTensorShape
---  tRank : Nat
---  tShape : Vect tRank Axis
---  tAxesConsistent : AxesConsistent tShape
 
 {-
 
@@ -298,20 +294,13 @@ public export
 removingAllOccurencesIsConsistent : {shape : Vect n Axis} ->
   AxesConsistent shape =>
   (toDelete : AxisName) ->
-  (inAxes : InAxes toDelete shape) =>
+  (InShape : InShape toDelete shape) =>
   AxesConsistent (snd $ removeAllOccurrences toDelete shape)
-removingAllOccurencesIsConsistent toDelete @{inAxes} = ?remm
+removingAllOccurencesIsConsistent toDelete @{InShape} = ?remm
 
 
 aa : {c : Axis} -> AxesConsistent [c, c]
 aa = %search
-
-||| Examples
-batchSize : Axis
-batchSize = "batchSize" ~> Vect 128
-
-seqLen : Axis
-seqLen = "seqLen" ~> List
 
 ||| While here we can create a new axis with the same name but a different size,
 ||| they can never be used together in any operations. Theoretically this could
@@ -344,4 +333,25 @@ namespace Old
     (::) : NewElemConsistent s c ss cs ->
       AllConsistent ss cs ->
       AllConsistent (s :: ss) (c :: cs)
+-}
+
+{-
+||| Given some axes, we cannot add one with the same name but a different 
+||| container
+public export
+data NewAxisConsistent : Axis -> Vect n Axis -> Type where
+  NewAxis : {0 a : Axis} -> {0 as : Vect n Axis} ->
+    NotElem (Axis.name a) (Axis.name <$> as) ->
+    NewAxisConsistent a as
+  ExistingAxis : {0 a : Axis} -> {0 as : Vect n Axis} ->
+    (e : Elem (Axis.name a) (Axis.name <$> as)) ->
+    (index (elemToFin e) as).cont = a.cont ->
+    NewAxisConsistent a as
+
+
+||| Axes forming a tensor cannot have the same name but different containers
+public export
+data AxesConsistent : Vect n Axis -> Type where
+  Nil : AxesConsistent []
+  (::) : NewAxisConsistent a as -> AxesConsistent as -> AxesConsistent (a :: as)
 -}

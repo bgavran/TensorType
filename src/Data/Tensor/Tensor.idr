@@ -449,12 +449,57 @@ namespace TensorInstances
     -- ||| Since we have non-unique axis labels, this likely needs to be 
     -- ||| implemented after `dot`
     namespace ReduceAxis
+      ||| The input `k` represents the number of the appearances of the axis
+      ||| we aim to reduce. If it appears more than once, we need to know that
+      ||| the underyling container is naperian. This allows us to use `tensorM`
+      ||| to index along the diagonal (if it's not a Naperian container we might
+      ||| have a jagged array which does not have a diagonal)
+      public export
+      naperianRequirement : (k : Nat) -> (c : Cont) -> Type
+      naperianRequirement k c = case k > 1 of
+        False => Unit
+        True => IsNaperian c
+
+
+      ||| Takes in a tensor `t` and an axis name which we want to reduce along.
+      ||| Returns a new tensor with all occurences of this axis summed over, 
+      ||| correctly zipping if this axis appears multiple times.
+      ||| We also ensure that this function can only be called if the axis truly
+      ||| appears in the tensor, and if its underlying container is finite.
+      ||| From finite we can get algebra
       public export
       reduceAxis : {shape : TensorShape rank} ->
-        (toDelete : AxisName) ->
-        (inAxes : InAxes toDelete shape) =>
-        -- todo algebra, but now we have multiple instances
-        Tensor (fst $ snd $ removeAllOccurrences toDelete shape) a
+        (t : Tensor shape a) ->
+        (atm : All TensorMonoid (conts shape)) =>
+        {k : Nat} ->
+        (toReduce : AxisName) -> (inShape : InShape toReduce shape k) =>
+        IsSucc k =>
+        (nap : naperianRequirement k (shape.getByName toReduce inShape).cont) =>
+        Num a =>
+        (isFinite : IsFinite (shape.getByName toReduce inShape).cont) =>
+        Tensor (snd $ removeAllOccurrences shape toReduce {inShape=inShape}) a
+      reduceAxis {shape = ((toReduce ~> c) :: as)} {atm=(tm :: tms)} t toReduce {inShape = Here} {k=S k'} {nap} with (k')
+        _ | 0 = reduce @{algebraFinite c {isFinite=isFinite} (Tensor as a)} (extractTopExt t) -- this is the last axis to reduce
+        reduceAxis {shape = ((toReduce ~> (Nap pos)) :: as)} {atm=(tm :: tms)} t toReduce {inShape = Here} {k=S k'} {nap = (MkIsNaperian pos)} | (S k'') = ?redddd_2_S_0 -- there is at least one more axis after this
+      reduceAxis {shape = (s :: as)} t toReduce {inShape = There} {k}
+        = ?redddd_3
+
+      -- reduceAxis {shape = ((toReduce ~> c) :: ss)} (MkT t) toReduce {inShape = Here}
+      --   = let 
+      --     in ?reduceAxis_rhs_0
+      -- reduceAxis {shape = (s :: ss)} t toReduce {inShape = There}
+      --   = ?reduceAxis_rhs_1
+
+      -- For `Tensor ["v" ~~> 4, "v" ~~> 4] a` we know that reduce produces a trace, i.e. sum of the diagonal of the matrix.
+      -- But how does trace work for non-cubical tensors?
+      -- How does reduction work for
+      -- `t : Tensor ["b" ~> BinTree, "b" ~> BinTree] a`?
+      -- reduceAxis {shape = ((toDelete ~> a) :: ss)} t toDelete {inShape = Here}
+      --   = ?reduceAxis_rhs_2
+      -- reduceAxis {shape = (s :: ss)} t _ {inShape = There}
+      --   = ?reduceAxis_rhs_3
+
+     -- t : Ext (Ext c (Tensor (conts ss)).Shp) !> (\ex => (cp : c .Pos (ex .shapeExt) ** Tensor (conts ss).Pos (ex .index cp)))) a
         
 
       --reduce : {rank : Nat} ->
@@ -463,10 +508,10 @@ namespace TensorInstances
       --  (ac : AllConsistent names shape) =>
       --  CTensor shape names a ->
       --  (toDelete : String) ->
-      --  (inAxes : Elem toDelete names) =>
-      --  (alg : Algebra (Ext (index (elemToFin inAxes) shape))
-      --    (CTensor (drop (FS (elemToFin inAxes)) shape)
-      --             (DropElem.drop names inAxes)
+      --  (InShape : Elem toDelete names) =>
+      --  (alg : Algebra (Ext (index (elemToFin InShape) shape))
+      --    (CTensor (drop (FS (elemToFin InShape)) shape)
+      --             (DropElem.drop names InShape)
       --             {ac=allConsistentAfterDropElems {toDelete=toDelete} {names=names} {shape=shape}}
       --             a)
 
@@ -476,9 +521,9 @@ namespace TensorInstances
         {shape : Vect (S rank) Cont} ->
         {names : Vect (S rank) String} ->
         AllConsistent names shape =>
-        (inAxes : Elem toDelete names) =>
-        AllConsistent (DropElem.drop names inAxes)
-                      (drop (FS (elemToFin inAxes)) shape)
+        (InShape : Elem toDelete names) =>
+        AllConsistent (DropElem.drop names InShape)
+                      (drop (FS (elemToFin InShape)) shape)
       allConsistentAfterDropElems = ?todo
 
       allConsistentAfterDropOneElem : {rank : Nat} ->
@@ -486,9 +531,9 @@ namespace TensorInstances
         {names : Vect (S rank) String} ->
         AllConsistent names shape =>
         {toDelete : String} ->
-        (inAxes : Elem toDelete names) =>
-        AllConsistent (dropElem names inAxes)
-                      (deleteAt (elemToFin inAxes) shape)
+        (InShape : Elem toDelete names) =>
+        AllConsistent (dropElem names InShape)
+                      (deleteAt (elemToFin InShape) shape)
       allConsistentAfterDropOneElem = ?todo2
       public export
       reduce : {rank : Nat} ->
@@ -497,24 +542,24 @@ namespace TensorInstances
         (ac : AllConsistent names shape) =>
         CTensor shape names a ->
         (toDelete : String) ->
-        (inAxes : Elem toDelete names) =>
-        (alg : Algebra (Ext (index (elemToFin inAxes) shape))
-          (CTensor (drop (FS (elemToFin inAxes)) shape)
-                   (DropElem.drop names inAxes)
+        (InShape : Elem toDelete names) =>
+        (alg : Algebra (Ext (index (elemToFin InShape) shape))
+          (CTensor (drop (FS (elemToFin InShape)) shape)
+                   (DropElem.drop names InShape)
                    {ac=allConsistentAfterDropElems {toDelete=toDelete} {names=names} {shape=shape}}
                    a)
-        ) => -- have to increase `index inAxes` by 1 because we're not indexing, but counting
-        CTensor (deleteAt (elemToFin inAxes) shape)
-                (dropElem names inAxes)
+        ) => -- have to increase `index InShape` by 1 because we're not indexing, but counting
+        CTensor (deleteAt (elemToFin InShape) shape)
+                (dropElem names InShape)
                 {ac=allConsistentAfterDropOneElem {toDelete=toDelete} {names=names} {shape=shape}}
                 a
-      reduce {ac=aa::ac} t _ {shape = (s :: ss)} {inAxes = Here {xs=ns}} {alg}
+      reduce {ac=aa::ac} t _ {shape = (s :: ss)} {InShape = Here {xs=ns}} {alg}
         = let algRewr : Ext s (CTensor ss ns a) -> CTensor ss ns a
               algRewr = rewrite sym (minusZeroRight rank) in reduce
           in algRewr (extractTopExt t)
-      reduce {rank = (S k)} t toDelete {shape = (s :: ss)} {names = (n :: ns)} {inAxes = There later}
+      reduce {rank = (S k)} t toDelete {shape = (s :: ss)} {names = (n :: ns)} {InShape = There later}
         = let th : Ext s (CTensor (deleteAt (indexOf later) ss) (removeIndex ns (indexOf later)) a) 
-              th = (\t' => ReduceAxis.reduce t' toDelete {inAxes=later}) <$> extractTopExt t
+              th = (\t' => ReduceAxis.reduce t' toDelete {InShape=later}) <$> extractTopExt t
               ne : NotElem n (removeIndex ns (indexOf later))
               ne = removingElemIsStillNotElem 
           -- For some reason Idris does not automatically reduce
@@ -802,7 +847,7 @@ namespace TensorContractions
     Algebra (Tensor shape) c => All TensorMonoid (conts shape) =>
     (a -> b -> c) ->
     Tensor shape a -> Tensor shape b -> Tensor [] c
-  dotWith f xs ys = embed $ Algebra.reduce $ uncurry f <$> liftA2Tensor xs ys
+  dotWith f xs ys = embed $ reduce $ uncurry f <$> liftA2Tensor xs ys
 
   public export
   dot : {shape : TensorShape rank} ->
@@ -1076,6 +1121,22 @@ Ex2 = reshape tEx
 public export
 Ex3 : Tensor ["i" ~~> 2, "j" ~~> 6] Integer
 Ex3 = reshape Ex2
+
+namespace IndexingByAxisNames
+  --public export
+  --posTypeOfAxisName : {shape : TensorShape rank} ->
+  --  (indexAxis : AxisName) ->
+  --  (InShape : indexAxis `InShape` shape) =>
+  --  Type
+
+  public export
+  indexName : {shape : TensorShape rank} ->
+    (t : Tensor shape a) ->
+    (indexAxis : AxisName) ->
+    IsSucc k =>
+    (InShape : InShape indexAxis shape k) =>
+    Type
+    
 
 namespace SetterGetter
   ||| Machinery for indexing into a Tensor based on absolute positions
