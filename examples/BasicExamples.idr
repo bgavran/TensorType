@@ -39,6 +39,14 @@ failing
   failReshape : Tensor ["i" ~~> 7, "j" ~~> 2] Double
   failReshape = arange {n=7}
 
+-- They will also fail if you incosistently bind axis name, for instane if you bind the same name to two different sizes:
+
+failing
+  failBinding : Tensor ["j" ~~> 3, "j" ~~> 4] Double
+  failBinding = ># [ [0, 1, 2, 3]
+                   , [4, 5, 6, 7]
+                   , [8, 9, 10, 11]]
+
 ||| You can perform all sorts of familiar numeric operations:
 exampleSum : Tensor ["j" ~~> 3, "k" ~~> 4] Double
 exampleSum = t0 + t0
@@ -93,8 +101,10 @@ failing
   sliceFail = take [10, 2] t0
 
 {---------------------------------------
-**And most importantly, you can do all of this with *non-cubical* tensors.** These describe tensors whose shape isn't rectangular/cubical, but can be branching/recursive/higher-order. We will see in a moment what that means. These tensors are described via 'containers' and the corresponding datatype named `CTensor` (standing for "Container Tensor").
-We have already seen this datatype -- as matter of fact every `Tensor` we have seen was secretly desugared to `CTensor` internally:
+**And most importantly, you can do all of this with *non-cubical* tensors.** These describe tensors whose shape isn't rectangular/cubical, but can be branching/recursive/higher-order. 
+That is, instead of binding an axis name to a number, we bind it to something called a "container", by using `~>` instead of `~~>`.
+As a matter of fact, `~~>` behind the scenes desugars to `~>`, and we have been using this all along.
+Let's see `t0` in this new form:
 ---------------------------------------}
 t0Again : Tensor ["j" ~> Vect 3, "k" ~> Vect 4] Double
 t0Again = t0
@@ -102,7 +112,7 @@ t0Again = t0
 {--------------------
 Here `Vect` does not refer to `Vect` from `Data.Vect`, but rather the `Vect` container implemented [here](https://github.com/bgavran/TensorType/blob/main/src/Data/Container/Object/Instances.idr#L68).
 
-Everything we can do with `Tensor` we can do with `CTensor`, including building concrete tensors:
+Everything we've seen above can be recast with this new type explicitly:
 --------------------}
 t1again : Tensor ["i" ~> Vect 6] Double
 t1again = arange
@@ -163,7 +173,9 @@ treeNodeExample = ># Node 60 (Node 7 Leaf' Leaf')  Leaf'
 treeExample3 : Tensor ["myTree" ~> BinTreeNode, "j" ~> Vect 2] Double
 treeExample3 = ># Node [4,1] (Node [17, 4] Leaf' Leaf') Leaf'
 
-treeExample4 : Tensor ["myTree" ~> BinTreeNode, "myTreeLeaf" ~> BinTreeLeaf, "k" ~> Vect 3] Double
+treeExample4 : Tensor ["myTree"     ~> BinTreeNode,
+                       "myTreeLeaf" ~> BinTreeLeaf,
+                       "k"          ~> Vect 3] Double
 treeExample4 = >#
   Node (Node'
           (Leaf [1,2,3])
@@ -191,8 +203,8 @@ failing
       / \     \
   (-42)  46    X   <---- indexing here throws an error
   --------------------}
-  indexTreeExampleFail : Double
-  indexTreeExampleFail = ex1 @@ [GoRight (GoRight AtLeaf)]
+  indexTreeExample1Fail : Double
+  indexTreeExample1Fail = treeExample1 @@ [GoRight (GoRight AtLeaf)]
 
 
 {--------------------

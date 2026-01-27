@@ -7,7 +7,11 @@ import Misc
 
 {-------------------------------------------------------------------------------
 Two different types of morphisms:
-dependent lenses, and dependent charts
+* Dependent lenses: forward-backward container morphisms
+* Dependent charts: forward-forward container morphisms
+
+There are also cartesian container morphisms, which are both lenses and charts: 
+their map on positions is an isomorphism
 -------------------------------------------------------------------------------}
 
 export infixr 1 =%> -- (closed) dependent lens

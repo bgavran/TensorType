@@ -110,6 +110,23 @@ namespace Cubical
   dim _ @{ic} = dimHelper ic
 
   public export
+  data IsNaperian : Axis -> Type where
+    MkIsNaperian : (name : AxisName) -> (pos : Type) ->
+      IsNaperian (name ~> Nap pos)
+
+  public export
+  LogHelper : {0 a : Axis} -> IsNaperian a => Type
+  LogHelper @{MkIsNaperian _ pos} = pos
+
+  public export
+  Log : (0 a : Axis) -> IsNaperian a => Type
+  Log a @{inn} = LogHelper @{inn}
+
+  public export
+  toContNaperian : {0 a : Axis} -> IsNaperian a ->  IsNaperian a.cont
+  toContNaperian (MkIsNaperian name pos) = MkIsNaperian pos
+
+  public export
   cubicalShapeHelper : {0 shape : Vect r Axis} ->
     All IsCubical shape -> List Nat
   cubicalShapeHelper [] = []
@@ -188,7 +205,6 @@ namespace TensorShape
 
   ||| If an axis `i` can be added into a singleton list `[j]`, then
   ||| the axis `j` can be added into a singleton list `[i]`
-  %hint
   public export
   axisConsistentSym : {i, j : Axis} ->
     NewAxisConsistent i [j] -> NewAxisConsistent j [i]
@@ -222,136 +238,32 @@ namespace TensorShape
   (.getByName) ((axisName ~> a) :: as) axisName Here = axisName ~> a
   (.getByName) (a :: as) axisName (There @{is}) = as.getByName axisName is
 
-  -- ||| Proof that an axis name is in a tensor shape
-  -- ||| There might be multiple axes that match, this contains the proof
-  -- ||| for one of them/in
-  -- public export
-  -- data InShape : AxisName -> TensorShape k -> Type where
-  --   Here : {as : TensorShape k} ->
-  --     NewAxisConsistent (axisName ~> a) as =>
-  --     InShape axisName ((axisName ~> a) :: as)
-  --   There : {as : TensorShape k} ->
-  --     InShape axisName as ->
-  --     NewAxisConsistent a as =>
-  --     InShape axisName (a :: as)
-
   public export
-  removeAllOccurrences : {k, n : Nat} ->(shape : TensorShape k) ->
+  removeAllOccurrences : {k, rank : Nat} ->(shape : TensorShape rank) ->
     (toDelete : AxisName) ->
-    (inShape : InShape toDelete shape n) =>
+    (inShape : InShape toDelete shape k) =>
     (m : Nat ** TensorShape m)
-  removeAllOccurrences {n=0} shape toDelete = (k ** shape)
+  removeAllOccurrences {k=0} shape toDelete = (rank ** shape)
   removeAllOccurrences ((toDelete ~> a) :: ss) toDelete @{Here @{is}}
     = removeAllOccurrences ss toDelete @{is}
   removeAllOccurrences (s :: ss) toDelete @{There @{is}}
     = let (m ** ss') = removeAllOccurrences ss toDelete @{is}
       in (S m ** (::) {ac=(believe_me ())} s ss') -- should write this later
 
-  --public export
-  --removeAllOccurrences : (name : AxisName) ->
-  --  TensorShape n ->
-  --  (m : Nat ** ts : TensorShape m ** NotElem name (Axis.name <$> toVect ts))
-  --removeAllOccurrences name [] = (0 ** [] ** NotInEmptyVect)
-  --removeAllOccurrences name (a :: as) = case a.name == name of
-  --  True => removeAllOccurrences name as
-  --  False => let (k ** ts' ** notInTs) = removeAllOccurrences name as
-  --           in (S k ** (::) a ts' @{?bibibi} ** ?vnvnn)
 
-  -- ||| Proof that an axis name is in the shape type
-  -- public export
-  -- data InShape : AxisName -> Vect n Axis -> Type where
-  --   Here : {as : Vect k Axis} -> InShape axisName ((axisName ~> a) :: as)
-  --   There : {as : Vect k Axis} -> InShape axisName as -> InShape axisName (a :: as)
-  
-
-{-
-
--- public export
--- allCubicalAxisToCont : {shape : Vect r Axis} ->
---   All IsCubical shape -> All IsCubical (conts shape)
--- allCubicalAxisToCont {shape = []} [] = []
--- allCubicalAxisToCont {shape = ((_ ~> _) :: ss)} ((MkIsCubical _ n) :: ics)
---   = MkIsCubical n :: allCubicalAxisToCont ics
-
-
-
-
-||| A proof that filtering preserves the property that axes are consistent
-public export
-filterPreservesConsistent : {shape : Vect n Axis} ->
-  (ac : AxesConsistent shape) =>
-  (p : Axis -> Bool) ->
-  AxesConsistent (snd $ filter p shape)
-filterPreservesConsistent {shape = []} p = []
-filterPreservesConsistent {shape=(s::ss)} {ac = ((NewAxis x) :: as)} p = ?aiii_0
-filterPreservesConsistent {shape=(s::ss)} {ac = ((ExistingAxis e prf) :: as)} p = ?aiii_1
--- -- with (filter p ss)
---   _ | (k ** ss') = case p s of
---       True => ?ai 
---       False => ?bi -- case p s of
-
-public export
-removingAllOccurencesIsConsistent : {shape : Vect n Axis} ->
-  AxesConsistent shape =>
-  (toDelete : AxisName) ->
-  (InShape : InShape toDelete shape) =>
-  AxesConsistent (snd $ removeAllOccurrences toDelete shape)
-removingAllOccurencesIsConsistent toDelete @{InShape} = ?remm
-
-
-aa : {c : Axis} -> AxesConsistent [c, c]
-aa = %search
-
-||| While here we can create a new axis with the same name but a different size,
-||| they can never be used together in any operations. Theoretically this could
-||| be checked at declaration time but it's too much work.
-batchSizeNew : Axis
-batchSizeNew = "batchSize" ~> Vect 13
-
-
-
-
-{-
-namespace Old
+  ||| TODO rethink this function?
+  ||| In a tensor shape removes all but the first occurence of an axis
+  ||| removeDuplicates ["x" ~> 1, "y" ~> 3, "x" ~> 1] "x" = ["x" ~> 1, "y" ~> 1]
   public export
-  data NewElemConsistent : String -> Cont ->
-    Vect n String -> Vect n Cont -> Type where
-    ||| Adding a binding `s->c` not already in `AllConsistent ss cs`
-    NewElem : NotElem s ss ->
-      NewElemConsistent s c ss cs
-    ||| Adding a binding `s->c` already in `AllConsistent ss cs`
-    ExistingElem : (e : Elem s ss) ->
-      index (elemToFin e) cs = c ->
-      NewElemConsistent s c ss cs
-  
-  
-  ||| Type-level predicate: For all pairs of positions where names match,
-  ||| the corresponding containers must be equal
-  public export
-  data AllConsistent : Vect n String -> Vect n Cont -> Type where
-    Nil : AllConsistent [] []
-    (::) : NewElemConsistent s c ss cs ->
-      AllConsistent ss cs ->
-      AllConsistent (s :: ss) (c :: cs)
--}
-
-{-
-||| Given some axes, we cannot add one with the same name but a different 
-||| container
-public export
-data NewAxisConsistent : Axis -> Vect n Axis -> Type where
-  NewAxis : {0 a : Axis} -> {0 as : Vect n Axis} ->
-    NotElem (Axis.name a) (Axis.name <$> as) ->
-    NewAxisConsistent a as
-  ExistingAxis : {0 a : Axis} -> {0 as : Vect n Axis} ->
-    (e : Elem (Axis.name a) (Axis.name <$> as)) ->
-    (index (elemToFin e) as).cont = a.cont ->
-    NewAxisConsistent a as
-
-
-||| Axes forming a tensor cannot have the same name but different containers
-public export
-data AxesConsistent : Vect n Axis -> Type where
-  Nil : AxesConsistent []
-  (::) : NewAxisConsistent a as -> AxesConsistent as -> AxesConsistent (a :: as)
--}
+  removeDuplicates : {k, rank : Nat} -> (shape : TensorShape rank) ->
+    (axisName : AxisName) ->
+    (inShape : InShape axisName shape k) =>
+    IsSucc k =>
+    (m : Nat ** TensorShape m)
+  removeDuplicates shape axisName {inShape} {k = 1}
+    = (rank ** shape)
+  removeDuplicates ((_ ~> a) :: as) axisName {inShape = Here @{is}} {k = (S (S k))}
+    = removeDuplicates as axisName {inShape=is}
+  removeDuplicates (s :: as) axisName {inShape = There @{is}} {k = (S (S k))}
+    = let (m ** as') = removeDuplicates as axisName {inShape=is}
+      in (S m ** (::) {ac=(believe_me ())} s as')

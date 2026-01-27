@@ -5,9 +5,9 @@ import public Data.List.Quantifiers
 import Data.Container.Object.Definition
 import Data.Container.Object.Instances
 import Data.Container.Morphism.Definition
+import Data.Container.Morphism.Instances
 import Data.Container.Extension.Definition
 import Data.Container.Product.Definitions
-
 
 public export
 interface TensorMonoid (0 c : Cont) where
@@ -30,15 +30,22 @@ interface ProdMonoid (0 c : Cont) where
   prodM : (c >*< c) =%> c
 
 public export
+pairExtensions : Ext c a -> Ext d b -> Ext (c >< d) (a, b)
+pairExtensions (shapeC <| indexC) (shapeD <| indexD)
+  = (shapeC, shapeD) <| \(posC, posD) => (indexC posC, indexD posD)
+
+public export
+liftA2Ext : TensorMonoid c => Ext c a -> Ext c b -> Ext c (a, b)
+liftA2Ext aExt bExt = extMap tensorM $ pairExtensions aExt bExt
+
+public export
 TensorMonoid c => Applicative (Ext c) where
   pure x = tensorN.fwd () <| const x
-  (f <| f') <*> (x <| x') =
-    let (q1 ** qq) = (%! tensorM) (f, x)
-    in q1 <| (\z => let (p1, p2) = qq z in f' p1 (x' p2))
+  fExt <*> aExt = uncurry ($) <$> liftA2Ext fExt aExt
 
 public export
 [FromSeq] SeqMonoid c => Applicative (Ext c) where
-  pure x = seqN.fwd () <| (const x)
+  pure x = seqN.fwd () <| const x
   (f <| f') <*> (x <| x') = ?notAThing
 
 public export
@@ -57,3 +64,13 @@ ProdMonoid c => Alternative (Ext c) using FromProd where
   empty = let (p1 ** p2) = (%! prodN) () in p1 <| absurd . p2
   (<|>) (a <| a') (b <| b') =
     let (m1 ** m2) = (%! prodM) (a, b) in m1 <| either a' b' . m2
+
+||| The products `><` and `>@` coincide for Naperian containers
+||| The lens below is one part of an isomorphism
+napProductIdentity : {p, q : Type} ->
+  (Nap p >< Nap q) =%> (Nap p >@ Nap q)
+napProductIdentity = !% \((), ()) => (() <| (\_ => ()) ** \(p ** q) => (p, q))
+
+
+compToTensor : {c, d : Cont} -> (c >@ d) =%> (c >< d)
+compToTensor = !% \(cShp <| content) => ((cShp, ?dShp) ** ?compToTensor_rhs)

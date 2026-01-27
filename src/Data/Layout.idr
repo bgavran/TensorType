@@ -30,9 +30,9 @@ DefaultLayoutOrder = RowMajor
 
 ||| Layout-aware version of splitProd from Data.Fin.Split.
 ||| 
-||| Row-major (splitProd): index k in a m×n matrix maps to (k/n, k%n)
+||| Row-major: index k in a m×n matrix maps to (k/n, k%n)
 |||   - goes through all columns before moving to next row
-||| Column-major (splitProdColumnMajor): index k maps to (k%m, k/m)  
+||| Column-major: index k maps to (k%m, k/m)  
 |||   - goes through all rows before moving to next column
 |||
 ||| For a 2×3 matrix:

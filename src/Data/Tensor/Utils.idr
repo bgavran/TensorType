@@ -85,10 +85,11 @@ namespace Range
   namespace TwoArgs
     ||| A range of numbers [start, stop>
     public export
-    arange : {default (TTinternalName ~~> 0) start : Axis} -> {0 stop : Axis} -> {result : AxisName} ->
+    arangeFromTo : {default (TTInternalName ~~> 0) start : Axis} ->
+      {0 stop : Axis} ->
       (cStart : IsCubical start) => (cStop : IsCubical stop) =>
-      Cast Nat a => Tensor [result ~~> minus (dim stop) (dim start)] a
-    arange {cStart=(MkIsCubical _ n)} {cStop=(MkIsCubical _ m)}
+      Cast Nat a => Tensor [stop.name ~~> minus (dim stop) (dim start)] a
+    arangeFromTo {cStart=(MkIsCubical _ n)} {cStop=(MkIsCubical _ m)}
       = ># (cast . (+n) . finToNat) <$> positions {f=Vect (minus m n)}
 
 namespace Flip
@@ -99,6 +100,22 @@ namespace Flip
     IsCubical (index axis (toVect shape)) =>
     Tensor shape a -> Tensor shape a
 
+
+namespace Concatenate
+  ||| Concatenate two tensors along an existing axis, the first one
+  ||| TODO extend to allow concatenation along an arbitrary/named axis
+  public export
+  concat : {shape : TensorShape rank} -> {l : AxisName} ->
+    {x, y : Axis} -> IsCubical x => IsCubical y =>
+    NewAxisConsistent (l ~~> dim x + dim y) shape =>
+    NewAxisConsistent x shape =>
+    NewAxisConsistent y shape =>
+    Tensor (x :: shape) a ->
+    Tensor (y :: shape) a ->
+    Tensor ((l ~~> dim x + dim y) :: shape) a
+  concat @{MkIsCubical _ n} @{MkIsCubical _ m} t t'
+    = embedTopExt $ extractTopExt t ++ extractTopExt t'
+
 namespace Size
   {-----
   Can we measure the size of a tensor of containers?
@@ -106,15 +123,16 @@ namespace Size
   -----}
   ||| Number of elements in a non-cubical tensor
   public export
-  cSize : {shape : TensorShape rank} ->
-    Tensor shape a -> Nat
-  
-  ||| Number of elements in a cubical tensor
-  public export
   size : {shape : TensorShape rank} ->
-    All IsCubical (toVect shape) =>
-    (0 _ : Tensor shape a) -> Nat
-  size {shape} _ = size (toVect shape)
+    Tensor shape a -> Nat
+
+  namespace Cubical 
+    ||| Number of elements in a cubical tensor
+    public export
+    size : {shape : TensorShape rank} ->
+      All IsCubical (toVect shape) =>
+      (0 _ : Tensor shape a) -> Nat
+    size {shape} _ = size (toVect shape)
 
 namespace Flatten
   ||| Flatten a non-cubical tensor into a list
@@ -126,13 +144,14 @@ namespace Flatten
     Tensor shape a -> List a
   flatten = toList
 
-  ||| Flatten a cubical tensor into a vector
-  ||| Number of elements is known at compile time
-  ||| Can even be zero, if any of shape elements is zero
-  flattenCubical : {shape : TensorShape rank} ->
-    All IsCubical (conts shape) =>
-    Tensor shape a -> Vect (size shape) a
-  flattenCubical = toVect . extMap (flattenCubical DefaultLayoutOrder) . GetT
+  namespace Cubical
+    ||| Flatten a cubical tensor into a vector
+    ||| Number of elements is known at compile time
+    ||| Can even be zero, if any of shape elements is zero
+    flatten : {shape : TensorShape rank} ->
+      All IsCubical (conts shape) =>
+      Tensor shape a -> Vect (size shape) a
+    flatten = toVect . extMap (flattenCubical DefaultLayoutOrder) . GetT
 
 namespace Max
   ||| Maximum value in a tensor
@@ -160,13 +179,6 @@ namespace Triangular
     = let cPositions = positions {sh=sh}
           pp : MOrd (c.cont.Pos sh) := p sh
       in outerWith (flip isSubTerm) cPositions cPositions
-
-  -- public export
-  -- triA : Num a => {c : Cont} ->
-  --   (ip : InterfaceOnPositions c MOrd) =>
-  --   All TensorMonoid [c] =>
-  --   (sh : c.Shp) -> CTensor [c, c] a
-  -- triA sh = fromBool <$> cTriBool sh
 
   public export
   triBool : {0 c : Axis} -> IsCubical c =>
@@ -220,7 +232,7 @@ namespace Misc
     Fractional a => 
     Algebra (Tensor shape) a =>
     Tensor shape a -> a
-  mean t = sum t / cast (size t)
+  mean t = sum t / cast (Cubical.size t)
 
   public export
   variance : {c : Axis} -> IsCubical c =>
@@ -277,3 +289,60 @@ testRand2 = random ["i" ~~> 5]
 
 testRand3 : IO Unit
 testRand3 = randomIO
+
+public export
+exMatrix : Ext (Vect 3 >< Vect 3) Double
+exMatrix = ((), ()) <| \case
+        (0, 0) => 0
+        (0, 1) => 1
+        (0, 2) => 2
+        (1, 0) => 3
+        (1, 1) => 4
+        (1, 2) => 5
+        (2, 0) => 6
+        (2, 1) => 7
+        (2, 2) => 8
+
+public export
+applMap : {n : Nat} -> Ext (Vect n >< Vect n) Double -> Ext (Vect n) Double
+applMap = extMap tensorM
+
+allPos : (BinTreePosLeaf (NodeS LeafS LeafS), BinTreePosLeaf (NodeS (NodeS LeafS LeafS) LeafS)) -> Double
+allPos ((GoLeft AtLeaf), (GoLeft (GoLeft AtLeaf))) = 0
+allPos ((GoRight AtLeaf), (GoLeft (GoLeft AtLeaf))) = 1
+allPos ((GoLeft AtLeaf), (GoLeft (GoRight AtLeaf))) = 2
+allPos ((GoRight AtLeaf), (GoLeft (GoRight AtLeaf))) = 3
+allPos ((GoLeft AtLeaf), (GoRight AtLeaf)) = 4
+allPos ((GoRight AtLeaf), (GoRight AtLeaf)) = 5
+
+exTree : Ext (BinTreeLeaf >< BinTreeLeaf) Double
+exTree = (NodeS LeafS LeafS, NodeS (NodeS LeafS LeafS) LeafS) <| allPos
+
+applMapTree : Ext (BinTreeLeaf >< BinTreeLeaf) Double -> Ext (BinTreeLeaf) Double
+applMapTree = extMap tensorM
+
+ff : Tensor ["v" ~~> 4, "v" ~~> 4] Double -> Tensor ["v" ~~> 4] Double
+ff t = let g = extMap {a=Double} (tensorM {c=Vect 4})
+       in ?ff_rhs
+
+||| Now you can construct Tensors directly:
+t0 : Tensor ["j" ~~> 3, "k" ~~> 4] Double
+t0 = ># [ [0, 1, 2, 3]
+        , [4, 5, 6, 7]
+        , [8, 9, 10, 11]]
+
+t1 : Tensor ["i" ~~> 6] Double
+t1 = arange
+
+exMatrix2 : Tensor ["v" ~~> 3, "v" ~~> 3] Double
+exMatrix2 = reshape $ arange {stop="v" ~~> 9}
+
+
+
+public export
+tTest : Tensor ["i" ~~> 80] Double
+tTest = arange
+
+public export
+tRes : Tensor ["i" ~~> 2, "j" ~~> 40] Double
+tRes = reshape tTest

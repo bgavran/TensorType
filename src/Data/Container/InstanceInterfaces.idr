@@ -3,6 +3,7 @@ module Data.Container.InstanceInterfaces
 import Data.Vect
 import Decidable.Equality
 import Data.Fin.Split
+import Data.Finite
 
 
 import Data.Container.Object.Definition
@@ -11,14 +12,25 @@ import Data.Container.Concrete.Definition
 import Data.Container.Concrete.Instances
 import Data.Container.Extension.Definition
 import Data.Container.Extension.Instances
-import Data.Container.Applicative.Definition
-import Data.Container.Applicative.Instances
+-- import Data.Container.Applicative.Definition
+-- import Data.Container.Applicative.Instances
 
 import Data.Tree
-import Data.Algebra
+import Data.Functor.Algebra
 import Misc
 
 %hide Prelude.toList
+
+
+||| Any finite container (i.e. whose each set of positions is finite) can be
+||| given an algebra instance simply by summing up all the concrete values
+public export
+algebraFinite : 
+  (c : Cont) -> (isFinite : IsFinite c) =>
+  (0 a : Type) -> Num a =>
+  Algebra (Ext c) a
+algebraFinite c {isFinite = MkI @{p}} _
+  = MkAlgebra $ \(shp <| content) => reduce $ values @{p shp} <&> content
 
 namespace VectInstances
   public export

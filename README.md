@@ -3,17 +3,18 @@
 
 [![build](https://github.com/bgavran/TypeSafe_Tensors/actions/workflows/build.yml/badge.svg)](https://github.com/bgavran/TypeSafe_Tensors/actions/workflows/build.yml)
 
-> TLDR; numpy, but with types, and the ability to manipulate tree-shaped arrays
+> TLDR; numpy, but with types, first-class axes, and branching/recursive arrays
 
 TensorType is a framework for pure functional tensor processing, implemented in Idris 2. It
 * is **type-safe**: tensor indexing and contractions fail at compile time if types do not match
+* **supports named axes**: axes are first-class objects carrying names, checked for consistency at call sites
 * **supports non-cubical tensors**: tensors of trees and arbitrary containers are supported, instead of just arrays
 * **is made with ergonomics in mind**: it aims to provide the standard NumPy/PyTorch interface to the user in a purely functional language
 
 At the moment its main purpose is enabling rapid prototyping of structured neural network architectures. For instance, it is expressive enough to [implement generalised cross-attention](https://github.com/bgavran/TensorType/blob/main/src/Architectures/Transformer/Attention.idr#L9) (as described in the [Generalised Transformers blog post](https://glaive-research.org/2025/02/11/Generalized-Transformers-from-Applicative-Functors.html)).
 
 > [!NOTE]
-> TensorType is in early stages of development; expect breaking changes. It is not yet performant: down the line the goal is to obtain performance in a systematic way, not at the expense of types, but [because of them](#Aim-of-TensorType).
+> TensorType is in early stages of development; expect breaking changes. Named axes are not yet fully integrated, and TensorType is not yet performant: down the line the goal is to obtain performance in a systematic way, not at the expense of types, but [because of them](#Aim-of-TensorType).
 
 * [Examples](#Examples)
 * [Installation instructions](#Installation-instructions)
@@ -34,42 +35,53 @@ import Data.Tensor
 Now you can construct tensors directly:
 
 ```idris
-t0 : Tensor [3, 4] Double
+t0 : Tensor ["j" ~~> 3, "k" ~~> 4] Double
 t0 = ># [ [0, 1, 2, 3]
         , [4, 5, 6, 7]
         , [8, 9, 10, 11]]
 ```
 
-Here `>#` behaves like a constructor: it takes a concrete value and turns it into the tensor of the appropriate shape (It should be visually read as a 'map' (`>`) into 'tensor' (`#`)).
-You can also use functions analogous to NumPy's, such as `np.arange` and `np.reshape`:
+This declares the type of a `3 x 4` matrix with axes named "j" and "k", and uses `>#` to populate it with values. `>#` behaves like a constructor: it takes a concrete value and turns it into the tensor of the appropriate shape (It should be visually read as a 'map' (`>`) into a 'tensor' (`#`)).
+
+You can use functions analogous to NumPy's, such as `np.arange` and `np.reshape`:
 
 ```idris
-t1 : Tensor [6] Double
+t1 : Tensor ["i" ~~> 6] Double
 t1 = arange
 
-t2 : Tensor [2, 3] Double
+t2 : Tensor ["i" ~~> 2, "j" ~~> 3] Double
 t2 = reshape t1
 ```
 
 where the difference between NumPy is that these operations are typechecked - meaning they will fail _at compile-time_ if you supply an array with the wrong shape.
 ```idris
 failing
-  failConcrete : Tensor [3, 4] Double
+  failConcrete : Tensor ["j" ~~> 3, "k" ~~> 4] Double
   failConcrete = ># [ [0, 1, 2, 3, 999]
                     , [4, 5, 6, 7]
                     , [8, 9, 10, 11]]
 failing
-  failRange : Tensor [6]
-  failRange = arange {n=7}
+  failReshape : Tensor ["i" ~~> 7, "j" ~~> 2] Double
+  failReshape = arange {n=7}
+```
+
+They will also fail if you inconsistently bind axis name, for instance if you bind the same name to two different sizes:
+
+```
+failing
+  failBinding : Tensor ["j" ~~> 3, "j" ~~> 4] Double
+  failBinding = ># [ [0, 1, 2, 3]
+                   , [4, 5, 6, 7]
+                   , [8, 9, 10, 11]]
 ```
 
 You can perform all sorts of familiar numeric operations:
 
 ```idris
-exampleSum : Tensor [3, 4] Double
+exampleSum : Tensor ["j" ~~> 3, "k" ~~> 4] Double
 exampleSum = t0 + t0
 
-exampleOp : Tensor [3, 4] Double
+exampleOp : Tensor ["j" ~~> 3, "k" ~~> 4] Double
 exampleOp = abs (- (t0 * t0) <&> (+7))
 ```
 
@@ -79,22 +91,22 @@ including standard linear algebra
 dotExample : Tensor [] Double
 dotExample = dot t1 (t1 <&> (+5))
 
-matMulExample : Tensor [2, 4]
+matMulExample : Tensor ["i" ~~> 2, "k" ~~> 4] Double
 matMulExample = matMul t2 t0
 
-transposeExample : Tensor [4, 3] Double
+transposeExample : Tensor ["k" ~~> 4, "j" ~~> 3] Double
 transposeExample = transposeMatrix t0
 ```
 
-which all have their types checked at compile-time. For instance, you can't add tensors of different shapes, or perform matrix multiplication if the dimensions of matrices don't match.
+which all have their types checked at compile-time. For instance, you can't add tensors of different shapes, perform matrix multiplication if the dimensions of matrices don't match, or do any of these if you mislabel an axis.
 
 ```idris
 failing
-  sumFail : Tensor [3, 4] Double
+  sumFail : Tensor ["j" ~~> 3, "k" ~~> 4] Double
   sumFail = t0 + t1
   
 failing
-  matMulFail : Tensor [7] Double
+  matMulFail : Tensor ["i" ~~> 7] Double
   matMulFail = matMul t0 t1
 ```
 
@@ -121,25 +133,27 @@ failing
   indexExampleFail = t1 @@ [7, 2]
 
 failing
-  sliceFail : Tensor [10, 2] Double
+  sliceFail : Tensor ["j" ~~> 10, "k" ~~> 2] Double
   sliceFail = take [10, 2] t0
 ```
 
-**And most importantly, you can do all of this with *non-cubical* tensors.** These describe tensors whose shape isn't rectangular/cubical, but can be branching/recursive/higher-order. We will see in a moment what that means. These tensors are described via 'containers' and the corresponding datatype named `CTensor` (standing for "Container Tensor").
-We have already seen this datatype -- as matter of fact every `Tensor` we have seen was secretly desugared to `CTensor` internally:
+**And most importantly, you can do all of this with *non-cubical* tensors.** These describe tensors whose shape isn't rectangular/cubical, but can be branching/recursive/higher-order. 
+That is, instead of binding an axis name to a number, we bind it to something called a "container", by using `~>` instead of `~~>`.
+As a matter of fact, `~~>` behind the scenes desugars to `~>`, and we have been using this all along.
+Let's see `t0` in this new form:
 
 ```idris
-t0Again : CTensor [Vect 3, Vect 4] Double
+t0Again : Tensor ["j" ~> Vect 3, "k" ~> Vect 4] Double
 t0Again = t0
 ```
 
 Here `Vect` does not refer to `Vect` from `Data.Vect`, but rather the `Vect` container implemented [here](https://github.com/bgavran/TensorType/blob/main/src/Data/Container/Object/Instances.idr#L68).
 
-Everything we can do with `Tensor` we can do with `CTensor`, including building concrete tensors:
+Everything we've seen above can be recast with this new type explicitly:
 
 ```idris
-t1again : CTensor [Vect 6] Double
-t1again = ># [1,2,3,4,5,6]
+t1again : Tensor ["i" ~> Vect 6] Double
+t1again = arange
 ```
 
 The real power of container tensors comes from using other containers in the place of `Vect`. Here is a container `BinTree` of binary trees recast as a tree-tensor:
@@ -152,7 +166,7 @@ The real power of container tensors comes from using other containers in the pla
     / \
 (-42)  46 
 -}
-treeExample1 : CTensor [BinTree] Double
+treeExample1 : Tensor ["myTree" ~> BinTree] Double
 treeExample1 = ># Node 60 (Node 7 (Leaf (-42)) (Leaf 46)) (Leaf 2)
 ```
 
@@ -164,14 +178,14 @@ Unlike `Vect`, this container allows us to store an arbitrary number of elements
   / \
 100  4
 -}
-treeExample2 : CTensor [BinTree] Double
+treeExample2 : Tensor ["myTree" ~> BinTree] Double
 treeExample2 = ># Node 5 (Leaf 100) (Leaf 4)
 ```
 
 Perhaps surpisingly, all linear algebra operations follow smoothly. The example below is the _dot product of trees_. The fact that these trees don't have the same number of elements is irrelevant; what matters is that the container defining them (`BinTree`) is the same.
 
 ```idris
-dotProductTree : CTensor [] Double
+dotProductTree : Tensor [] Double
 dotProductTree = dot treeExample1 treeExample2
 ```
 
@@ -185,7 +199,7 @@ We can do much more. Here's a tree-tensor with values only on its leaves:
     / \
 (-42)  46 
 -}
-treeLeafExample : CTensor [BinTreeLeaf] Double
+treeLeafExample : Tensor ["myTree" ~> BinTreeLeaf] Double
 treeLeafExample = ># Node' (Node' (Leaf (-42)) (Leaf 46)) (Leaf 2)
 ```
 
@@ -199,17 +213,19 @@ and here's a tree-tensor with values only on its nodes:
     / \
    *   * 
 -}
-treeNodeExample : CTensor [BinTreeNode] Double
+treeNodeExample : Tensor ["myTree" ~> BinTreeNode] Double
 treeNodeExample = ># Node 60 (Node 7 Leaf' Leaf')  Leaf'
 ```
 
 This can get complex and nested, as `exTree3` and `exTree4` show. But it still fully type-checked, and working as you'd expect.
 
 ```idris
-treeExample3 : CTensor [BinTreeNode, Vect 2] Double
+treeExample3 : Tensor ["myTree" ~> BinTreeNode, "j" ~> Vect 2] Double
 treeExample3 = ># Node [4,1] (Node [17, 4] Leaf' Leaf') Leaf'
 
-treeExample4 : CTensor [BinTreeNode, BinTreeLeaf, Vect 3] Double
+treeExample4 : Tensor ["myTree"     ~> BinTreeNode,
+                       "myTreeLeaf" ~> BinTreeLeaf,
+                       "k"          ~> Vect 3] Double
 treeExample4 = >#
   Node (Node'
           (Leaf [1,2,3])
@@ -258,10 +274,11 @@ Here is the in-order traversal of `treeExample1` from above.
     / \
 (-42)  46 
 -}
-traversalExample : CTensor [List] Double
-traversalExample = restructure (wrap inorder) treeExample1
+traversalExample : Tensor ["myTree" ~> List] Double
+traversalExample = restructure (wrapIntoVector inorder) treeExample1
 ```
 
+This is just the beginning, and there are many more operations. 
 All of these can be used to define all sorts of novel network architectures, see [src/Architectures](https://github.com/bgavran/TensorType/tree/main/src/Architectures) for examples.
 
 ## Installation instructions
@@ -297,7 +314,7 @@ This especially holds in the context of non-cubical tensors, which are at the mo
 
 TensorType's implementation hinges on three interdependent components:
 
-* **Containers** for **well-typed indexing of non-cubical tensors**: they allow us to validate that an index into a generalised tensor is not out of bounds at compile-time. Doing this with cubical containers is easy since they expose the size information at the type level (i.e. `Tensor [2,3,4] Double`), but once we move on to the world of applicative functors this is no longer the case. Checking that an index into a `CTensor [BinTreeNode] Double` is not out of bounds is only possible if the underlying functor additionally comes equipped with the data of the valid set of "shapes" and the valid "positions" for that shape. This is equivalent to asking that the functor is polynomial, or that the functor is an extension of a container.
+* **Containers** for **well-typed indexing of non-cubical tensors**: they allow us to validate that an index into a generalised tensor is not out of bounds at compile-time. Doing this with cubical containers is easy since they expose the size information at the type level (i.e. `Tensor ["i" ~> Vect 2] Double`), but once we move on to the world of applicative functors this is no longer the case. Checking that an index into a `Tensor ["b" ~> BinTreeNode] Double` is not out of bounds is only possible if the underlying functor additionally comes equipped with the data of the valid set of "shapes" and the valid "positions" for that shape. This is equivalent to asking that the functor is polynomial, or that the functor is an extension of a container.
 * **Applicative functors** for **generalised linear algebra**: they allow us to perform generalised linear algebra operations as described in the [Applicative Programming with Naperian Functors](https://www.cs.ox.ac.uk/people/jeremy.gibbons/publications/aplicative.pdf) paper.
 * **Dependent lenses** for **reshaping and traversing operations**: they allow us to define morphisms of containers, and therefore generalised tensor reshaping operations that do not operate on the content of the data, only the shape. These include views, reshapes, and traversals, and many other culprits that appear in libraries like NumPy.
 
@@ -305,7 +322,7 @@ TensorType's implementation hinges on three interdependent components:
 ## Planned features
 
 * Functionality:
-  * Support for persistent named axes and tensor operations involving them
+  * Full support for persistent named axes and tensor operations involving them
   * Type-safe einsum
   * Type-safe broadcasting, stacking, padding, etc. for both cubical and applicative tensors
   * Common linear algebra operations

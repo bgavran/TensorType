@@ -290,7 +290,8 @@ parameters {a : Type} {auto _ : Num a} {b, i, j, k : Nat}
 
   batchedMatMul : Tensor [b, i, j] a -> Tensor [b, j, k] a -> Tensor [b, i, k] a
   batchedMatMul m n = %runElab einsum "bij,bjk->bik" [m, n]
-  
+
+  -- does not require applicative  
   outer : Tensor [i] a -> Tensor [j] a -> Tensor [i, j] a
   outer v w = %runElab einsum "i,j->ij" [v, w]
   
@@ -300,6 +301,7 @@ parameters {a : Type} {auto _ : Num a} {b, i, j, k : Nat}
   elementwise : Tensor [i] a -> Tensor [i] a -> Tensor [i] a
   elementwise v w = %runElab einsum "i,i->i" [v, w]
 
+  -- requires Naperian
   transpose : Tensor [i, j] a -> Tensor [j, i] a
   transpose m = %runElab einsum "ij->ji" [m]
   

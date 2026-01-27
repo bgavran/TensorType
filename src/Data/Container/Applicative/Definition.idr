@@ -6,8 +6,7 @@ import Misc
 
 %hide Builtin.infixr.(#)
 
--- this file and the applicative directory is a relic of the old implementation
--- not all of this is used, and likely can be simplified
+-- TODO this will soon be deprecated
 
 
 ||| Applicative Container

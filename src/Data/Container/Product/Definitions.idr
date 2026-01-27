@@ -12,6 +12,7 @@ public export infixr 0 ><
 public export infixr 0 >*<
 public export infixr 0 >+<
 public export infixr 0 >@
+public export infixr 0 @>
 
 ||| Categorical product of containers
 public export
@@ -38,25 +39,17 @@ public export
 (>@) : Cont -> Cont -> Cont
 c >@ d = (ex : Ext c d.Shp) !> (cp : c.Pos (shapeExt ex) ** d.Pos (index ex cp))
 
-public export infixr 0 @>
-
 ||| Diagrammatic composition of containers
 public export
 (@>) : Cont -> Cont -> Cont
 c @> d = (ex : Ext d c.Shp) !> (dp : d.Pos (shapeExt ex) ** c.Pos (index ex dp))
 
-
 ||| Derivative of a container
 ||| Given c=(Shp !> pos) the derivative can be thought of as
 ||| a shape s : Shp, a distinguished position p : pos s, and the set of *all other positions*
 public export
-Deriv : (c : Cont) ->
+Derivative : (c : Cont) ->
   InterfaceOnPositions c DecEq =>
   Cont
-Deriv (shp !> pos) @{MkI}
+Derivative (shp !> pos) @{MkI}
   = ((s ** p) : DPair shp pos) !> (p' : pos s ** IsNo (decEq p p'))
-
-public export
-pairExtensions : Ext c a -> Ext d b -> Ext (c >< d) (a, b)
-pairExtensions (shapeC <| indexC) (shapeD <| indexD)
-  = (shapeC, shapeD) <| \(posC, posD) => (indexC posC, indexD posD)

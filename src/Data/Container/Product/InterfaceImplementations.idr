@@ -6,35 +6,34 @@ import Data.Container.Morphism.Definition
 import Data.Container.Morphism.Instances
 import Data.Container.Product.Interfaces
 import Data.Fin.Split
-import Data.Algebra
-
+import Data.Functor.Algebra
+import Data.Layout
 
 export
 TensorMonoid Maybe where
-  tensorN = !% \() => (True ** \_ => ())
-  -- for multiplication, only true if both b1 and b2 are True
-  tensorM = !% \(b1, b2) => (b1 && b2 ** \bb => ?todoFinish)
+  tensorN = State True
+  tensorM = !% \(b1, b2) => (b1 && b2 ** \bb => case b1 of
+    True => ((), if b2 then bb else absurd bb)
+    False => absurd bb)
 
 ||| Follows Applicative instance in `Prelude.Types`
-||| Todo splitProd assumes a particular layout order (row-major vs column-major)
+||| `splitFinProd` here is a layout-aware variant of `splitProd`
 export
 TensorMonoid List where
-  tensorN = !% \() => (1 ** const ())
-  tensorM = !% \(n, m) => (n * m ** splitProd) 
+  tensorN = State 1
+  tensorM = !% \(n, m) => (n * m ** splitFinProd DefaultLayoutOrder) 
 
-||| Follows Applicative instance in `Data.Vect`, i.e. zip
--- export
--- TensorMonoid (Vect n) where
---   tensorN = !% \() => (() ** const ())
---   tensorM = !% \((), ()) => (() ** \i => (i, i))
-
-||| Basically covers vectors
-||| Follows Applicative instance in `Data.Vect`, i.e. zip
+||| Covers vectors, among others
+||| For vecotrs produces a `zip` operation
 export
-IsCubical c => TensorMonoid c where
-  tensorN @{(MkIsCubical n)} = !% \() => (() ** \_ => ())
-  tensorM @{(MkIsCubical n)} = !% \((), ()) => (() ** \i => (i, i))
+IsNaperian c => TensorMonoid c where
+  tensorN @{(MkIsNaperian pos)} = State ()
+  tensorM @{(MkIsNaperian pos)} = !% \((), ()) => (() ** \i => (i, i))
 
+export
+IsCubical c => SeqMonoid c where
+  seqN @{MkIsCubical n} = State ()
+  seqM @{MkIsCubical n} = !% \(() <| _) => (() ** \i => (i ** i))
 
 namespace BinTreeUtils
   public export
@@ -94,17 +93,14 @@ namespace BinTreeUtils
         GoRight posR => let (pl, pr) = pairBTreeLeafPos posR
                        in (GoRight $ pl, GoRight $ pr)
 
-
-
 export
 TensorMonoid BinTree where
-  tensorN = !% \() => (LeafS ** \_ => ())
+  tensorN = State LeafS
   tensorM = !% \(sh1, sh2) => (pairBTreeShapes sh1 sh2 ** pairBTreePos)
-
 
 export
 TensorMonoid BinTreeLeaf where
-  tensorN = !% \() => (LeafS ** \_ => ())
+  tensorN = State LeafS
   tensorM = !% \(sh1, sh2) => (pairBTreeShapes sh1 sh2 ** pairBTreeLeafPos)
 
 -- Note, there is no TensorMonoid/Applicative instance for BinTreeNode
@@ -118,5 +114,4 @@ public export
 dotWith : {cont : Cont} -> TensorMonoid cont => Algebra (Ext cont) c =>
   (a -> b -> c) ->
   Ext cont a -> Ext cont b -> Ext Scalar c
-dotWith f ea eb
-  = reduce $ extMap tensorM $ (uncurry f <$> pairExtensions ea eb)
+dotWith f ea eb = reduce $ uncurry f <$> liftA2Ext ea eb

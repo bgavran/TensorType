@@ -13,7 +13,10 @@ brief = "Type-safe pure functional tensor processing framework, supporting non-c
 -- langversion
 
 -- packages to add to search path
-depends = contrib, elab-util, hashmap
+depends = contrib
+        , elab-util
+        , hashmap
+        , finite
 
 -- modules to install
 modules = Data.Container
@@ -41,13 +44,10 @@ modules = Data.Container
         , Data.Tensor.Utils
         , Data.Layout
         , Data.Para
+        , Data.Tree
         , Data.Para.Para
         , Data.Functor.Naperian
-        , Data.Tree
-        , Data.Algebra
-        , Data.Unique.List
-        , Data.Unique.Vect
-        -- , Data.Tensor.Einsum.Expr
+        , Data.Functor.Algebra
         , NN.Architectures
         , NN.Architectures.Activations
         , NN.Architectures.Residual

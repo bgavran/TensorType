@@ -90,30 +90,29 @@ public export
   map {shape = (s :: ss)} f = (map @{fe} f <$>)
 
 public export
-EmptyExt : Ext (Nap l) Builtin.Unit
-EmptyExt = () <| \_ => ()
+EmptyExt : {0 c : Cont} -> IsNaperian c => Ext c Unit
+EmptyExt @{MkIsNaperian _} = () <| \_ => ()
 
 public export
-liftA2ConstCont : Ext (Nap l) a -> Ext (Nap l) b -> Ext (Nap l) (a, b)
-liftA2ConstCont (() <| va) (() <| vb) = () <| (\x => (va x, vb x))
+liftA2ConstCont : IsNaperian c => Ext c a -> Ext c b -> Ext c (a, b)
+liftA2ConstCont @{MkIsNaperian _} ea eb = () <| (\x => (index ea x, index eb x))
 
-||| The extension of any container with a unit shape
-||| is an applicative functor
+||| The extension of any Naperian container is an applicative functor
 ||| Examples: Scalar, Pair, Vect n, Stream
-||| Notably, List and Maybe are also applicative
+||| But not all Applicatives are Naperian, examples being: List and Maybe
 public export
-Applicative (Ext (Nap l)) where
-  pure a = () <| (\_ => a)
-  fs <*> xs = uncurry ($) <$> liftA2ConstCont fs xs 
+IsNaperian c => Applicative (Ext c) where
+  pure @{MkIsNaperian _} a = () <| \_ => a
+  (<*>) fs xs @{MkIsNaperian _} = uncurry ($) <$> liftA2ConstCont fs xs 
 
-||| The extension of any container with a unit shape
-||| is an Naperian functor
+||| The extension of a Naperian container is a Naperian functor
+||| All Naperian functors are applicative, but not vice versa
 ||| Notably, lists are not applicative
 public export
-{l : Type} -> Naperian (Ext (Nap l)) where
-  Log = l
-  lookup = index
-  tabulate t = () <| t
+IsNaperian c => Naperian (Ext c) where
+  Log @{MkIsNaperian pos} = pos
+  lookup @{MkIsNaperian pos} = index
+  tabulate @{MkIsNaperian pos} = \content => () <| content
 
 ||| Generalisation of 'positions' from Data.Functor
 ||| Works for an arbitrary container, as long as we supply its shape
