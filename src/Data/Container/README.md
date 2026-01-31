@@ -20,4 +20,4 @@ Notably, `Object.Definition.idr` is a root of this dependency graph.
 
 Notably, this sublibrary defines its own `Tensor` and `Tensor'` datatype that are made coherent with respect to constructions inside this library, and not with respect to the outside code.
 
-Therefore, `src/Data.Tensor` reframes its own tensor constructions in a slighly different way, more convenient to the practical programmer via `Tensor` and `CTensor`.
+Therefore, `src/Data.Tensor` reframes its own tensor constructions in a slighly different way (via `Tensor` and `CTensor`), more convenient to the practical programmer.

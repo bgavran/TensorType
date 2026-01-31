@@ -18,7 +18,7 @@ namespace Tensor
   public export
   relu : Ord a => Num a => CTensor shape a -> CTensor shape a
   relu t = relu <$> t
--- 
---   public export
---   sigmoid : Fractional a => Exp a => CTensor shape a -> CTensor shape a
---   sigmoid t = sigmoid <$> t
+ 
+  public export
+  sigmoid : Fractional a => Exp a => CTensor shape a -> CTensor shape a
+  sigmoid t = sigmoid <$> t

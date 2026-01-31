@@ -33,7 +33,7 @@ namespace CommonNames
   public export
   CVector : (c : Cont) -> (dtype : Type) -> Type
   CVector c dtype = CTensor [c] dtype
-  
+
   public export
   CMatrix : (row, col : Cont) -> (dtype : Type) -> Type
   CMatrix row col dtype = CTensor [row, col] dtype
@@ -45,19 +45,19 @@ namespace CommonNames
   public export
   Vector : (n : Nat) -> (dtype : Type) -> Type
   Vector n dtype = Tensor [n] dtype
-  
+
   public export
   Matrix : (row, col : Nat) -> (dtype : Type) -> Type
   Matrix row col dtype = Tensor [row, col] dtype
 
 namespace ZerosOnes
   public export
-  zeros : Num a => {shape : List Cont} -> AllApplicative shape => 
+  zeros : Num a => {shape : List Cont} -> All TensorMonoid shape =>
     CTensor shape a
   zeros = tensorReplicate (fromInteger 0)
-  
+
   public export
-  ones : Num a => {shape : List Cont} -> AllApplicative shape => 
+  ones : Num a => {shape : List Cont} -> All TensorMonoid shape =>
     CTensor shape a
   ones = tensorReplicate (fromInteger 1)
 
@@ -74,7 +74,7 @@ namespace ZerosOnes
   identity = fromBool <$> identityBool
 
 namespace Range
-  {----- 
+  {-----
   This one is interesting, as in the cubical case it's effectively a version of 'tabulate' from Naperian functors.
   The cubical version is implemented first, and it's possible that a more general version of rangeA can be defined for container based tensors, possibly by tabulating contents of each shape respectively
   -----}
@@ -107,14 +107,14 @@ namespace Flip
   flip : (axis : Fin (length shape)) -> Tensor shape a -> Tensor shape a
 
 namespace Size
-  {----- 
+  {-----
   Can we measure the size of a tensor of containers?
   Likely need to impose an additional constraint that the set of positions is enumerable
   -----}
   ||| Number of elements in a non-cubical tensor
   public export
   cSize : {shape : List Cont} -> CTensor shape a -> Nat
-  
+
   ||| Number of elements in a cubical tensor
   public export
   size : {shape : List Nat} -> (0 _ : Tensor shape a) -> Nat
@@ -127,7 +127,7 @@ namespace Flatten
   public export
   cFlatten : Foldable (CTensor shape) => CTensor shape a -> List a
   cFlatten = toList
-  
+
   ||| Flatten a cubical tensor into a vector
   ||| Number of elements is known at compile time
   ||| Can even be zero, if any of shape elements is zero
@@ -166,14 +166,14 @@ namespace OneHot
   public export
   oneHot : Num a => {n : Nat} ->
     (i : Fin n) -> Tensor [n] a
-  oneHot i = set (zeros {shape=[Vect n]}) [i] 1 
+  oneHot i = set (zeros {shape=[Vect n]}) [i] 1
 
 
 namespace Triangular
   public export
   cTriBool : {c : Cont} ->
     (ip : InterfaceOnPositions c MOrd) =>
-    AllApplicative [c] =>
+    TensorMonoid c =>
     (sh : c.Shp) -> CTensor [c, c] Bool
   cTriBool {ip = MkI {p}} sh
     = let cPositions = positions {sh=sh}
@@ -183,7 +183,7 @@ namespace Triangular
   -- public export
   -- triA : Num a => {c : Cont} ->
   --   (ip : InterfaceOnPositions c MOrd) =>
-  --   AllApplicative [c] =>
+  --   All TensorMonoid [c] =>
   --   (sh : c.Shp) -> CTensor [c, c] a
   -- triA sh = fromBool <$> cTriBool sh
 
@@ -211,7 +211,7 @@ namespace Triangular
 
   ||| Fill the elements of a tensor `t` with `fill` where `mask` is True
   public export
-  maskedFill : {shape : List Cont} -> Num a => AllApplicative shape =>
+  maskedFill : {shape : List Cont} -> Num a => All TensorMonoid shape =>
     (t : CTensor shape a) ->
     (mask : CTensor shape Bool) ->
     (fill : a) ->
@@ -230,7 +230,7 @@ namespace Misc
   public export
   mean : {shape : List Nat} ->
     Cast Nat a =>
-    Fractional a => 
+    Fractional a =>
     Algebra (Tensor shape) a =>
     Tensor shape a -> a
   mean t = reduce t / cast (size t)
@@ -250,6 +250,7 @@ namespace Misc
 
 
 
+
 namespace Traversals
   public export
   inorder : CTensor [BinTreeNode] a -> CTensor [List] a
@@ -262,15 +263,15 @@ namespace Random
   Traversable (Tensor shape) =>
   Random (Tensor shape a) where
     randomIO = sequence (pure randomIO)
-   
-    randomRIO (lo, hi) = sequence $ randomRIO <$> liftA2 lo hi 
 
--- Idris can't find the parametric randomIO interface so reimpementing here 
+    randomRIO (lo, hi) = sequence $ randomRIO <$> liftA2 lo hi
+
+-- Idris can't find the parametric randomIO interface so reimpementing here
 public export
 random : Num a => Random a => HasIO io =>
   (shape : List Nat) ->
-  Applicative (Tensor shape) => 
-  Traversable (Tensor shape) => 
+  Applicative (Tensor shape) =>
+  Traversable (Tensor shape) =>
   io (Tensor shape a)
 random shape = sequence $ pure $ randomRIO (0, 1)
 
@@ -284,7 +285,7 @@ tttt : Traversable (Tensor [2])
 tttt = %search
 
 testRand : IO (Tensor [2, 3] Double)
-testRand = do 
+testRand = do
   t <- random [2,3]
   printLn $ show t
   pure t

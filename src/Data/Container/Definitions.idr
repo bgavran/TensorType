@@ -6,3 +6,4 @@ import public Data.Container.Extension.Definition
 import public Data.Container.Morphism.Definition
 import public Data.Container.Applicative.Definition
 import public Data.Container.Concrete.Definition
+import public Data.Container.Product.Definitions

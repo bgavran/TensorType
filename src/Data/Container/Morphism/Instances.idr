@@ -7,11 +7,13 @@ import Data.Container.Object.Instances
 import Data.Container.Morphism.Definition
 import Data.Container.Extension.Definition
 
+import Data.Layout
 import Misc
 
 ||| Ext is a functor of type Cont -> [Type, Type]
 ||| On objects it maps a container to a polynomial functor
 ||| On morphisms it maps a dependent lens to a natural transformation
+||| This is the action on morphisms
 public export
 extMap : {c, d : Cont} ->
   c =%> d ->
@@ -20,11 +22,61 @@ extMap (!% f) (sh <| index) = let (y ** ky) = f sh
                               in y <| (index . ky)
 
 
-||| Reshape is an isomorphism!
-reshapeVectIndexes : {n, m : Nat} -> (Vect n >< Vect m) =%> Vect (n * m)
-reshapeVectIndexes = !% \((), ()) => (() ** splitProd) 
-  
+||| Wraps a dependent lens `c =%> d`
+||| into one of type `c >@ Scalar =%> d >@ Scalar`
+||| Needed because `c >@ Scalar` isn't automatically reduced to `c`
+public export
+wrapIntoVector : {c, d : Cont} ->
+  c =%> d ->
+  Tensor [c] =%> Tensor [d]
+wrapIntoVector (!% f) =
+  !% \e => let (y ** ky) = f (shapeExt e)
+           in (y <| \_ => () ** \(cp ** ()) => (ky cp ** ()))
 
+||| Layout-aware isomorphism between a cubical tensor and a vector
+||| Uses the specified layout order for index mapping
+public export
+flatten : {shape : List Nat} ->
+  LayoutOrder ->
+  Tensor (Vect <$> shape) =%> Vect (prod shape)
+flatten {shape = []} _ = !% \() => (() ** \FZ => ())
+flatten {shape = (s :: ss)} lo = !% \(() <| t) => (() ** \idx => 
+  let (!% recBackward) = flatten {shape = ss} lo
+      (i, rest) = splitFinProd lo idx
+      (_ ** backRec) = recBackward (t i)
+  in (i ** backRec rest))
+
+||| Unflattens a vector into a cubical tensor of specific shape
+||| Is generic over layout order
+public export
+unflatten : {shape : List Nat} ->
+  LayoutOrder ->
+  Vect (prod shape) =%> Tensor (Vect <$> shape)
+unflatten {shape = []} lo = !% \() => (() ** \() => FZ)
+unflatten {shape = (s :: ss)} lo =
+  let (!% f) = unflatten {shape = ss} lo
+      (innerShape ** innerBack) = f ()
+  in !% \() => ((() <| \_ => innerShape) ** (\(cp ** restPos) =>
+    indexFinProd lo cp (innerBack restPos)))
+
+||| This is simply a rewrite!
+public export
+reshapeFlattenedTensor : {oldShape, newShape : List Nat} ->
+  {auto prf : prod oldShape = prod newShape} ->
+  Vect (prod oldShape) =%> Vect (prod newShape)
+reshapeFlattenedTensor = !% \() => (() ** \i => rewrite prf in i)
+
+||| Reshapes a cubical tensor by first flattening it to a linear representation,
+||| casting the type to the new shape, and then unflattening it back
+||| Is generic over layout order
+public export
+reshape : {oldShape, newShape : List Nat} ->
+  LayoutOrder ->
+  {auto prf : prod oldShape = prod newShape} ->
+  Tensor (Vect <$> oldShape) =%> Tensor (Vect <$> newShape)
+reshape lo = flatten lo %>> reshapeFlattenedTensor %>> unflatten lo
+
+  
 -- need to organise this
 namespace BinTree
   public export

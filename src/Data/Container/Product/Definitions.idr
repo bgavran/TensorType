@@ -1,4 +1,4 @@
-module Data.Container.Products
+module Data.Container.Product.Definitions
 
 import Data.DPair
 import Decidable.Equality
@@ -28,7 +28,7 @@ c1 >*< c2 = ((s, s') : (c1.Shp, c2.Shp)) !> Either (c1.Pos s) (c2.Pos s')
 ||| Monoid with CUnit
 public export
 (><) : Cont -> Cont -> Cont
-c1 >< c2 = ((s, s') : (c1.Shp, c2.Shp)) !> (c1.Pos s, c2.Pos s')
+c1 >< c2 = (ss : (c1.Shp, c2.Shp)) !> (c1.Pos (fst ss), c2.Pos (snd ss))
 
 
 ||| Coproduct of containers
@@ -80,7 +80,7 @@ ConvexComb xs = ((p, shp) : (Dist n, All Shp xs)) !> AllPos shp
 
 
 ||| Derivative of a container
-||| Given c=(Shp !> pos) the derivative can be thought of as 
+||| Given c=(Shp !> pos) the derivative can be thought of as
 ||| a shape s : Shp, a distinguished position p : pos s, and the set of *all other positions*
 public export
 Deriv : (c : Cont) ->
@@ -89,16 +89,7 @@ Deriv : (c : Cont) ->
 Deriv (shp !> pos) @{MkI}
   = ((s ** p) : DPair shp pos) !> (p' : pos s ** IsNo (decEq p p'))
 
-
 public export
-shapesOnly : (a : Type) -> Cont
-shapesOnly a = (x : a) !> Void
-
-public export
-DecEq Void where
-  decEq x1 _ = void x1
-
-shapesIoP : InterfaceOnPositions (shapesOnly a) DecEq
-shapesIoP = MkI
-
-derivConst : (a : Type) -> Ext (Deriv (shapesOnly a)) Integer
+pairExtensions : Ext c a -> Ext d b -> Ext (c >< d) (a, b)
+pairExtensions (shapeC <| indexC) (shapeD <| indexD)
+  = (shapeC, shapeD) <| \(posC, posD) => (indexC posC, indexD posD)

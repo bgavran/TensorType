@@ -12,3 +12,4 @@ ipkg = "tensortype-examples.ipkg"
 # type = "local"
 # path = "tests"
 # ipkg = "tensortype-tests.ipkg"
+

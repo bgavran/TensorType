@@ -27,15 +27,18 @@ modules = Data.Container
         , Data.Container.Concrete.Instances
         , Data.Container.Applicative.Definition
         , Data.Container.Applicative.Instances
+        , Data.Container.Product.Definitions
+        , Data.Container.Product.Interfaces
+        , Data.Container.Product.InterfaceImplementations
         , Data.Container.Definitions
         , Data.Container.Instances
         , Data.Container.InstanceInterfaces
-        , Data.Container.Products
         , Data.Container.TreeUtils
         , Data.Container.SubTerm
         , Data.Tensor
         , Data.Tensor.Tensor
         , Data.Tensor.Utils
+        , Data.Layout
         , Data.Para
         , Data.Para.Para
         , Data.Functor.Naperian
@@ -55,6 +58,16 @@ modules = Data.Container
         , NN.Architectures.RNN
         , NN.Architectures.Utils
         , Misc
+        , Data.Autodiff.AdditiveContainer
+        , Data.Autodiff.AdditiveContainer.Object.Definition
+        , Data.Autodiff.AdditiveContainer.Object.Instances
+        , Data.Autodiff.AdditiveContainer.Morphism.Definition
+        , Data.Autodiff.AdditiveContainer.Product.Definitions
+        , Data.Autodiff.Core
+        , Data.Autodiff.Core.DType
+        , Data.Autodiff.Core.Forward
+        , Data.Autodiff.Core.Backward
+        , Data.Autodiff.Examples
 
 -- main file (i.e. file to load at REPL)
 -- main =

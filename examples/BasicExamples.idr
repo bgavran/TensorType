@@ -208,4 +208,4 @@ Here is the in-order traversal of `treeExample1` from above.
 Can also use Utils.Traversals.inorder
 --------------------}
 traversalExample : CTensor [List] Double
-traversalExample = restructure (wrap inorder) treeExample1
+traversalExample = restructure (wrapIntoVector inorder) treeExample1

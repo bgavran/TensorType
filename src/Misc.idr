@@ -262,6 +262,28 @@ findBin {n = 0} (x' :: []) x = case x' <= x of
 findBin {n = (S k)} xs x = findBinBetween xs x 0 last
 
 
+||| Interface describing how a type can be displayed as a 2d grid of characters
+public export
+interface Display (a : Type) where
+  display : (x : a) -> (h : Nat ** w : Nat ** Vect h ((Vect w) Char))
+
+-- ||| Any type that implements Display can be shown as a string
+-- public export
+-- {a : Type} -> Display a => Show a where
+--   show x = let (h ** w ** xs) = display x
+--                ss = toList (intersperse "\n" (pack . toList <$> xs)) -- add intercalate here, and newline
+--            in fastUnlines ss
+
+-- public export
+-- Display Char where
+--   display x = (1 ** 1 ** [[x]])
+
+-- public export
+-- Num Unit where
+--   fromInteger _ = ()
+--   () * () = ()
+--   () + () = ()
+
 namespace RandomUtils
 -- Probably there's a faster way to do this
 -- public export
@@ -288,6 +310,13 @@ rrrrr : {n, x, y : Nat}
   -> (Fin (S x), Fin (S y))
   -- -> Data.Fin.Arith.(*) (Fin (S x)) (Fin (S y))
 
+
+||| There is a similar function in Data.Fin.Arith, which has the smallest
+||| possible bound. This one does not, but has a simpler type signature.
+public export
+multFin : {m, n : Nat} -> Fin m -> Fin n -> Fin (m * n)
+multFin {n = (S _)} FZ y = FZ
+multFin {n = (S _)} (FS x) y = y + weaken (multFin x y)
 
 ||| Splits xs at each occurence of delimeter (general version for lists)
 public export
@@ -477,25 +506,6 @@ dependentMap : Functor f => {t : a -> Type} ->
   (g : (x : a) -> t x) ->
   f a -> f (x : a ** t x)
 dependentMap g fa = map (graph g) fa
-
-
-||| Interface describing how a type can be displayed as a 2d grid of characters
-public export
-interface Display (a : Type) where
-  display : (x : a) -> (h : Nat ** w : Nat ** Vect h ((Vect w) Char))
-
--- ||| Any type that implements Display can be shown as a string
--- public export
--- {a : Type} -> Display a => Show a where
---   show x = let (h ** w ** xs) = display x
---                ss = toList (intersperse "\n" (pack . toList <$> xs)) -- add intercalate here, and newline
---            in fastUnlines ss
-
--- public export
--- Display Char where
---   display x = (1 ** 1 ** [[x]])
-
-
 
 {-
 

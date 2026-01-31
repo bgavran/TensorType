@@ -15,13 +15,14 @@ import NN.Architectures.Utils
 public export
 Transformer : {a : Type} -> Num a => Ord a =>
   {inputStructure, features : Cont} ->
-  (allAppl : AllApplicative [inputStructure, features]) =>
+  (TensorMonoid inputStructure) =>
+  (TensorMonoid features) =>
   (allAlg : AllAlgebra [inputStructure, features] a) =>
   {default id causalMask : CTensor [inputStructure, inputStructure] a -> CTensor [inputStructure, inputStructure] a} ->
   (softargmax : CTensor [inputStructure] a -> CTensor [inputStructure] a) ->
   CTensor [inputStructure, features] a -\-> CTensor [inputStructure, features] a
-Transformer {allAppl = Cons} {allAlg = Cons} softargmax
+Transformer {allAlg = Cons} softargmax
   = composePara (addResidual (SelfAttention softargmax)) (addResidual ffnet)
     where
       ffnet : CTensor [inputStructure, features] a -\-> CTensor [inputStructure, features] a
-      ffnet = paraMapFirstAxis (multiLayerPerceptron {a=a} {ieva=features} 2 (trivialParam relu) {lastLayerActivation=False}) 
+      ffnet = paraMapFirstAxis (multiLayerPerceptron {a=a} {ieva=features} 2 (trivialParam relu) {lastLayerActivation=False})

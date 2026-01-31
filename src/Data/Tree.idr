@@ -108,12 +108,12 @@ namespace BinaryTrees
     liftA2BinTreeLeaf : BinTreeLeaf a -> BinTreeLeaf b -> BinTreeLeaf (a, b)
     liftA2BinTreeLeaf (Leaf a) (Leaf b)
       = Leaf (a, b)
-    liftA2BinTreeLeaf l@(Leaf x) (Node n z w)
-      = Node n (liftA2BinTreeLeaf l z) (liftA2BinTreeLeaf l w)
-    liftA2BinTreeLeaf (Node n z w) (Leaf x)
-      = Node n (liftA2BinTreeLeaf z (Leaf x)) (liftA2BinTreeLeaf w (Leaf x))
-    liftA2BinTreeLeaf (Node n y z) (Node m v s)
-      = Node n (liftA2BinTreeLeaf y v) (liftA2BinTreeLeaf z s) -- there's a choice here on what node to use! Maybe if we had a dot there?
+    liftA2BinTreeLeaf l@(Leaf x) (Node () z w)
+      = Node () (liftA2BinTreeLeaf l z) (liftA2BinTreeLeaf l w)
+    liftA2BinTreeLeaf (Node () z w) (Leaf x)
+      = Node () (liftA2BinTreeLeaf z (Leaf x)) (liftA2BinTreeLeaf w (Leaf x))
+    liftA2BinTreeLeaf (Node () y z) (Node () v s)
+      = Node () (liftA2BinTreeLeaf y v) (liftA2BinTreeLeaf z s)
   
     public export
     Applicative BinTreeLeaf where

@@ -8,3 +8,5 @@ import public Data.Container.Applicative.Instances
 import public Data.Container.Concrete.Instances
 
 import public Data.Container.InstanceInterfaces
+import public Data.Container.Product.Interfaces
+import public Data.Container.Product.InterfaceImplementations

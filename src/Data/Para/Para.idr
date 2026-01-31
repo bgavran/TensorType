@@ -35,16 +35,30 @@ composePara (MkPara p f) (MkPara q g) = MkPara
   (\x => (p' : p x ** q (f x p')))
   (\x, (p' ** q') => g (f x p') q')
 
-namespace ComposeParaTrivialParamLeft
-  public export
-  composePara : a -\-> b -> (b -> c) -> a -\-> c
-  composePara fp g = Para.composePara fp (trivialParam g)
+public export infixr 10 \>>
 
+public export
+(\>>) : a -\-> b -> b -\-> c -> a -\-> c
+(\>>) = composePara
+
+
+public export
+reparam : (pf : a -\-> b) ->
+  {q : a -> Type} ->
+  (r : (x : a) -> q x -> pf.Param x) ->
+  a -\-> b
+reparam (MkPara p f) r = MkPara q (\x, qq => f x (r x qq))
 
 public export
 data IsNotDependent : Para a b -> Type where
   MkNonDep : (p : Type) -> (f : a -> p -> b) ->
     IsNotDependent (MkPara (\_ => p) f)
+
+
+public export
+GetNonDep : {pf : Para a b} ->
+  IsNotDependent pf -> (p : Type ** a -> p -> b)
+GetNonDep (MkNonDep p f) = (p ** f)
 
 
 -- mapRunPara : {a : Type} -> {b : Type} ->

@@ -11,10 +11,9 @@ This file defines the Algebra interface, which is a pragmatic implementation of
 the concept of F-algebra from category theory.
 
 It is pragmatic since it is not defined for an arbitrary category, but rather
-for the vaguely defined category of Idris types and functions.
+for the (vaguely defined) category of Idris types and functions.
 
-Instantiating it for 'other' categories is solved by exposing the carrier of the algebra at the type level, allow us to use interface constraints to specify
-the constraints on the carrier.
+Instantiating it for 'other' categories is solved by exposing the carrier of the algebra at the type level, as it allow us to use interface constraints to specify the constraints on the carrier.
 This comes at the cost of needing to always specify the carrier type in the type
 of every function that uses this algebra interface.
 -------------------------------------------------------------------------------}

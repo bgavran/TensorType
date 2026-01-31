@@ -7,7 +7,6 @@ import public Data.Vect
 -- main container definitions and instances, and products
 import public Data.Container.Definitions
 import public Data.Container.Instances
-import public Data.Container.Products
 
 -- for manipulating concrete tree instances
 import public Data.Tree

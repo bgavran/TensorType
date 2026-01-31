@@ -3,7 +3,7 @@ module Data.Container.Object.Instances
 import Data.Fin
 
 import public Data.Container.Object.Definition
-import public Data.Container.Products
+import public Data.Container.Product.Definitions
 import public Data.Container.TreeUtils
 
 ||| Empty container, isomorphic to Void
@@ -61,7 +61,7 @@ MaybeTwo = (b : Bool) !> (if b then Fin 2 else Void)
 public export
 List : Cont
 List = (n : Nat) !> Fin n
-  
+
 ||| Vect, container of a fixed/known number of things
 ||| As a polynomial functor: F(X) = X^n
 public export
@@ -79,15 +79,15 @@ Stream = (_ : Unit) !> Nat
 public export
 BinTree : Cont
 BinTree = (b : BinTreeShape) !> BinTreePos b
-  
+
 ||| Container of things stored at nodes of a binary tree
-||| As a polynomial functor: F(X) = 1 + X + 2X^2 + 5X^3 + 
+||| As a polynomial functor: F(X) = 1 + X + 2X^2 + 5X^3 +
 public export
 BinTreeNode : Cont
 BinTreeNode = (b : BinTreeShape) !> BinTreePosNode b
-  
+
 ||| Container of things stored at leaves of a binary tree
-||| As a polynomial functor: F(X) = X + X^2 + 2X^3 + 5X^4 + 
+||| As a polynomial functor: F(X) = X + X^2 + 2X^3 + 5X^4 +
 public export
 BinTreeLeaf : Cont
 BinTreeLeaf = (b : BinTreeShape) !> BinTreePosLeaf b
@@ -100,7 +100,7 @@ Tensor = foldr (>@) Scalar
 
 -- TODO what is "Tensor" with hancock product? with cartesian product?
 -- TODO duoidal structure between with hancock product and composition
-  
+
 ||| Every lens gives rise to a container
 ||| The set of shapes is the lens itself
 ||| The set of positions is the inputs to the lens
@@ -118,20 +118,25 @@ CartesianClosure c d
   = (f : ((x : c.Shp) -> (y : d.Shp ** d.Pos y -> Maybe (c.Pos x))))
     !> (xx : c.Shp ** yy' : d.Pos (fst (f xx)) ** ?cartesianClosureImpl)
 
-||| Constant container, positions do not depend on shapes
-||| Some of the above containers can be refactored in terms of these
-||| But it's more illuminating to keep them in their raw form for now
+||| Constant container, positions can be different than shapes, but do not 
+||| depend on them. Some of the above containers can be refactored in terms of 
+||| these. But it's more illuminating to keep them in their raw form for now
 ||| As a polynomial functor: F(X) = a * (X^b)
 public export
-Const : Type -> Type -> Cont
-Const a b = (_ : a) !> b
+Const2 : Type -> Type -> Cont
+Const2 a b = (_ : a) !> b
 
-||| Constant container with a single shape  
+||| Constant container where positions are the same as shapes
+public export
+Const : Type -> Cont
+Const a = Const2 a a
+
+||| Constant container with a single shape
 ||| Naperian container
 ||| As a polynomial functor: F(X) = X^b
 public export
 Nap : Type -> Cont
-Nap b = Const Unit b
+Nap b = Const2 Unit b
 
--- Some more examples that require the Applicative constraint can be found in 
+-- Some more examples that require the Applicative constraint can be found in
 -- `Data.Container.Object.Applicative`

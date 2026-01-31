@@ -14,15 +14,17 @@ record AffineLayerParams (x, y : Cont) (a : Type) where
 public export
 affineImpl : {x, y : Cont} -> Num a =>
   AllAlgebra [x] a =>
-  (allAppl : AllApplicative [x, y]) =>
+  TensorMonoid x =>
+  TensorMonoid y =>
   CTensor [x] a -> AffineLayerParams x y a -> CTensor [y] a
-affineImpl {allAppl = Cons} input (MkParams weights bias)
+affineImpl input (MkParams weights bias)
   = matrixVectorProduct weights input + bias
 
 public export
 affinePara : {x, y : Cont} -> {a : Type} -> Num a =>
   AllAlgebra [x] a =>
-  AllApplicative [x, y] =>
+  TensorMonoid x =>
+  TensorMonoid y =>
   CTensor [x] a -\-> CTensor [y] a
 affinePara = MkPara
   (const (AffineLayerParams x y a))

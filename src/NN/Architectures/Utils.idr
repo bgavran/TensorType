@@ -5,7 +5,7 @@ import Data.Tensor
 
 ||| Batching only works simply when we have a non-dependent Para
 public export
-paraMapFirstAxis : {cs : List Cont} -> Num a => AllApplicative cs =>
+paraMapFirstAxis : {cs : List Cont} -> Num a => All TensorMonoid cs =>
   (pf : CTensor cs a -\-> CTensor ds a) ->
   (nonDep : IsNotDependent pf) =>
   CTensor (c :: cs) a -\-> CTensor (c :: ds) a
