@@ -15,7 +15,7 @@ data BwDifferentiable : (da : D a) => (db : D b) => (f : a -> b) -> Type where
 public export
 ULens : {0 a, b : Type} -> {da : D a} -> {db : D b} -> {f : a -> b} ->
   BwDifferentiable f -> UC da =%> UC db
-ULens (MkBwDifferentiable f) = ULens f
+ULens (MkBwDifferentiable f) = f
 
 public export
 MkBwDiff :
@@ -23,12 +23,8 @@ MkBwDiff :
   {f : a -> b} -> -- implicit because available in type signature
   (f' : (x : a) -> T db (f x) -> T da x) ->
   BwDifferentiable {da = da} {db = db} f
-MkBwDiff {da = (MkTangent $ MkAddCont (a !> a')) }
-         {db = (MkTangent $ MkAddCont (b !> b')) }
-         {f} f' = MkBwDifferentiable
-    {c=(MkAddCont ((x : a) !> a' x) )}
-    {d=(MkAddCont ((y : b) !> b' y) )}
-    (!% (!% \x => (f x ** f' x)))
+MkBwDiff {da = MkTangent _} {db = MkTangent _} f'
+  = MkBwDifferentiable (!% (!% \x => (f x ** f' x)))
 
 public export
 composeBwDifferentiable : {ca, cb, cc : AddCont} ->

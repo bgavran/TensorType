@@ -13,17 +13,26 @@ export prefix 0 !: -- constructor the (closed) cartesian morphism
 public export prefix 0 %!
 public export prefix 0 &!
 public export prefix 0 :!
+public export prefix 0 !%+ -- constructor the addittive closed dlens
 export infixl 5 %>> -- composition of dependent lenses
 export infixl 5 &>> -- composition of dependent charts
 
 namespace DependentLenses
-  ||| Morphism between additive containers
+  ||| Forward-backward morphism between additive containers
   ||| It should also encode the constraint that the backward part is a comonoid
-  ||| homomorphism, that is left out
+  ||| homomorphism. That is currently left out.
   public export
   record (=%>) (c1, c2 : AddCont) where
     constructor (!%)
     ULens : UC c1 =%> UC c2
+
+  ||| Analogous to `!%` for ordinary containers, allows us to construct the 
+  ||| lens directly
+  public export
+  (!%+) : {0 c1, c2 : AddCont} ->
+    ((x : c1.Shp) -> (y : c2.Shp ** (c2.Pos y -> c1.Pos x))) ->
+    c1 =%> c2
+  (!%+) f = (!%) ((!%) f)
 
   public export
   (%!) : {0 c1, c2 : AddCont} -> c1 =%> c2 -> (x : c1.Shp) -> (y : c2.Shp ** (c2.Pos y -> c1.Pos x))
@@ -58,9 +67,9 @@ namespace DependentLenses
 
 
 namespace DependentCharts
-  ||| Morphism between additive containers
-  ||| It should also encode the constraint that the backward part is a comonoid
-  ||| homomorphism, that is left out
+  ||| Forward-forward morphism between additive containers
+  ||| It should also encode the constraint that the second component of the
+  ||| chart is a commutative monoid homomorphism. That is currently left out
   public export
   record (=&>) (c1, c2 : AddCont) where
     constructor (!&)
@@ -90,3 +99,9 @@ namespace DependentCharts
   public export
   id : {0 c : AddCont} -> c =&> c
   id = (!&) id
+
+  ||| Unlike with lenses, the set of all inputs to a chart is simpler, it is 
+  ||| just the input container.
+  public export
+  chartInputs : {c, d : AddCont} -> (0 f : c =&> d) -> AddCont
+  chartInputs _ = c

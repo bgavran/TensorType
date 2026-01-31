@@ -4,7 +4,8 @@ import Data.Container
 import Data.Autodiff.AdditiveContainer
 
 ||| Wrapper around an additive container exposing its shape at the type level
-||| We think of `D a` as containing the tangent space of `a`
+||| Given `a`, we think of `D a` as evidence of it being differentiable
+||| Follows the `D` terminology from Simple Essence of AD paper
 public export
 data D : (a : Type) -> Type where
   MkTangent : (c : AddCont) -> D (c.Shp)
@@ -13,42 +14,35 @@ data D : (a : Type) -> Type where
 public export
 MkD : {a : Type} ->
   (b : a -> Type) ->
-  {auto mon : (x : a) -> ComMonoid (b x)} ->
+  ((x : a) -> ComMonoid (b x)) =>
   D a
 MkD b = MkTangent $ MkAddCont $ (x : a) !> b x
+
+||| Extract the underlying additive container, "U" stands for "underlying"
+public export
+UC : D a -> AddCont
+UC (MkTangent c) = c
 
 ||| Extract the tangent space
 public export
 T : D a -> a -> Type
 T (MkTangent c) = c.Pos
 
-||| Extract the underlying additive container
-public export
-UC : D a -> Cont
-UC (MkTangent c) = UC c
-
--- ||| Underlying monoid structure of positions
--- public export
--- UMon : {a : Type} ->
---   (da : D a) -> (s : (UC da).Shp) -> ComMonoid (let tt = T da in ?hhh) -- T {a=a} da s)
-
--- public export
--- UMon : (c : AddCont) -> (s : c.Shp) -> ComMonoid (c.Pos s)
-
---------------------------------
--- Concrete instances
---------------------------------
+{-------------------------------
+Concrete instances
+All of these are annotated with the `%hint` pragma as we do not want the user
+to manually have to supply the underlying monoid structure during
+-------------------------------}
 
 %hint
 public export
 doubleTangent : D Double
 doubleTangent = MkD (\_ => Double)
 
--- since tensors have a Num instance, this should cover them
+-- Note: this should also cover Tensor, since they have a Num instance
 %hint
 public export
-numTangent : {a : Type} ->
-  Num a => D a
+numTangent : {a : Type} -> Num a => D a
 numTangent = MkD (\_ => a)
 
 %hint
@@ -58,7 +52,25 @@ unitTangent = MkD (\_ => ())
 
 %hint
 public export
-pairD : D a -> D b -> D (a, b)
-pairD (MkTangent (MkAddCont (shp !> pos) @{MkI}))
-      (MkTangent (MkAddCont (shp' !> pos') @{MkI}))
-  = MkD (\ss => (pos (fst ss), pos' (snd ss)))
+pairTangent : D a -> D b -> D (a, b)
+pairTangent (MkTangent (MkAddCont (_ !> posA) @{MkI}))
+            (MkTangent (MkAddCont (_ !> posB) @{MkI}))
+  = MkD $ \ss => (posA (fst ss), posB (snd ss))
+
+||| Similar to `VectAddCont`, except `VectAddCont` is heterogeneous vectors
+public export
+vectTangent : {a : Type} -> D a -> D (Vect n a)
+vectTangent x = ?vectTangent_rhs
+
+-- = MkD ?vectTangent_rhs @{?cmon}
+-- vectD (MkTangent (shp !> pos) {mon=monV}) = MkD
+--   (\xs => (i : Fin n) -> pos (index i xs))
+--   {mon=(\xs => ?vectD_mon)}
+
+-- listD (MkTangent (Shp !> pos)) = MkD
+--   (\xs => let tt = pos <$> xs in ?listD_rhs_1)
+--   {mon=(\x => ?llll)}
+
+public export
+listTangent : D a -> D (List a)
+listTangent x = ?listTangent_rhs

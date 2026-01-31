@@ -2,152 +2,110 @@ module Data.Autodiff.Examples
 
 import Data.Autodiff.Core
 
-public export
-State : (x : a) -> Unit -> a
-State x _ = x
+%hide Data.Container.Object.Instances.Const
+-- Some common maps and their backward derivatives
 
 public export
-MulC : Num a => (a, a) -> a
-MulC = uncurry (*)
+State : {0 c : AddCont} -> (x : c.Shp) -> Scalar =%> c
+State x = !%+ \() => (x ** \_ => ())
 
 public export
-MulByK : Num a => a -> a -> a
-MulByK k = \x => k * x
+Costate : {0 c : AddCont} ->
+  (s : (x : c.Shp) -> c.Pos x) ->
+  c =%> Scalar
+Costate s = !%+ \x => (() ** \() => s x)
 
 public export
-AddC : Num a => (a, a) -> a
-AddC = uncurry (+)
+Copy : {c : AddCont} ->
+  c =%> (c >< c)
+Copy = !%+ \x => ((x, x) ** uncurry (c.Plus x))
 
 public export
-ZeroC : Num a => Unit -> a
-ZeroC = State 0
+Delete : {c : AddCont} ->
+  c =%> Scalar
+Delete = !%+ \x => (() ** \() => c.Zero x)
 
 public export
-Del : a -> Unit
-Del _ = ()
+Sum : Num a =>
+  (Const a >< Const a) =%> Const a
+Sum = !%+ \(x1, x2) => (x1 + x2 ** \x' => (x', x'))
 
 public export
-Copy : a -> (a, a)
-Copy x = (x, x)
+Zero : Num a =>
+  Scalar =%> Const a
+Zero = State 0
 
 public export
-DotTensor : {n: Nat} ->
-  (Tensor [n] Double, Tensor [n] Double) -> Tensor [] Double
-DotTensor (t1, t2) = dot t1 t2
+Mul : Num a =>
+  (Const a >< Const a) =%> Const a
+Mul = !%+ \(x1, x2) => (x1 * x2 ** \x' => (x' * x2, x' * x1))
 
--- Example differentiable function
+{-
 public export
-stateDifferentiable : {a : Type} -> D a => (x : a) -> BwDifferentiable (State x)
-stateDifferentiable x = MkBwDiff (\_, _ => ())
-
-public export
-addDifferentiable : BwDifferentiable AddC
-addDifferentiable = MkBwDiff (\_, db => (db, db))
-
-public export
-delDifferentiable : {a : Type} -> Num a => BwDifferentiable (Del {a})
-delDifferentiable = MkBwDiff (\_, _ => 0)
-
-%hint
-public export
-copyDifferentiable : {a : Type} -> Num a => BwDifferentiable (Copy {a})
-copyDifferentiable = MkBwDiff (\_, (da1, da2) => da1 + da2)
-
-%hint
-public export
-mulDifferentiable : BwDifferentiable MulC
-mulDifferentiable = MkBwDiff $ \(a1, a2), db => (db * a2, db * a1)
-
-%hint
-public export
-mulByKDifferentiable : {a : Type} -> Num a => (k : a) ->
-  BwDifferentiable (MulByK {a} k)
-mulByKDifferentiable k = MkBwDiff $ \x, db => db * k
-
--- public export
--- testCompose : BwDifferentiable (MulC . Copy {a=Double})
--- testCompose = MkBwDiff (let t = composeBwDifferentiable Copy MulC in ?hhhh) -- (let t = composeBwDifferentiable Copy MulC in ?ff)
-
-
-public export
-dotDifferentiable : {n : Nat} -> BwDifferentiable (DotTensor {n})
-dotDifferentiable = MkBwDiff (\(t1, t2), dt =>
-  ((\x => x * extract dt) <$> t2, (\x => x * extract dt) <$> t1))
-
-public export
-record Optimiser (pType : Type) {auto dp : D pType} where
+record Optimiser (param : AddCont) where
   constructor MkOptimiser
-  Opt : Const pType pType =%> ((p : pType) !> (T dp p))
-
+  ||| Notably, this is an ordinary dependent lens, not an additive one
+  Opt : Const param.Shp =%> UC param
 
 ||| If we want to write this for an arbitrary `D pType` we'd need the sharp
 ||| machinery from Diegetic open games
 ||| @lr is the learning rate, should be negative here since we are adding it
 public export
-sgd : Num pType => (lr : pType) -> Optimiser pType
+sgd : Num pType => (lr : pType) -> Optimiser (Const pType)
 sgd lr = MkOptimiser $ !% \p => (p ** \p' => p + lr * p')
 
 public export
-minimiseFnStep : (f : Double -> Double) ->
-  (df : BwDifferentiable f) =>
-  (startingValue : Double) ->
+minimiseFnStep : (fLens : Const Double =%> Const Double) ->
+  (opt : Optimiser (Const Double)) ->
+  (currentValue : Double) ->
   Double -- result
-minimiseFnStep f {df} startingValue =
-  let fLens = (ULens df)
-      opt = Opt (sgd {pType=Double} (-0.001))
-  in (opt %>> fLens).bwd startingValue 1.0
-
-public export
-minimiseFn : (f : Double -> Double) ->
-  (df : BwDifferentiable f) =>
-  (startingValue : Double) ->
-  (numSteps : Nat) ->
-  IO ()
-minimiseFn f {df} currentValue 0 = do
-  putStrLn "Last step, current value: \{show currentValue}"
-  putStrLn "Finished."
-minimiseFn f {df} currentValue (S k) = do
-  putStrLn "Step \{show (S k)}, current value: \{show currentValue}"
-  let updatedValue = minimiseFnStep f {df} currentValue
-  minimiseFn f {df} updatedValue k
+minimiseFnStep (!% fLens) (MkOptimiser opt) currentValue
+  = (opt %>> fLens).bwd currentValue 1.0
 
 
 public export
-minimiseMulByK : (k : Double) ->
-  (startingValue : Double) ->
+runActionUntilMaxSteps : Show a =>
+  (action : a -> IO a) ->
+  (maxSteps : Nat) ->
+  (currentStep : Nat) -> (currentValue : a) ->
+  IO a
+runActionUntilMaxSteps action maxSteps currentStep currentValue
+  = case currentStep < maxSteps of
+    True => do
+      result <- action currentValue
+      putStrLn "Current step: \{show currentStep}, value: \{show result}"
+      runActionUntilMaxSteps action maxSteps (currentStep + 1) result
+    False => do
+      putStrLn "Max steps (\{show maxSteps}) reached. Final value: \{show currentValue}"
+      pure currentValue
+  
+
+public export
+minimiseFn : (fLens : Const Double =%> Const Double) ->
+  (opt : Optimiser (Const Double)) ->
+  (currentValue : Double) ->
   (numSteps : Nat) ->
-  IO ()
-minimiseMulByK k startingValue numSteps =
-  minimiseFn (MulByK k) {df=mulByKDifferentiable k} startingValue numSteps
+  IO Double
+minimiseFn fLens opt currentValue numSteps = runActionUntilMaxSteps
+  (\currVal => pure $ minimiseFnStep fLens opt currVal)
+  numSteps
+  0
+  currentValue
+
+public export
+minimiseCopyMul : (startingValue : Double) ->
+  (numSteps : Nat) ->
+  IO Double
+minimiseCopyMul = minimiseFn (Copy %>> Mul) (sgd {pType=Double} (-0.001))
 
 
+{-
+public export
+DotTensor : {n: Nat} ->
+  (Tensor [n] Double, Tensor [n] Double) -> Tensor [] Double
+DotTensor (t1, t2) = dot t1 t2
 
-
-
-
-
--- -- Example differentiable function
--- public export
--- mulDifferentiable : FwDifferentiable MulC
--- mulDifferentiable = MkFwDiff (\(a1, a2), (da, db) => a2 * da + a1 * db)
--- 
--- public export
--- addDifferentiable : FwDifferentiable AddC
--- addDifferentiable = MkFwDiff (\(a1, a2), (da, db) => da + db)
--- 
--- public export
--- zeroDifferentiable : FwDifferentiable ZeroC
--- zeroDifferentiable = MkFwDiff (\_, _ => 0)
--- 
--- public export
--- delDifferentiable : {a : Type} -> Num a => FwDifferentiable (Del {a})
--- delDifferentiable = MkFwDiff (\_, _ => ())
--- 
--- public export
--- copyDifferentiable : {a : Type} -> Num a => FwDifferentiable (Copy {a})
--- copyDifferentiable = MkFwDiff (\_, da => (da, da))
--- 
--- public export
--- dotDifferentiable : {n : Nat} -> FwDifferentiable (DotTensor {n})
--- dotDifferentiable = MkFwDiff (\(t1, t2), (dt1, dt2) => dot t2 dt1 + dot t1 dt2)
-
+public export
+dotDifferentiable : {n : Nat} -> BwDifferentiable (DotTensor {n})
+dotDifferentiable = MkBwDiff (\(t1, t2), dt =>
+  ((\x => x * extract dt) <$> t2, (\x => x * extract dt) <$> t1))

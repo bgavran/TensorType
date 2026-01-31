@@ -118,20 +118,25 @@ CartesianClosure c d
   = (f : ((x : c.Shp) -> (y : d.Shp ** d.Pos y -> Maybe (c.Pos x))))
     !> (xx : c.Shp ** yy' : d.Pos (fst (f xx)) ** ?cartesianClosureImpl)
 
-||| Constant container, positions do not depend on shapes
-||| Some of the above containers can be refactored in terms of these
-||| But it's more illuminating to keep them in their raw form for now
+||| Constant container, positions can be different than shapes, but do not 
+||| depend on them. Some of the above containers can be refactored in terms of 
+||| these. But it's more illuminating to keep them in their raw form for now
 ||| As a polynomial functor: F(X) = a * (X^b)
 public export
-Const : Type -> Type -> Cont
-Const a b = (_ : a) !> b
+Const2 : Type -> Type -> Cont
+Const2 a b = (_ : a) !> b
+
+||| Constant container where positions are the same as shapes
+public export
+Const : Type -> Cont
+Const a = Const2 a a
 
 ||| Constant container with a single shape
 ||| Naperian container
 ||| As a polynomial functor: F(X) = X^b
 public export
 Nap : Type -> Cont
-Nap b = Const Unit b
+Nap b = Const2 Unit b
 
 -- Some more examples that require the Applicative constraint can be found in
 -- `Data.Container.Object.Applicative`

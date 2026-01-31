@@ -13,9 +13,17 @@ Scalar : AddCont
 Scalar = MkAddCont Scalar
 
 ||| Constant additive container, positions not dependent on shapes
+||| Allows the backward part to be different than forward one
 public export
 Const : Type -> ComMonoid -> AddCont
-Const a (t ** m) = MkAddCont (Const a t) @{MkI @{\_ => m}}
+Const a (t ** m) = MkAddCont (Const2 a t) @{MkI @{\_ => m}}
+
+namespace NumConst
+  ||| Like above, but where backward part is same as forward one
+  ||| Also arises from Num instance
+  public export
+  Const : (a : Type) -> Num a => AddCont
+  Const a = Const a (a ** numIsMonoid)
 
 namespace ListAddCont
   public export
