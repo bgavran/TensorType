@@ -6,7 +6,6 @@ import Data.Vect.Quantifiers
 export prefix 0 !%%
 
 ||| Similar to a monadic dependent lens, but not quite
-||| Infix notation probably does not make sense anymore given that we have `m`
 public export
 data MLens : {m : Type -> Type} -> Monad m => (c1, c2 : Cont) -> Type where
     (!%%) : {m : Type -> Type} -> Monad m => 

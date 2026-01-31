@@ -46,7 +46,7 @@ softargmax : {i : Cont} ->
   CTensor [i] a -\-> CTensor [i] a
 softargmax = MkPara 
   (\_ => a) -- temperature is the parameter
-  (\t, temperature => softargmaxImpl {temperature} t)
+  (\(t ** temperature) => softargmaxImpl {temperature} t)
 
 
 inpp : Tensor [3] Double

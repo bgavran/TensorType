@@ -10,4 +10,4 @@ paraMapFirstAxis : {cs : List Cont} -> Num a => All TensorMonoid cs =>
   (nonDep : IsNotDependent pf) =>
   CTensor (c :: cs) a -\-> CTensor (c :: ds) a
 paraMapFirstAxis (MkPara (const pType) f) {nonDep = MkNonDep pType f} = MkPara
-  (\_ => pType) (\t, p => flip f p <-$> t)
+  (\_ => pType) (\(t ** p) => flip (curry f) p <-$> t)

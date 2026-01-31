@@ -4,6 +4,8 @@ In this repo we effectively we expose the forward parts of objects and morphisms
 Forward mode AD is implemented using Charts
 Reverse mode AD is implemented using Lenses 
 
+In deep learning frameworks this distinction is not usually made because we can always transpose the Jacobian, but here it might be necesssary since some applicative stuff is not Naperian, therefore not transposable
+
 This gives us only pointfree code. We still can't differentiate code like this:
 
 ```

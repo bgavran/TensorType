@@ -1,16 +1,29 @@
 module Data.Para.Para
 
 import Data.Vect
+import Data.DPair
 import Data.Vect.Quantifiers
 
-||| Dependent Para
-public export
-record Para (a : Type) (b : Type) where
-    constructor MkPara
-    Param : a -> Type
-    Run : (x : a) -> Param x -> b
+import public Data.CT
 
-%name Para fp, gp, hp
+public export
+Param : Para a b -> a -> Type
+Param = DepParaMor.Param
+
+public export
+Run : (pf : Para a b) -> (x : a) -> Param pf x -> b
+Run pf = DPair.curry (DepParaMor.Run pf)
+
+-- ||| Dependent Para
+-- ||| Here implicitly built on top of the dependent actegory with base
+-- ||| `Type` and dependent pair indexed functor
+-- public export
+-- record Para (a : Type) (b : Type) where
+--     constructor MkPara
+--     Param : (a -> Type)
+--     Run : (x : a) -> Param x -> b
+
+-- %name Para fp, gp, hp
 
 public export infixr 0 -\->
 
@@ -23,7 +36,7 @@ public export
 trivialParam : (a -> b) -> a -\-> b
 trivialParam f = MkPara 
   (\_ => Unit)
-  (\a, _ => f a)
+  (\(a ** ()) => f a)
 
 public export
 id : a -\-> a
@@ -32,8 +45,8 @@ id = trivialParam id
 public export
 composePara : a -\-> b -> b -\-> c -> a -\-> c
 composePara (MkPara p f) (MkPara q g) = MkPara
-  (\x => (p' : p x ** q (f x p')))
-  (\x, (p' ** q') => g (f x p') q')
+  (\x => (p' : p x ** q (f (x ** p'))))
+  (\(x ** (p' ** q')) => g (f (x ** p') ** q'))
 
 public export infixr 10 \>>
 
@@ -47,17 +60,17 @@ reparam : (pf : a -\-> b) ->
   {q : a -> Type} ->
   (r : (x : a) -> q x -> pf.Param x) ->
   a -\-> b
-reparam (MkPara p f) r = MkPara q (\x, qq => f x (r x qq))
+reparam (MkPara p f) r = MkPara q (\(x ** qq) => f (x ** (r x qq)))
 
 public export
 data IsNotDependent : Para a b -> Type where
-  MkNonDep : (p : Type) -> (f : a -> p -> b) ->
+  MkNonDep : (p : Type) -> (f : DPair a (const p) -> b) ->
     IsNotDependent (MkPara (\_ => p) f)
 
 
 public export
 GetNonDep : {pf : Para a b} ->
-  IsNotDependent pf -> (p : Type ** a -> p -> b)
+  IsNotDependent pf -> (p : Type ** DPair a (const p) -> b)
 GetNonDep (MkNonDep p f) = (p ** f)
 
 
