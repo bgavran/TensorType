@@ -9,6 +9,7 @@ import Data.CT.Functor.Instances
 import Data.CT.DependentAction.Instances
 
 import Data.Container.Base
+import Data.Container.Additive
 
 ||| Parametric functions
 ||| "Usual" dependent para on sets and functions
@@ -20,3 +21,7 @@ Para = DepParaMor DepActOnType
 public export
 ParaDLens : (a, b : Cont) -> Type
 ParaDLens = DepParaMor DepActOnCont
+
+public export
+ParaAddDLens : (a, b : AddCont) -> Type
+ParaAddDLens = DepParaMor DepActOnAddCont

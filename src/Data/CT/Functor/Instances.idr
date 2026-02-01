@@ -5,6 +5,7 @@ import Data.CT.Category.Instances
 import Data.CT.Functor.Definition
 
 import Data.Container.Base
+import Data.Container.Additive
 
 ||| Functor Type -> Cat^op
 public export
@@ -37,3 +38,12 @@ Base = MkFunctor Shp (.fwd)
 public export
 FamDLens : {c : Cat} -> IndCat DLens
 FamDLens = composeFunctors Base (FamIndCat {c=c})
+
+||| Functor which projects out the forward part of an additive dependent lens
+public export
+AddBase : Functor AddDLens TypeCat
+AddBase = MkFunctor (.Shp) (.fwd)
+
+public export
+FamAddDLens : {c : Cat} -> IndCat AddDLens
+FamAddDLens = composeFunctors AddBase (FamIndCat {c=c})

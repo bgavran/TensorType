@@ -9,6 +9,8 @@ import Data.ComMonoid
 ||| and every set of positions is a comonoid
 ||| We need additivity only because we want to copy/delete information: on the 
 ||| backwards pass this sums up or creates a zero value
+||| TODO this in some sense dual to `TensorMonoid`, since by default we have a
+||| unique comonoid structure on shapes? I.e. every set is uniquely a comonoid
 public export
 record AddCont where
   constructor MkAddCont

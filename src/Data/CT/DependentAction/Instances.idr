@@ -7,6 +7,7 @@ import Data.CT.Functor.Instances
 import Data.CT.DependentAction.Definition
 
 import Data.Container.Base
+import Data.Container.Additive
 
 ||| X, X':X -> Set, DPair X X'
 public export
@@ -22,3 +23,13 @@ DepActOnCont = MkDepAct $ \c => MkFunctor
              (c.Pos x, (pCont x).Pos p))
   (\r => !% \(x ** p) => ((x ** (r x).fwd p) **
             \(x', p') => (x', (r x).bwd p p')))
+
+
+public export
+DepActOnAddCont : DepAct AddDLens (FamAddDLens {c=AddDLens})
+DepActOnAddCont = MkDepAct $ \c => MkFunctor
+  (\pCont => MkAddCont (((x ** p) : DPair c.Shp ((.Shp) . pCont)) !>
+                        (c.Pos x, (pCont x).Pos p))
+             {mon=(MkI @{\(x ** p) => ?monoidTodo})})
+  (\r => !%+ \(x ** p) => ((x ** (r x).fwd p) **
+             \(x', p') => (x', (r x).bwd p p')))
