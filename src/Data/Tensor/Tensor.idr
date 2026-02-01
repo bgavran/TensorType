@@ -3,8 +3,8 @@ module Data.Tensor.Tensor
 import public Data.DPair
 import public Data.Fin.Split
 
-import public Data.Container
-import public Data.Container.Object.Instances as Cont
+import public Data.Container.Base
+import public Data.Container.Base.Object.Instances as Cont
 import public Data.Num
 
 import public Data.Layout

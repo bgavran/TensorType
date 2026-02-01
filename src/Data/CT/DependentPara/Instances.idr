@@ -8,7 +8,7 @@ import Data.CT.Category.Instances
 import Data.CT.Functor.Instances
 import Data.CT.DependentAction.Instances
 
-import Data.Container
+import Data.Container.Base
 
 ||| Parametric functions
 ||| "Usual" dependent para on sets and functions

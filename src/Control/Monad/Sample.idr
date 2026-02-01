@@ -2,7 +2,6 @@ module Control.Monad.Sample
 
 import System.Random
 
-import Data.Container
 import Data.Tensor 
 
 import Control.Monad.Distribution

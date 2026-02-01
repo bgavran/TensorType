@@ -6,7 +6,7 @@ import Data.CT.Functor.Definition
 import Data.CT.Functor.Instances
 import Data.CT.DependentAction.Definition
 
-import Data.Container
+import Data.Container.Base
 
 ||| X, X':X -> Set, DPair X X'
 public export

@@ -3,7 +3,7 @@ module Data.CT.Category.Instances
 import Data.CT.Category.Definition
 import Data.CT.Functor.Definition
 
-import Data.Container
+import Data.Container.Base
 
 public export
 TypeCat : Cat

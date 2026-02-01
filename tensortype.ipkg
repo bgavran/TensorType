@@ -16,37 +16,58 @@ brief = "Type-safe pure functional tensor processing framework, supporting non-c
 depends = contrib, elab-util
 
 -- modules to install
-modules = Data.Container
-        , Data.Container.Object.Definition
-        , Data.Container.Object.Instances
-        , Data.Container.Extension.Definition
-        , Data.Container.Extension.Instances
-        , Data.Container.Morphism.Definition
-        , Data.Container.Morphism.Instances
-        , Data.Container.Concrete.Definition
-        , Data.Container.Concrete.Instances
-        , Data.Container.Applicative.Definition
-        , Data.Container.Applicative.Instances
-        , Data.Container.Product.Definitions
-        , Data.Container.Product.Interfaces
-        , Data.Container.Product.InterfaceImplementations
-        , Data.Container.Definitions
-        , Data.Container.Instances
-        , Data.Container.InstanceInterfaces
-        , Data.Container.TreeUtils
+modules = Data.Container.Base
+        , Data.Container.Base.Object.Definition
+        , Data.Container.Base.Object.Instances
+        , Data.Container.Base.Extension.Definition
+        , Data.Container.Base.Extension.Instances
+        , Data.Container.Base.Morphism.Definition
+        , Data.Container.Base.Morphism.Instances
+        , Data.Container.Base.Concrete.Definition
+        , Data.Container.Base.Concrete.Instances
+        , Data.Container.Base.Applicative.Definition
+        , Data.Container.Base.Applicative.Instances
+        , Data.Container.Base.Product.Definitions
+        , Data.Container.Base.Product.Interfaces
+        , Data.Container.Base.Product.InterfaceImplementations
+        , Data.Container.Base.Definitions
+        , Data.Container.Base.Instances
+        , Data.Container.Base.InstanceInterfaces
+        , Data.Container.Base.TreeUtils
+
+        , Data.Container.Additive
+        , Data.Container.Additive.Object.Definition
+        , Data.Container.Additive.Object.Instances
+        , Data.Container.Additive.Morphism.Definition
+        , Data.Container.Additive.Product.Definitions
+
         , Data.Container.SubTerm
+
         , Data.Tensor
         , Data.Tensor.Tensor
         , Data.Tensor.Utils
-        , Data.Layout
+
+        , Data.CT
+        , Data.CT.Category.Definition
+        , Data.CT.Category.Instances
+        , Data.CT.Functor.Definition
+        , Data.CT.Functor.Instances
+        , Data.CT.DependentAction.Definition
+        , Data.CT.DependentAction.Instances
+        , Data.CT.DependentPara.Definition
+        , Data.CT.DependentPara.Instances
+
         , Data.Para
         , Data.Para.Para
         , Data.Functor.Naperian
+        , Data.Layout
         , Data.Tree
         , Data.Algebra
         , Data.Num
+
         , Control.Monad.Distribution
         , Control.Monad.Sample
+
         , NN.Architectures
         , NN.Architectures.Activations
         , NN.Architectures.Residual
@@ -57,17 +78,12 @@ modules = Data.Container
         , NN.Architectures.Transformer.Definition
         , NN.Architectures.RNN
         , NN.Architectures.Utils
+
+        , NN.Optimisers.Definition
+        , NN.Optimisers.Instances
+        , NN.Training.Optimisation
+
         , Misc
-        , Data.Autodiff.AdditiveContainer
-        , Data.Autodiff.AdditiveContainer.Object.Definition
-        , Data.Autodiff.AdditiveContainer.Object.Instances
-        , Data.Autodiff.AdditiveContainer.Morphism.Definition
-        , Data.Autodiff.AdditiveContainer.Product.Definitions
-        , Data.Autodiff.Core
-        , Data.Autodiff.Core.DType
-        , Data.Autodiff.Core.Forward
-        , Data.Autodiff.Core.Backward
-        , Data.Autodiff.Examples
 
 -- main file (i.e. file to load at REPL)
 -- main =

@@ -4,7 +4,7 @@ import Data.CT.Category.Definition
 import Data.CT.Category.Instances
 import Data.CT.Functor.Definition
 
-import Data.Container
+import Data.Container.Base
 
 ||| Functor Type -> Cat^op
 public export
