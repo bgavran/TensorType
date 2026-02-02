@@ -22,6 +22,11 @@ fromCostate : {0 c : Cont} ->
   (x : c.Shp) -> c.Pos x
 fromCostate f x = snd ((%! f) x) ()
 
+
+public export
+rightUnit : (c >< Scalar) =%> c
+rightUnit = !% \(x, ()) => (x ** \x' => (x', ()))
+
 ||| Ext is a functor of type Cont -> [Type, Type]
 ||| On objects it maps a container to a polynomial functor
 ||| On morphisms it maps a dependent lens to a natural transformation

@@ -59,6 +59,14 @@ namespace DependentLenses
   id : {0 c : AddCont} -> c =%> c
   id = (!%) id
 
+  ||| Pairing of all possible combinations of inputs to a particular lens
+  |||
+  |||                  ┌─────────────┐
+  |||  (x : c.Shp)  ──►┤             ├──►
+  |||                  │    lens     │
+  |||                  │             │
+  |||               ◄──┤             ├◄── d.Pos (lens.fwd x)
+  |||                  └─────────────┘
   public export
   lensInputs : {c, d : AddCont} -> c =%> d -> AddCont
   lensInputs lens = MkAddCont

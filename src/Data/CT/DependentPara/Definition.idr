@@ -25,7 +25,6 @@ DepParaCat : {c : Cat} -> {m : IndCat c} ->
   Cat
 DepParaCat depAct = MkCat c.Obj (DepParaMor depAct)
 
-
 ||| We do not define composition or anything else here. This is because, if we
 ||| did, we'd have to define a lot of other things, like composition in the 
 ||| base category, and associators of the monoidal category and actegory

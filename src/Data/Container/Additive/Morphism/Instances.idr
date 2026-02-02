@@ -26,6 +26,14 @@ constantOne : {c : AddCont} ->
 constantOne @{MkI @{p}} = Costate {c=c} (\x => let numPos = p x in 1)
 
 public export
+rightUnit : {c : AddCont} -> (c >< Scalar) =%> c
+rightUnit = !%+ \(x, ()) => (x ** \x' => (x', ()))
+
+public export
+rightUnitInv : {c : AddCont} -> c =%> (c >< Scalar)
+rightUnitInv = !%+ \x => ((x, ()) ** \(x', ()) => x')
+
+public export
 Copy : {c : AddCont} ->
   c =%> (c >< c)
 Copy = !%+ \x => ((x, x) ** uncurry (c.Plus x))

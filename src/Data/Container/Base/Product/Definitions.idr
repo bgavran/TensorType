@@ -6,6 +6,7 @@ import Data.Vect
 import Data.Vect.Quantifiers
 
 import Data.Container.Base.Object.Definition
+import Data.Container.Base.Morphism.Definition
 import Data.Container.Base.Extension.Definition
 import Control.Monad.Distribution
 
@@ -26,9 +27,15 @@ c1 >*< c2 = ((s, s') : (c1.Shp, c2.Shp)) !> Either (c1.Pos s) (c2.Pos s')
 ||| Non-categorical product of containers, often also called
 ||| 'Hancock' (Scotland), 'Dirichlet' (Spivak), or 'Tensor product' (various)
 ||| Monoid with CUnit
-public export
-(><) : Cont -> Cont -> Cont
-c1 >< c2 = (ss : (c1.Shp, c2.Shp)) !> (c1.Pos (fst ss), c2.Pos (snd ss))
+namespace HancockTensorProduct
+  public export
+  (><) : Cont -> Cont -> Cont
+  c1 >< c2 = (ss : (c1.Shp, c2.Shp)) !> (c1.Pos (fst ss), c2.Pos (snd ss))
+
+  public export
+  hancockMap : (c1 =%> d1) -> (c2 =%> d2) -> (c1 >< c2) =%> (d1 >< d2)
+  hancockMap f g = !% \(c, d) => ((f.fwd c, g.fwd d) **
+    \(c', d') => (f.bwd c c', g.bwd d d'))
 
 
 ||| Coproduct of containers
@@ -50,6 +57,46 @@ public export infixr 0 @>
 public export
 (@>) : Cont -> Cont -> Cont
 c @> d = (ex : Ext d c.Shp) !> (dp : d.Pos (shapeExt ex) ** c.Pos (index ex dp))
+
+namespace MonoidalClosure
+  ||| Every lens gives rise to a container
+  ||| The set of shapes is the lens itself
+  ||| The set of positions is the inputs to the lens
+  ||| This is the closure with respect to the Hancock tensor product
+  public export
+  InternalLens : Cont -> Cont -> Cont
+  InternalLens c d
+    = (f : c =%> d)
+      !> (xx : c.Shp ** d.Pos ((f.fwd xx)))
+
+  public export
+  curry : (c >< d) =%> e -> c =%> (InternalLens d e)
+  curry f = !% \x => (!% \y => (f.fwd (x, y) ** snd . f.bwd (x, y)) **
+    \(y ** e') => fst (f.bwd (x, y) e'))
+
+  public export
+  uncurry : c =%> (InternalLens d e) -> (c >< d) =%> e
+  uncurry f = !% \(x, y) => ((f.fwd x).fwd y **
+    \e' => (f.bwd x (y ** e'), (f.fwd x).bwd y e'))
+
+namespace CartesianClosure
+  ||| From https://www.cs.ox.ac.uk/people/samuel.staton/papers/cie10.pdf
+  public export
+  CartesianClosure : Cont -> Cont -> Cont
+  CartesianClosure c d
+    = (f : ((x : c.Shp) -> (y : d.Shp ** d.Pos y -> Maybe (c.Pos x))))
+      !> (xx : c.Shp ** yy' : d.Pos (fst (f xx)) ** ?cartesianClosureImpl)
+
+
+||| Dependent Hancock (tensor) product of containers.
+||| This is the analogue of DPair for containers:
+||| Given a container `pc` and a family `qc : pc.Shp -> Cont`,
+||| form the container whose shapes are dependent pairs of shapes
+||| and positions are pairs of positions.
+public export
+DepHancockProduct : (pc : Cont) -> (qc : pc.Shp -> Cont) -> Cont
+DepHancockProduct pc qc = 
+  ((p ** q) : DPair pc.Shp (Shp . qc)) !> (pc.Pos p, (qc p).Pos q)
 
 public export
 data AllPos : {cs : Vect n Cont} -> All Shp cs -> Type where

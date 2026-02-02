@@ -79,12 +79,10 @@ namespace ParametricFunctions
     MkNonDep : (p : Type) -> (f : DPair a (const p) -> b) ->
       IsNotDependent (MkPara (\_ => p) f)
   
-  
   public export
-  GetNonDep : {pf : Para a b} ->
-    IsNotDependent pf -> (p : Type ** DPair a (const p) -> b)
-  GetNonDep (MkNonDep
-   p f) = (p ** f)
+  GetNonDep : (pf : Para a b) ->
+    IsNotDependent pf => (p : Type ** DPair a (const p) -> b)
+  GetNonDep _ @{MkNonDep p f} = (p ** f)
 
 
   public export
@@ -92,6 +90,12 @@ namespace ParametricFunctions
   composeNTimes 0 f = id
   composeNTimes 1 f = f -- to get rid of the annoying Unit parameter
   composeNTimes (S k) f = composePara f (composeNTimes k f)
+
+  public export
+  binaryOpToPara : {p : Type} -> (f : (a, p) -> b) -> a -\-> b
+  binaryOpToPara f = MkPara
+    (\_ => p)
+    (\(x ** p') => f (x, p'))
 
 
 namespace ParametricDependentLenses
@@ -123,24 +127,10 @@ namespace ParametricDependentLenses
   id = trivialParam id
   
 
-  ||| Dependent Hancock (tensor) product of additive containers
-  ||| This is the analogue of DPair for containers:
-  ||| Given a container `pc` and a family `qc : pc.Shp -> AddCont`,
-  ||| form the container whose shapes are dependent pairs of shapes
-  ||| and positions are pairs of positions.
-  public export
-  DepProdCont : (pc : AddCont) -> (qc : pc.Shp -> AddCont) -> AddCont
-  DepProdCont pc qc = MkAddCont
-    (((ps ** qs) : DPair pc.Shp (\ps => (qc ps).Shp)) !> (pc.Pos ps, (qc ps).Pos qs))
-    @{MkI @{\(ps ** qs) => MkComMonoid
-      (\(pcPos1, qcPos1), (pcPos2, qcPos2) =>
-        (plus (UMon pc ps) pcPos1 pcPos2, plus (UMon (qc ps) qs) qcPos1 qcPos2))
-      (neutral (UMon pc ps), neutral (UMon (qc ps) qs))}}
-
   public export
   composePara : a =\\=> b -> b =\\=> c -> a =\\=> c
   composePara (MkPara p f) (MkPara q g) = MkPara
-    (\x => DepProdCont (p x) (\ps => q (f.fwd (x ** ps))))
+    (\x => DepHancockProduct (p x) (\ps => q (f.fwd (x ** ps))))
     (!%+ \(x ** (ps ** qs)) =>
       (g.fwd (f.fwd (x ** ps) ** qs) ** \cPos =>
         let (bPos, qPos) = g.bwd (f.fwd (x ** ps) ** qs) cPos
@@ -153,11 +143,42 @@ namespace ParametricDependentLenses
   (&>>) : a =\\=> b -> b =\\=> c -> a =\\=> c
   (&>>) = composePara
 
+  ||| A predicate witnessing that a parametric additive dependent lens has
+  ||| a non-dependent (constant) parameter.
+  public export
+  data IsNotDependent : ParaAddDLens a b -> Type where
+    MkNonDep : (p : AddCont) -> (f : DepHancockProduct a (const p) =%> b) ->
+      IsNotDependent {a=a} {b=b} (MkPara (\_ => p) f)
+  
+  public export
+  GetNonDep : (pf : ParaAddDLens a b) ->
+    IsNotDependent pf => (pc : AddCont ** DepHancockProduct a (const pc) =%> b)
+  GetNonDep _ @{MkNonDep pc f} = (pc ** f)
+
+  public export
+  toHomRepresentation : (pf : ParaAddDLens a b) ->
+    IsNotDependent pf =>
+    fst (GetNonDep pf) =%> (InternalLensAdditive a b)
+  toHomRepresentation (MkPara (const pc) f) @{MkNonDep pc f}
+    = !%+ \p => (!%+ \x => (f.fwd (x ** p) ** \b' => fst (f.bwd (x ** p) b')) ** \l => foldr (\(x ** b') => pc.Plus p (snd (f.bwd (x ** p) b'))) (pc.Zero p) l)
+
   public export
   composeNTimes : Nat -> a =\\=> a -> a =\\=> a
   composeNTimes 0 f = id
   composeNTimes 1 f = f -- to get rid of the annoying Unit parameter
   composeNTimes (S k) f = composePara f (composeNTimes k f)
+
+  ||| Convert a morphism from product container to one from DepHancockProduct
+  ||| This witnesses the isomorphism (a >< p) ≅ DepHancockProduct a (const p)
+  public export
+  fromNonDepProduct : {0 a, p, b : AddCont} ->
+    (a >< p) =%> b -> DepHancockProduct a (const p) =%> b
+  fromNonDepProduct f = !%+ \(x ** p') => (%!) f (x, p')
+
+  public export
+  binaryOpToPara : {p : AddCont} ->
+    (a >< p) =%> b -> a =\\=> b
+  binaryOpToPara f = MkPara (\_ => p) (fromNonDepProduct f)
 
 -- public export
 -- dependentMap : {t : a -> Type} -> (f : (x : a) -> t x) ->

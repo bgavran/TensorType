@@ -6,6 +6,7 @@ import Data.Vect.Quantifiers
 import Data.Container.Base
 import Data.ComMonoid
 import Data.Container.Additive.Object.Definition
+import Data.Container.Additive.Extension.Definition
 
 ||| Scalar additive container
 public export
@@ -24,6 +25,7 @@ namespace NumConst
   public export
   Const : (a : Type) -> Num a => AddCont
   Const a = Const a (a ** numIsMonoid)
+
 
 namespace ListAddCont
   public export

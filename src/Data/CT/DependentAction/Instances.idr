@@ -28,8 +28,6 @@ DepActOnCont = MkDepAct $ \c => MkFunctor
 public export
 DepActOnAddCont : DepAct AddDLens (FamAddDLens {c=AddDLens})
 DepActOnAddCont = MkDepAct $ \c => MkFunctor
-  (\pCont => MkAddCont (((x ** p) : DPair c.Shp ((.Shp) . pCont)) !>
-                        (c.Pos x, (pCont x).Pos p))
-             {mon=(MkI @{\(x ** p) => ?monoidTodo})})
+  (DepHancockProduct c)
   (\r => !%+ \(x ** p) => ((x ** (r x).fwd p) **
              \(x', p') => (x', (r x).bwd p p')))

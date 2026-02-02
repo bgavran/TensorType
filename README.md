@@ -295,13 +295,15 @@ This especially holds in the context of non-cubical tensors, which are at the mo
 
 ## Technical details
 
-TensorType's implementation hinges on three interdependent components:
+TensorType is based on the research from my PhD thesis [Fundamental Components of Deep Learning: A category-theoretic approach](https://arxiv.org/abs/2403.13001).
+
+Its implementation hinges on three interdependent components:
 
 * **Containers** for **well-typed indexing of non-cubical tensors**: they allow us to validate that an index into a generalised tensor is not out of bounds at compile-time. Doing this with cubical containers is easy since they expose the size information at the type level (i.e. `Tensor [2,3,4] Double`), but once we move on to the world of applicative functors this is no longer the case. Checking that an index into a `CTensor [BinTreeNode] Double` is not out of bounds is only possible if the underlying functor additionally comes equipped with the data of the valid set of "shapes" and the valid "positions" for that shape. This is equivalent to asking that the functor is polynomial, or that the functor is an extension of a container.
 * **Applicative functors** for **generalised linear algebra**: they allow us to perform generalised linear algebra operations as described in the [Applicative Programming with Naperian Functors](https://www.cs.ox.ac.uk/people/jeremy.gibbons/publications/aplicative.pdf) paper.
 * **Dependent lenses** for **reshaping and traversing operations**: they allow us to define morphisms of containers, and therefore generalised tensor reshaping operations that do not operate on the content of the data, only the shape. These include views, reshapes, and traversals, and many other culprits that appear in libraries like NumPy.
 
-To find out omre about the container aspect of TensorType, check out the following [blog post](https://glaive-research.org/2026/01/21/Generalised-tensors.html).
+To find out more about the container aspect of TensorType, check out the following [blog post](https://glaive-research.org/2026/01/21/Generalised-tensors.html).
 
 ## Planned features
 

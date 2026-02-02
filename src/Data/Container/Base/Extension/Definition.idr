@@ -20,6 +20,10 @@ public export
 fullOf : Cont -> Type -> Type
 fullOf c x = Ext c x 
 
+public export
+Path : Cont -> Type
+Path c = (x : c.Shp ** c.Pos x)
+
 ||| Every extension is a functor : Type -> Type
 public export
 Functor (Ext c) where

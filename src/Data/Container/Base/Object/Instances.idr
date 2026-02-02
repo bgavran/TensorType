@@ -101,23 +101,6 @@ Tensor = foldr (>@) Scalar
 -- TODO what is "Tensor" with hancock product? with cartesian product?
 -- TODO duoidal structure between with hancock product and composition
 
-||| Every lens gives rise to a container
-||| The set of shapes is the lens itself
-||| The set of positions is the inputs to the lens
-||| This is the closure with respect to the Hancock tensor product
-public export
-InternalLens : Cont -> Cont -> Cont
-InternalLens c d
-  = (f : ((x : c.Shp) -> (y : d.Shp ** d.Pos y -> c.Pos x)))
-    !> (xx : c.Shp ** d.Pos (fst (f xx)))
-
-||| From https://www.cs.ox.ac.uk/people/samuel.staton/papers/cie10.pdf
-public export
-CartesianClosure : Cont -> Cont -> Cont
-CartesianClosure c d
-  = (f : ((x : c.Shp) -> (y : d.Shp ** d.Pos y -> Maybe (c.Pos x))))
-    !> (xx : c.Shp ** yy' : d.Pos (fst (f xx)) ** ?cartesianClosureImpl)
-
 ||| Constant container, positions can be different than shapes, but do not 
 ||| depend on them. Some of the above containers can be refactored in terms of 
 ||| these. But it's more illuminating to keep them in their raw form for now
