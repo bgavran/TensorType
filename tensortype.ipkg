@@ -58,7 +58,6 @@ modules = Data.Container.Base
         , Data.CT.DependentPara.Instances
 
         , Data.Para
-        , Data.Para.Para
         , Data.Functor.Naperian
         , Data.Layout
         , Data.Tree

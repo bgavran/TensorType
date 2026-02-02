@@ -8,5 +8,5 @@ import Data.CT.Functor.Instances
 public export
 record DepAct (c : Cat) (i : IndCat c) where
   constructor MkDepAct
-  act : (x : c.Obj) -> Functor (i.mapObj x) c
+  Act : (x : c.Obj) -> Functor (i.mapObj x) c
 
