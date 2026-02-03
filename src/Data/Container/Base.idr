@@ -12,6 +12,7 @@ import public Data.Container.Base.Instances
 import public Data.Tree
 import public Data.Algebra
 import public Data.Functor.Naperian
+import public Data.Container.Base.TreeUtils
 
 -- temp/misc
 import public Data.Container.SubTerm

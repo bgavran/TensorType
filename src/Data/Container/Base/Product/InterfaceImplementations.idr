@@ -1,13 +1,21 @@
 module Data.Container.Base.Product.InterfaceImplementations
 
+import Data.Container.Base.Object.Definition
 import Data.Container.Base.Extension.Definition
 import Data.Container.Base.Morphism.Definition
+import Data.Container.Base.Product.Definitions
+import Data.Container.Base.Concrete.Definition
 
 import Data.Container.Base.Object.Instances
+import Data.Container.Base.Extension.Instances
 import Data.Container.Base.Morphism.Instances
 import Data.Container.Base.Product.Interfaces
+import Data.Container.Base.Concrete.Instances
+
+import Data.Container.Base.TreeUtils
 
 import Data.Fin.Split
+import Data.Layout
 import Data.Algebra
 
 
@@ -17,12 +25,31 @@ TensorMonoid Maybe where
   -- for multiplication, only true if both b1 and b2 are True
   tensorM = !% \(b1, b2) => (b1 && b2 ** \bb => ?todoFinish)
 
-||| Follows Applicative instance in `Prelude.Types`
-||| Todo splitProd assumes a particular layout order (row-major vs column-major)
+
+-- TODO Either Applicative?
+
+||| Corresponds to the Applicative instance in `Prelude.Types`
+||| It behaves like a cartesian product, but compared to `Prelude.Types`
+||| applicative this is layout-aware
 export
 TensorMonoid List where
   tensorN = !% \() => (1 ** const ())
-  tensorM = !% \(n, m) => (n * m ** splitProd) 
+  tensorM = !% \(n, m) => (n * m ** splitFinProd DefaultLayoutOrder) 
+
+{--
+It is usually said that List has two applicative structures: one defined above,
+and another one defined by `zipList` (Section 3 of 
+https://www.staff.city.ac.uk/~ross/papers/Constructors.pdf). However, such
+a definition relies on the laziness of the underlying programming language
+and implicitly recast the type not to `List` but `CoList` (sometimes called 
+`LazyList`), i.e. a list with potentially infinite number of elements. This permits defining `pure` and showing that applicative laws hold. However, since Idris is a strict language, List is not equal to CoList, and we cannot lawfully
+make `List` an applicative functor. More precisely, the following is not a valid applicative instance, because unital laws do not hold:
+
+Applicative List where
+  pure a = [a]
+  fs <*> xs = uncurry ($) <$> listZip fs xs
+--}   
+
 
 ||| Follows Applicative instance in `Data.Vect`, i.e. zip
 export
@@ -103,14 +130,3 @@ TensorMonoid BinTreeLeaf where
 
 -- Note, there is no TensorMonoid/Applicative instance for BinTreeNode
 -- There exists one for infinite trees, but not finite ones
-
-reduce : {c : Cont} -> Algebra (Ext c) a =>
-  Ext c a -> Ext Scalar a
-reduce x = () <| \() => reduce x
-
-public export
-dotWith : {cont : Cont} -> TensorMonoid cont => Algebra (Ext cont) c =>
-  (a -> b -> c) ->
-  Ext cont a -> Ext cont b -> Ext Scalar c
-dotWith f ea eb
-  = reduce $ extMap tensorM $ (uncurry f <$> pairExtensions ea eb)

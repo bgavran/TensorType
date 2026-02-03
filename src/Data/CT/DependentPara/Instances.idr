@@ -84,6 +84,12 @@ namespace ParametricFunctions
     IsNotDependent pf => (p : Type ** DPair a (const p) -> b)
   GetNonDep _ @{MkNonDep p f} = (p ** f)
 
+  ||| Get the parameter of a non-dependent parametric function
+  public export
+  GetParam : (pf : Para a b) ->
+    IsNotDependent pf => Type
+  GetParam _ @{MkNonDep p f} = p
+
 
   public export
   composeNTimes : Nat -> a -\-> a -> a -\-> a
@@ -156,9 +162,14 @@ namespace ParametricDependentLenses
   GetNonDep _ @{MkNonDep pc f} = (pc ** f)
 
   public export
+  GetParam : (pf : ParaAddDLens a b) ->
+    IsNotDependent pf => AddCont
+  GetParam _ @{MkNonDep p f} = p
+
+  public export
   toHomRepresentation : (pf : ParaAddDLens a b) ->
     IsNotDependent pf =>
-    fst (GetNonDep pf) =%> (InternalLensAdditive a b)
+    GetParam pf =%> (InternalLensAdditive a b)
   toHomRepresentation (MkPara (const pc) f) @{MkNonDep pc f}
     = !%+ \p => (!%+ \x => (f.fwd (x ** p) ** \b' => fst (f.bwd (x ** p) b')) ** \l => foldr (\(x ** b') => pc.Plus p (snd (f.bwd (x ** p) b'))) (pc.Zero p) l)
 

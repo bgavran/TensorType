@@ -11,6 +11,8 @@ import Data.Container.Base.Concrete.Definition
 import Data.Container.Base.Object.Instances
 import Data.Container.Base.Extension.Instances
 
+import Data.Container.Base.TreeUtils
+
 import public Data.Functor.Naperian
 import public Data.Tree
 

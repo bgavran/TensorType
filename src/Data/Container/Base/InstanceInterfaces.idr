@@ -8,11 +8,9 @@ import Data.Fin.Split
 import Data.Container.Base.Object.Definition
 import Data.Container.Base.Extension.Definition
 import Data.Container.Base.Concrete.Definition
-import Data.Container.Base.Applicative.Definition
 import Data.Container.Base.Object.Instances
 import Data.Container.Base.Extension.Instances
 import Data.Container.Base.Concrete.Instances
-import Data.Container.Base.Applicative.Instances
 
 import Data.Tree
 import Data.Algebra

@@ -4,6 +4,7 @@ import public Data.DPair
 import public Data.Fin.Split
 
 import public Data.Container.Base
+import public Data.Container.Applicative
 import public Data.Container.Base.Object.Instances as Cont
 import public Data.Num
 
@@ -622,6 +623,17 @@ namespace TensorInstances
     -- sstc t = show t
 
   namespace TensorContractions
+    -- reduce : {c : Cont} -> Algebra (Ext c) a =>
+    --   Ext c a -> Ext Scalar a
+    -- reduce x = () <| \() => reduce x
+    
+    -- public export
+    -- dotWith : {cont : Cont} -> TensorMonoid cont => Algebra (Ext cont) c =>
+    --   (a -> b -> c) ->
+    --   Ext cont a -> Ext cont b -> Ext Scalar c
+    -- dotWith f ea eb
+    --   = reduce $ extMap tensorM $ (uncurry f <$> pairExtensions ea eb)
+
     public export
     dotWith : {shape : List Cont} ->
       Algebra (CTensor shape) c => All TensorMonoid shape =>

@@ -3,9 +3,13 @@ module Data.Container.Base.Morphism.Instances
 import Data.Fin
 import Data.Fin.Split
 
+import Data.Container.Base.Object.Definition
 import Data.Container.Base.Morphism.Definition
 import Data.Container.Base.Extension.Definition
+import Data.Container.Base.Product.Definitions
 import Data.Container.Base.Object.Instances
+
+import Data.Container.Base.TreeUtils
 
 import Data.Layout
 import Misc

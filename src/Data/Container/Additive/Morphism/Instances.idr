@@ -49,6 +49,11 @@ Sum : Num a =>
 Sum = !%+ \(x1, x2) => (x1 + x2 ** \x' => (x', x'))
 
 public export
+Negate : Neg a =>
+  Const a =%> Const a
+Negate = !%+ \x => (-x ** \x' => -x')
+
+public export
 Zero : Num a =>
   Scalar =%> Const a
 Zero = State 0

@@ -2,9 +2,9 @@ module Data.Container.Base.Object.Instances
 
 import Data.Fin
 
-import public Data.Container.Base.Object.Definition
-import public Data.Container.Base.Product.Definitions
-import public Data.Container.Base.TreeUtils
+import Data.Container.Base.Object.Definition
+import Data.Container.Base.Product.Definitions
+import Data.Container.Base.TreeUtils
 
 ||| Empty container, isomorphic to Void
 ||| As a polynomial functor: F(X) = 0
@@ -98,8 +98,13 @@ public export
 Tensor : List Cont -> Cont
 Tensor = foldr (>@) Scalar
 
--- TODO what is "Tensor" with hancock product? with cartesian product?
--- TODO duoidal structure between with hancock product and composition
+public export
+HancockTensor : List Cont -> Cont
+HancockTensor = foldr (><) Scalar
+
+public export
+CartesianTensor : List Cont -> Cont
+CartesianTensor = foldr (><) UnitCont
 
 ||| Constant container, positions can be different than shapes, but do not 
 ||| depend on them. Some of the above containers can be refactored in terms of 
