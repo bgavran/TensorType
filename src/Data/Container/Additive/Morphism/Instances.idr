@@ -34,6 +34,10 @@ rightUnitInv : {c : AddCont} -> c =%> (c >< Scalar)
 rightUnitInv = !%+ \x => ((x, ()) ** \(x', ()) => x')
 
 public export
+leftUnitInv : {c : AddCont} -> c =%> (Scalar >< c)
+leftUnitInv = !%+ \x => (((), x) ** \((), x') => x')
+
+public export
 Copy : {c : AddCont} ->
   c =%> (c >< c)
 Copy = !%+ \x => ((x, x) ** uncurry (c.Plus x))
@@ -62,3 +66,9 @@ public export
 Mul : Num a =>
   (Const a >< Const a) =%> Const a
 Mul = !%+ \(x1, x2) => (x1 * x2 ** \x' => (x' * x2, x' * x1))
+
+||| Mean squared error
+public export
+MSE : (Const Double >< Const Double) =%> (Const Double)
+MSE = ((><) {c1=Const Double} id Negate) %>> Sum %>> Copy %>> Mul
+

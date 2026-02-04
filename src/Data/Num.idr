@@ -1,5 +1,36 @@
 module Data.Num
 
+public export
+Num a => Num b => Num (a, b) where
+  (lFst, lSnd) * (rFst, rSnd) = (lFst * rFst, lSnd * rSnd)
+  (+) (lFst, lSnd) (rFst, rSnd) = (lFst + rFst, lSnd + rSnd)
+  fromInteger x = (fromInteger x, fromInteger x)
+
+public export
+Neg a => Neg b => Neg (a, b) where
+  negate (lFst, lSnd) = (negate lFst, negate lSnd)
+  (lFst, lSnd) - (rFst, rSnd) = (lFst - rFst, lSnd - rSnd)
+
+public export
+FromDouble a => FromDouble b => FromDouble (a, b) where
+  fromDouble x = (fromDouble x, fromDouble x)
+
+public export
+Num a => Num b => Num (DPair a (const b)) where
+  (lFst ** lSnd) * (rFst ** rSnd) = (lFst * rFst ** lSnd * rSnd)
+  (+) (lFst ** lSnd) (rFst ** rSnd) = (lFst + rFst ** lSnd + rSnd)
+  fromInteger x = (fromInteger x ** fromInteger x)
+
+public export
+Neg a => Neg b => Neg (DPair a (const b)) where
+  negate (fst ** snd) = (negate fst ** negate snd)
+  (fst ** snd) - (rFst ** rSnd) = (fst - rFst ** snd - rSnd)
+
+public export
+FromDouble a => FromDouble b => FromDouble (DPair a (const b)) where
+  fromDouble x = (fromDouble x ** fromDouble x)
+  
+
 ||| Interface for the Exponential
 ||| We also include minus infinity because of the necessity to compute
 ||| causal masks within the attention mechanism.

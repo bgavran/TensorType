@@ -13,7 +13,9 @@ import Data.Container.Base
 import Data.Container.Additive
 
 public export infixr 0 -\->
+public export infixr 0 -\-->
 public export infixr 0 =\\=>
+public export infixr 0 =\\==>
 
 {-------------------------------------------------------------------------------
 {-------------------------------------------------------------------------------
@@ -25,17 +27,28 @@ reduce cognitive load
 -------------------------------------------------------------------------------}
 
 namespace ParametricFunctions
+  public export
+  Para : (a, b : Type) -> Type
+  Para = DepParaMor PairType
+
+  ||| Infix notation for non-dependent parametric functions
+  ||| We interpret the extra "-" as a mental symbol for "flat",
+  ||| i.e. "non-dependent"
+  public export
+  (-\-->) : (a, b : Type) -> Type
+  a -\--> b = Para a b
+
   ||| Parametric functions
   ||| "Usual" dependent para on sets and functions
   public export
-  Para : (a, b : Type) -> Type 
-  Para = DepParaMor DepActOnType
+  DPara : (a, b : Type) -> Type 
+  DPara = DepParaMor DPairType
   
-  ||| Infix notation for parametric functions
+  ||| Infix notation for dependent parametric functions
   ||| We interpret the crossed line as a parameter coming in from the top
   public export
   (-\->) : (a, b : Type) -> Type
-  a -\-> b = Para a b
+  a -\-> b = DPara a b
 
   public export
   trivialParam : (a -> b) -> a -\-> b
@@ -67,26 +80,26 @@ namespace ParametricFunctions
   reparam (MkPara p f) r = MkPara q (\(x ** qq) => f (x ** (r x qq)))
 
   public export
-  Param : Para a b -> a -> Type
+  Param : DPara a b -> a -> Type
   Param = DepParaMor.Param
   
   public export
-  Run : (pf : Para a b) -> (x : a) -> Param pf x -> b
+  Run : (pf : DPara a b) -> (x : a) -> Param pf x -> b
   Run pf = DPair.curry (DepParaMor.Run pf)
 
   public export
-  data IsNotDependent : Para a b -> Type where
+  data IsNotDependent : DPara a b -> Type where
     MkNonDep : (p : Type) -> (f : DPair a (const p) -> b) ->
       IsNotDependent (MkPara (\_ => p) f)
   
   public export
-  GetNonDep : (pf : Para a b) ->
+  GetNonDep : (pf : DPara a b) ->
     IsNotDependent pf => (p : Type ** DPair a (const p) -> b)
   GetNonDep _ @{MkNonDep p f} = (p ** f)
 
   ||| Get the parameter of a non-dependent parametric function
   public export
-  GetParam : (pf : Para a b) ->
+  GetParam : (pf : DPara a b) ->
     IsNotDependent pf => Type
   GetParam _ @{MkNonDep p f} = p
 
@@ -103,23 +116,67 @@ namespace ParametricFunctions
     (\_ => p)
     (\(x ** p') => f (x, p'))
 
+  -- public export
+  -- mul : Num a => (a, a) -> a
+  -- mul (x, y) = x * y
+
+  -- public export
+  -- mulParametric : {a : Type} -> Num a => a -\-> a
+  -- mulParametric = binaryOpToPara mul
+
+  -- public export
+  -- mulNotDependent : IsNotDependent ParametricFunctions.mulParametric
+  -- mulNotDependent = %search
+
 
 namespace ParametricDependentLenses
-  ||| Parametric dependent lenses
+  ||| DParametric dependent lenses
   ||| Not really used in this repo
   public export
-  ParaDLens : (a, b : Cont) -> Type
-  ParaDLens = DepParaMor DepActOnCont
+  DParaDLens : (a, b : Cont) -> Type
+  DParaDLens = DepParaMor DPairCont
+
+  public export
+  ParaAddDLens : (a, b : AddCont) -> Type
+  ParaAddDLens = DepParaMor PairAddCont
+
+  
+  public export
+  (=\\==>) : (a, b : AddCont) -> Type
+  a =\\==> b = ParaAddDLens a b
+
+  public export
+  GetParam : ParaAddDLens a b -> AddCont
+  GetParam (MkPara p _) = p
+
+  public export
+  toHomRepresentation : (f : ParaAddDLens a b) ->
+    (GetParam f) =%> InternalLensAdditive a b
+  toHomRepresentation (MkPara pType f) = !%+ \p =>
+    (!%+ \a => (f.fwd (a, p) ** \b' => fst (f.bwd (a, p) b')) **
+      \l => foldr (\(a ** b') => pType.Plus p (snd (f.bwd (a, p) b'))) (pType.Zero p) l)
+
+  public export
+  composePara : a =\\==> b -> b =\\==> c -> a =\\==> c
+  composePara (MkPara p f) (MkPara q g) = MkPara
+    (p >< q)
+    (!%+ \(x, (ps, qs)) => 
+      (g.fwd (f.fwd (x, ps), qs) ** \cPos =>
+        let (bPos, qPos) = g.bwd (f.fwd (x, ps), qs) cPos
+            (aPos, pPos) = f.bwd (x, ps) bPos
+        in (aPos, (pPos, qPos))))
+
+namespace DependentParametricDependentLenses
 
   ||| Used in this repo, as all neural networks are additive dependent lenses
   public export
-  ParaAddDLens : (a, b : AddCont) -> Type
-  ParaAddDLens = DepParaMor DepActOnAddCont
+  DParaAddDLens : (a, b : AddCont) -> Type
+  DParaAddDLens = DepParaMor DPairAddCont
 
   ||| Infix notation for additive parametric dependent lenses
   public export
   (=\\=>) : (a, b : AddCont) -> Type
-  a =\\=> b = ParaAddDLens a b
+  a =\\=> b = DParaAddDLens a b
   
 
   public export
@@ -152,22 +209,22 @@ namespace ParametricDependentLenses
   ||| A predicate witnessing that a parametric additive dependent lens has
   ||| a non-dependent (constant) parameter.
   public export
-  data IsNotDependent : ParaAddDLens a b -> Type where
+  data IsNotDependent : DParaAddDLens a b -> Type where
     MkNonDep : (p : AddCont) -> (f : DepHancockProduct a (const p) =%> b) ->
       IsNotDependent {a=a} {b=b} (MkPara (\_ => p) f)
   
   public export
-  GetNonDep : (pf : ParaAddDLens a b) ->
+  GetNonDep : (pf : DParaAddDLens a b) ->
     IsNotDependent pf => (pc : AddCont ** DepHancockProduct a (const pc) =%> b)
   GetNonDep _ @{MkNonDep pc f} = (pc ** f)
 
   public export
-  GetParam : (pf : ParaAddDLens a b) ->
+  GetParam : (pf : DParaAddDLens a b) ->
     IsNotDependent pf => AddCont
-  GetParam _ @{MkNonDep p f} = p
+  GetParam (MkPara (const p) f) @{MkNonDep p f} = p
 
   public export
-  toHomRepresentation : (pf : ParaAddDLens a b) ->
+  toHomRepresentation : (pf : DParaAddDLens a b) ->
     IsNotDependent pf =>
     GetParam pf =%> (InternalLensAdditive a b)
   toHomRepresentation (MkPara (const pc) f) @{MkNonDep pc f}
@@ -188,8 +245,22 @@ namespace ParametricDependentLenses
 
   public export
   binaryOpToPara : {p : AddCont} ->
-    (a >< p) =%> b -> a =\\=> b
-  binaryOpToPara f = MkPara (\_ => p) (fromNonDepProduct f)
+    (a >< p) =%> b -> a =\\==> b
+  binaryOpToPara f = MkPara p f
+
+  %hide Data.Container.Base.Morphism.Definition.DependentLenses.(=%>)
+
+  -- public export
+  -- mul : Num a => (Const a >< Const a) =%> (Const a)
+  -- mul = !%+ \(x, y) => (x * y ** \z' => (z' * y, z' * x))
+
+  -- public export
+  -- mulParametric : {a : Type} -> Num a => (Const a) =\\==> (Const a)
+  -- mulParametric = binaryOpToPara mul
+
+  -- public export
+  -- mulNotDependent : IsNotDependent ParametricDependentLenses.mulParametric
+  -- mulNotDependent = MkNonDep (Const _) (fromNonDepProduct mul)
 
 -- public export
 -- dependentMap : {t : a -> Type} -> (f : (x : a) -> t x) ->

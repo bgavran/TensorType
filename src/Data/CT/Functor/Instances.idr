@@ -7,10 +7,18 @@ import Data.CT.Functor.Definition
 import Data.Container.Base
 import Data.Container.Additive
 
+public export
+id : Functor c c
+id = MkFunctor id id
+
 ||| Functor Type -> Cat^op
 public export
 IndCat : (c : Cat) -> Type
 IndCat c = Functor c (opCat Cat)
+
+public export
+Const : {c : Cat} -> IndCat c
+Const = MkFunctor (\_ => c) (\_ => id)
 
 namespace Fam
   public export

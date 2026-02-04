@@ -37,6 +37,17 @@ namespace HancockTensorProduct
   hancockMap f g = !% \(c, d) => ((f.fwd c, g.fwd d) **
     \(c', d') => (f.bwd c c', g.bwd d d'))
 
+  ||| Dependent Hancock (tensor) product of containers.
+  ||| This is the analogue of DPair for containers:
+  ||| Given a container `pc` and a family `qc : pc.Shp -> Cont`,
+  ||| form the container whose shapes are dependent pairs of shapes
+  ||| and positions are pairs of positions.
+  public export
+  DepHancockProduct : (pc : Cont) -> (qc : pc.Shp -> Cont) -> Cont
+  DepHancockProduct pc qc = 
+    ((p ** q) : DPair pc.Shp (Shp . qc)) !> (pc.Pos p, (qc p).Pos q)
+
+
 
 ||| Coproduct of containers
 ||| Monoid with Empty
@@ -87,16 +98,6 @@ namespace CartesianClosure
     = (f : ((x : c.Shp) -> (y : d.Shp ** d.Pos y -> Maybe (c.Pos x))))
       !> (xx : c.Shp ** yy' : d.Pos (fst (f xx)) ** ?cartesianClosureImpl)
 
-
-||| Dependent Hancock (tensor) product of containers.
-||| This is the analogue of DPair for containers:
-||| Given a container `pc` and a family `qc : pc.Shp -> Cont`,
-||| form the container whose shapes are dependent pairs of shapes
-||| and positions are pairs of positions.
-public export
-DepHancockProduct : (pc : Cont) -> (qc : pc.Shp -> Cont) -> Cont
-DepHancockProduct pc qc = 
-  ((p ** q) : DPair pc.Shp (Shp . qc)) !> (pc.Pos p, (qc p).Pos q)
 
 public export
 data AllPos : {cs : Vect n Cont} -> All Shp cs -> Type where

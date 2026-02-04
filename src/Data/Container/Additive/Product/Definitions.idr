@@ -16,15 +16,32 @@ namespace HancockTensorProduct
   public export
   (><) : AddCont -> AddCont -> AddCont
   c >< d = MkAddCont (UC c >< UC d)
-    @{MkI @{\(cs, ds) => MkComMonoid (\(cl, dl), (cr, dr) =>
-      (plus (UMon c cs) cl cr, plus (UMon d ds) dl dr))
-      (neutral (UMon c cs), neutral (UMon d ds))}}
+    @{MkI @{\sh => MkComMonoid (\l, r =>
+      (c.Plus (fst sh) (fst l) (fst r), d.Plus (snd sh) (snd l) (snd r)))
+      (c.Zero (fst sh), d.Zero (snd sh))}}
 
+  namespace Morphism
+    public export
+    (><) : {0 c1, d1, c2, d2 : AddCont} ->
+      (c1 =%> d1) -> (c2 =%> d2) -> (c1 >< c2) =%> (d1 >< d2)
+    (><) f g = !%+ \(c, d) => ((f.fwd c, g.fwd d) **
+      \(c', d') => (f.bwd c c', g.bwd d d'))
+
+  ||| Dependent Hancock (tensor) product of additive containers.
+  ||| This is the analogue of DPair for containers:
+  ||| Given a container `pc` and a family `qc : pc.Shp -> AddCont`,
+  ||| form the container whose shapes are dependent pairs of shapes
+  ||| and positions are pairs of positions.
   public export
-  hancockMap : {0 c1, d1, c2, d2 : AddCont} ->
-    (c1 =%> d1) -> (c2 =%> d2) -> (c1 >< c2) =%> (d1 >< d2)
-  hancockMap f g = !%+ \(c, d) => ((f.fwd c, g.fwd d) **
-    \(c', d') => (f.bwd c c', g.bwd d d'))
+  DepHancockProduct : (pc : AddCont) -> (qc : pc.Shp -> AddCont) -> AddCont
+  DepHancockProduct pc qc = MkAddCont
+    (DepHancockProduct (UC pc) (UC . qc))
+    @{MkI @{\(ps ** qs) => MkComMonoid
+      (\(pcPos1, qcPos1), (pcPos2, qcPos2) =>
+        (plus (UMon pc ps) pcPos1 pcPos2, plus (UMon (qc ps) qs) qcPos1 qcPos2))
+      (neutral (UMon pc ps), neutral (UMon (qc ps) qs))}}
+
+
 
 ||| Coproduct
 public export
@@ -33,21 +50,6 @@ c >+< d = MkAddCont (UC c >+< UC d)
   @{MkI @{\case
     Left cs => MkComMonoid (plus (UMon c cs)) (neutral (UMon c cs))
     Right ds => MkComMonoid (plus (UMon d ds)) (neutral (UMon d ds))}}
-
-||| Dependent Hancock (tensor) product of additive containers.
-||| This is the analogue of DPair for containers:
-||| Given a container `pc` and a family `qc : pc.Shp -> AddCont`,
-||| form the container whose shapes are dependent pairs of shapes
-||| and positions are pairs of positions.
-public export
-DepHancockProduct : (pc : AddCont) -> (qc : pc.Shp -> AddCont) -> AddCont
-DepHancockProduct pc qc = MkAddCont
-  (DepHancockProduct (UC pc) (UC . qc))
-  @{MkI @{\(ps ** qs) => MkComMonoid
-    (\(pcPos1, qcPos1), (pcPos2, qcPos2) =>
-      (plus (UMon pc ps) pcPos1 pcPos2, plus (UMon (qc ps) qs) qcPos1 qcPos2))
-    (neutral (UMon pc ps), neutral (UMon (qc ps) qs))}}
-
 
 ||| (Infinitary) coproduct of monoids
 ||| It is a subtype of the Pi type with finite support

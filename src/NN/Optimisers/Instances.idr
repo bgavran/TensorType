@@ -2,20 +2,27 @@ module NN.Optimisers.Instances
 
 import Data.Container.Additive
 import NN.Optimisers.Definition
+import NN.Utils
 
 ||| Gradient descent optimiser. Has trivial state
 ||| @lr is the learning rate
 public export
-GD : Num pType => Neg pType =>
+GD : Num pType => Neg pType => (mon : ComMonoid pType) => FromDouble pType =>
   {lr : pType} -> Optimiser (Const pType) Unit
-GD = MkOptimiser $ !% \(p, ()) => (p ** \p' => (p - lr * p', ()))
+GD = MkOptimiser
+  (!% \(p, ()) => (p ** \p' => (p - lr * p', ())))
+  (pure 0.1) -- should be a distribution, initialising to some number here
+  (pure ())
 
 ||| Gradient ascent optimiser. Has trivial state
 ||| @lr is the learning rate
 public export
-GA : Num pType =>
+GA : Num pType => Neg pType => (mon : ComMonoid pType) => FromDouble pType =>
   {lr : pType} -> Optimiser (Const pType) Unit
-GA = MkOptimiser $ !% \(p, ()) => (p ** \p' => (p + lr * p', ()))
+GA = MkOptimiser
+  (!% \(p, ()) => (p ** \p' => (p + lr * p', ())))
+  (pure 0.1)
+  (pure ())
 
 namespace Momentum
   public export
@@ -32,12 +39,15 @@ namespace Momentum
   
   ||| Gradient Descent with momentum
   public export
-  GDMomentum : Num pType => Neg pType =>
+  GDMomentum : Num pType => Neg pType => (mon : ComMonoid pType) =>
+   FromDouble pType =>
    {lr : pType} ->
    {gamma : pType} ->
    Optimiser (Const pType) pType
-  GDMomentum = MkOptimiser $
-    !% \(p, s) => (p ** momentumUpdate {lr} gamma p s)
+  GDMomentum = MkOptimiser
+    (!% \(p, s) => (p ** momentumUpdate {lr} gamma p s))
+    (pure 0.1)
+    (pure 0)
   
 
   public export
@@ -48,9 +58,12 @@ namespace Momentum
  
   ||| Gradient descent with Nesterov momentum
   public export
-  GDNesterovMomentum : Num pType => Neg pType =>
+  GDNesterovMomentum : Num pType => Neg pType => (mon : ComMonoid pType) =>
+   FromDouble pType =>
    {lr : pType} ->
    {gamma : pType} ->
    Optimiser (Const pType) pType
-  GDNesterovMomentum = MkOptimiser $
-    !% \(p, s) => (lookAhead gamma p s ** momentumUpdate {lr} gamma p s)
+  GDNesterovMomentum = MkOptimiser
+    (!% \(p, s) => (lookAhead gamma p s ** momentumUpdate {lr} gamma p s))
+    (pure 0.1)
+    (pure 0)

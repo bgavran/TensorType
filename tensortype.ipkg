@@ -85,7 +85,9 @@ modules = Data.Container.Base
         , NN.Optimisers.Definition
         , NN.Optimisers.Instances
         , NN.Training.Optimisation
-        , NN.Training.Utils
+        , NN.Utils
+        , NN.Training.DataLoader
+        , NN.Training.Examples
 
         , Misc
 

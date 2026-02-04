@@ -23,8 +23,8 @@ namespace NumConst
   ||| Like above, but where backward part is same as forward one
   ||| Also arises from Num instance
   public export
-  Const : (a : Type) -> Num a => AddCont
-  Const a = Const a (a ** numIsMonoid)
+  Const : (a : Type) -> (mon : ComMonoid a) => AddCont
+  Const a = Const a (a ** mon)
 
 
 namespace ListAddCont

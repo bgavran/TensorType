@@ -13,3 +13,8 @@ public export
 data Dist : (i : Nat) -> Type where
   ||| Probabilities are represented as logits
   MkDist : Vect i Double -> Dist i
+
+
+public export
+uniform : {i : Nat} -> (isSucc : IsSucc i) => Dist i
+uniform = MkDist (replicate i 1)
