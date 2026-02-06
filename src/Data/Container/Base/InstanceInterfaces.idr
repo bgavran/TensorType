@@ -13,6 +13,7 @@ import Data.Container.Base.Extension.Instances
 import Data.Container.Base.Concrete.Instances
 
 import Data.Tree
+import Data.Container.Base.TreeUtils
 import Data.Algebra
 import Misc
 
@@ -128,6 +129,11 @@ namespace BinTreeLeafInstances
   public export
   Num a => Algebra BinTreeLeaf' a where
     reduce = reduce {f=BinTreeLeaf} . toBinTreeLeaf
+
+  ||| Requires making a choice on which subtree to process first
+  public export
+  Foldable BinTreeLeaf' where
+    foldr f z t = foldr {t=BinTreeLeaf} f z (toBinTreeLeaf t)
 
 
 namespace BinTreeNodeInstances
