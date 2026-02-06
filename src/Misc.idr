@@ -4,98 +4,60 @@ import Data.Vect
 import System.Random
 import Data.Fin.Arith
 import Data.List.Quantifiers
+import Data.Vect.Quantifiers
 import Decidable.Equality
 import Decidable.Equality.Core
 import Data.String
 import Data.List
+import Data.Fin
 import Data.List1
 
 %hide Builtin.infixr.(#)
 
-||| Definition of liftA2 in terms of (<*>)
-public export
-liftA2 : Applicative f => f a -> f b -> f (a, b)
-liftA2 fa fb = ((,) <$> fa) <*> fb
+namespace Applicative
+  ||| Definition of liftA2 in terms of (<*>)
+  public export
+  liftA2 : Applicative f => f a -> f b -> f (a, b)
+  liftA2 fa fb = ((,) <$> fa) <*> fb
+  
+  ||| Tensorial strength
+  public export
+  strength : Applicative f => a -> f b -> f (a, b)
+  strength a fb = liftA2 (pure a) fb
+  
+  ||| Pointwise Num structure for Applicative functors
+  public export
+  [applicativeNum] Num a => Applicative f => Num (f a) where
+    xs + ys = uncurry (+) <$> liftA2 xs ys
+    xs * ys = uncurry (*) <$> liftA2 xs ys
+    fromInteger = pure . fromInteger
 
-||| Tensorial strength
-public export
-strength : Applicative f => a -> f b -> f (a, b)
-strength a fb = liftA2 (pure a) fb
-
-
-||| Graph of a dependent function
-public export
-graph : {t : a -> Type} ->
-  (g : (x : a) -> t x) ->
-  a -> (x : a ** t x)
-graph g x = (x ** g x)
-
-||| Version of `map` for dependent function
-||| Note that here `x : a` is identity in some sense, it comes from `f a`
-public export
-dependentMap : Functor f => {t : a -> Type} ->
-  (g : (x : a) -> t x) ->
-  f a -> f (x : a ** t x)
-dependentMap g fa = map (graph g) fa
-
-||| Analogue of `(::)` for lists. 
-||| Takes an element and prepends it to some 'vector' 
-public export
-cons : x -> (Fin l -> x) -> (Fin (S l) -> x)
-cons x _ FZ = x
-cons _ f (FS k') = f k'
-
-public export
-head : (Fin (S l) -> x) -> x
-head f = f FZ
-
-public export
-tail : (Fin (S l) -> x) -> (Fin l -> x)
-tail f = f . FS
-
-||| All but the last element of a 'vector'
-public export
-init : (Fin (S n) -> a) -> Fin n -> a
-init f x = f (weaken x)
-
-public export
-updateAt : Eq a => (a -> b) -> (a, b) -> (a -> b)
-updateAt f (i, val) i' = if i == i' then val else f i'
-
-
-||| Analogus to take in Data.Vect, but for Fin
-public export 
-takeFin : (s : Fin (S n)) -> Vect n a -> Vect (finToNat s) a
-takeFin FZ _ = []
-takeFin (FS s) (x :: xs) = x :: takeFin s xs
-
-||| We also incldue minus infinity because of computation causal masks within
-||| attention: we need to have a number such that `exp minusInfinity = 0`.
-public export
-interface Exp a where
-  exp : a -> a
-  minusInfinity : a
-
-public export
-Exp Double where
-  exp = Prelude.exp
-  minusInfinity = cast "-inf.0"
-
-public export
-interface Sqrt a where
-  sqrt : a -> a
-
-public export
-Sqrt Double where
-  sqrt = Prelude.sqrt
-
-
-||| Pointwise Num structure for Applicative functors
-public export
-[applicativeNum] Num a => Applicative f => Num (f a) where
-  xs + ys = uncurry (+) <$> liftA2 xs ys
-  xs * ys = uncurry (*) <$> liftA2 xs ys
-  fromInteger = pure . fromInteger
+||| Duplicate of utilities for Data.Vect in their Naperian form
+namespace VectNaperianUtils
+  ||| Analogue of `(::)`
+  public export
+  cons : x -> (Fin l -> x) -> (Fin (S l) -> x)
+  cons x _ FZ = x
+  cons _ f (FS k') = f k'
+  
+  public export
+  head : (Fin (S l) -> x) -> x
+  head f = f FZ
+  
+  public export
+  tail : (Fin (S l) -> x) -> (Fin l -> x)
+  tail f = f . FS
+  
+  ||| All but the last element
+  public export
+  init : (Fin (S n) -> a) -> Fin n -> a
+  init f x = f (weaken x)
+  
+  ||| Analogus to `Data.Vect.take`
+  public export 
+  takeFin : (s : Fin (S n)) -> Vect n a -> Vect (finToNat s) a
+  takeFin FZ _ = []
+  takeFin (FS s) (x :: xs) = x :: takeFin s xs
 
 namespace Vect
   public export
@@ -109,6 +71,25 @@ namespace Vect
   prod [] = fromInteger 1
   prod (x :: xs) = x * prod xs
 
+  public export
+  argmax : Ord a => IsSucc n => Vect n a -> Fin n 
+  argmax [x] = FZ
+  argmax (x :: x' :: xs) = if x > index maxRest (x' :: xs) then FZ else FS maxRest
+    where maxRest = argmax (x' :: xs)
+  
+  public export
+  argmin : Ord a => IsSucc n => Vect n a -> Fin n
+  argmin = argmax @{Reverse} 
+  
+  ||| Dual to concat from Data.Vect
+  public export
+  unConcat : {n, m : Nat} -> Vect (n * m) a -> Vect n (Vect m a)
+  unConcat {n = 0} _ = []
+  unConcat {n = (S k)} xs = let (f, s) = splitAt m xs
+                            in f :: unConcat s
+
+
+
 namespace List
   public export
   sum : Num a => List a -> a
@@ -118,25 +99,167 @@ namespace List
   prod : Num a => List a -> a
   prod = foldr (*) (fromInteger 1)
 
-public export
-listZip : List a -> List b -> List (a, b)
-listZip (x :: xs) (y :: ys) = (x, y) :: listZip xs ys
-listZip _ _ = []
+  public export
+  listZip : List a -> List b -> List (a, b)
+  listZip (x :: xs) (y :: ys) = (x, y) :: listZip xs ys
+  listZip _ _ = []
+  
+  public export
+  maxInList : Ord a => List a -> Maybe a
+  maxInList [] = Nothing
+  maxInList [x] = Just x
+  maxInList (x :: xs) = do
+    mx <- maxInList xs
+    pure (max x mx)
 
-public export
-maxInList : Ord a => List a -> Maybe a
-maxInList [] = Nothing
-maxInList (x :: xs) = do
-  mx <- maxInList xs
-  pure (Prelude.max x mx)
 
-||| Dual to concat from Data.Vect
-public export
-unConcat : {n, m : Nat} -> Vect (n * m) a -> Vect n (Vect m a)
-unConcat {n = 0} _ = []
-unConcat {n = (S k)} xs = let (f, s) = splitAt m xs
-                          in f :: unConcat s
 
+namespace FinArithmetic
+  ||| Like weakenN from Data.Fin, but where n is on the other side of +
+  public export
+  weakenN' : (0 n : Nat) -> Fin m -> Fin (n + m)
+  weakenN' n x = rewrite plusCommutative n m in weakenN n x
+
+  ||| Like weakenN, but with mutliplication
+  ||| Like shiftMul, but without changing the value of the index
+  public export
+  weakenMultN : {n : Nat} ->
+    (m : Nat) -> {auto prf : IsSucc m} ->
+    (i : Fin n) -> Fin (m * n)
+  weakenMultN (S 0) {prf = ItIsSucc} i = rewrite multOneLeftNeutral n in i
+  weakenMultN (S (S k)) {prf = ItIsSucc} i = weakenN' n (weakenMultN (S k) i)
+
+  multRightUnit : (m : Nat) -> m * 1 = m
+  multRightUnit 0 = Refl
+  multRightUnit (S k) = cong S (multRightUnit k)
+
+  multRightZeroCancel : (m : Nat) -> m * 0 = 0
+  multRightZeroCancel 0 = Refl
+  multRightZeroCancel (S k) = multRightZeroCancel k
+
+  ||| Variant of `shift` from Data.Fin, but with multiplication
+  ||| Given an index i : Fin n, it recasts it as one where steps are stride sized
+  ||| That is, returns stride * i : Fin (stride * n)
+  ||| Implemented by recursing on i, adding stride each time
+  public export
+  shiftMul : {n : Nat} ->
+    (stride : Nat) -> {auto prf : IsSucc stride} ->
+    (i : Fin n) -> Fin (n * stride)
+  shiftMul (S s) {prf = ItIsSucc} FZ = FZ
+  shiftMul stride (FS i) = shift stride (shiftMul stride i)
+
+  shiftMulTest : shiftMul {n=3} 5 1 = 5
+  shiftMulTest = Refl
+
+  ||| Analogous to strengthen from Data.Fin
+  ||| Attempts to strengthen the bound on Fin (m + n) to Fin m
+  ||| If it doesn't succeed, then returns the remainder in Fin n
+  public export
+  strengthenN : {m, n : Nat} -> Fin (m + n) -> Either (Fin m) (Fin n)
+  strengthenN {m = 0} x = Right x
+  strengthenN {m = (S k)} FZ = Left FZ
+  strengthenN {m = (S k)} (FS x) with (strengthenN x)
+    _ | (Left p) = Left $ FS p
+    _ | (Right q) = Right q
+  -- strengthenN {m = 0} x = Nothing
+  -- strengthenN {m = (S k)} FZ = Just FZ
+  -- strengthenN {m = (S k)} (FS x) with (strengthenN x)
+  --   _ | Nothing = Nothing
+  --   _ | (Just p) = Just $ FS p
+    --= let t = strengthenN x
+    --  in ?strengthenN_rhs_3
+
+  -- strengthenN {n = 0} x = Just x
+  -- strengthenN {m = 0} {n = (S k)} FZ = Nothing
+  -- strengthenN {m = (S j)} {n = (S k)} FZ = Just FZ
+  -- strengthenN {m} {n = (S k)} (FS x)
+  --   = let t = strengthenN x
+  --         v = Fin.FS
+  --     in ?what -- strengthenN x
+
+
+  --         restCount = indexCount is -- fpn = 13 : Fin (20)
+  -- iCTest1 : indexCount {shape = [3, 4, 5]} [1, 2, 3] = 33
+  -- iCTest1 = ?iCTest_rhs
+  
+  ||| Like finS, but without wrapping
+  ||| finS' last = last
+  public export
+  finS' : {n : Nat} -> Fin n -> Fin n
+  finS' {n = 1} x = x
+  finS' {n = (S (S k))} FZ = FS FZ
+  finS' {n = (S (S k))} (FS x) = FS $ finS' x
+  --finS' {n = S _} x = case strengthen x of
+  --    Nothing => x
+  --    Just y => FS y
+
+  
+  ||| Adds two Fin n, and bounds the result
+  ||| Meaning (93:Fin 5) + (4 : Fin 5) = 4
+  public export
+  addFinsBounded : {n : Nat} -> Fin n -> Fin n -> Fin n
+  addFinsBounded x FZ = x
+  addFinsBounded x (FS y) = addFinsBounded (finS' x) (weaken y)
+
+  finSTest : finS' {n = 5} 3 = 4
+  finSTest = Refl
+
+  finSTest2 : finS' {n = 5} 4 = 4
+  finSTest2 = Refl
+
+  ||| Divides a Fin by 2, rounding down
+  public export
+  half : (k : Fin n) -> Fin n
+  half FZ = FZ
+  half (FS FZ) = FZ
+  half (FS (FS x)) = weakenN' 2 x
+
+  ||| Computes the midway index between two bounds
+  public export
+  mid : (low : Fin n) -> (high : Fin n) ->
+    {auto prf : So (high >= low)} ->
+    Fin n
+  mid FZ high = half high
+  mid (FS x) (FS y) {prf} = FS (mid x y)
+
+||| Given a non-empty sorted vector `xs`, finds the "right bin", i.e. the index 
+||| of the smallest element between the bounds that `x` is not bigger than.
+||| If `x` is bigger than the highest element, returns `Nothing`
+||| `findBinBetween [2,7,10] 1 0 2 = Just 0`
+||| `findBinBetween [2,7,10] 3 0 2 = Just 1`
+||| `findBinBetween [2,7,10] 9 0 2 = Just 2`
+||| `findBinBetween [2,7,10] 7 0 2 = Just 2`
+||| `findBinBetween [1,2,3,4,5] 6 0 4 = Nothing`
+public export
+findBinBetween : Ord a => {n : Nat} -> (xs : Vect (S n) a) ->
+  (x : a) ->
+  (lowInd : Fin (S n)) -> (highInd : Fin (S n)) ->
+  {auto prf : So (highInd >= lowInd)} ->
+  Maybe (Fin (S n))
+findBinBetween xs x lowInd highInd = case x > index highInd xs of
+  True => Nothing -- rule out the case where x is bigger
+  False => case x <= index lowInd xs of
+    True => Just lowInd
+    False => let midInd = mid lowInd highInd
+             in case compare x (index midInd xs) of
+               LT => findBinBetween xs x lowInd midInd {prf = believe_me ()}
+               EQ => Just midInd
+               GT => findBinBetween xs x (finS' midInd) highInd {prf = believe_me ()}
+
+||| Todo can this eventually be generalised to non-cubical tensors?
+||| Given a non-empty sorted vector `xs`, finds the "right bin", i.e. the index 
+||| of the smallest element between the bounds that `x` is not bigger than.
+||| If `x` is bigger than the highest element, returns `Nothing`
+||| `findBin [2,7,10] 1 = Just 0`
+||| `findBin [2,7,10] 3 = Just 1`
+||| `findBin [2,4,6,8] 7 = Just 3`
+public export
+findBin : Ord a => {n : Nat} ->
+  (xs : Vect (S n) a) -> (x : a) -> Maybe (Fin (S n))
+findBin {n = 0} (x' :: []) x = case x' <= x of
+  True => Just FZ
+  False => Nothing
+findBin {n = (S k)} xs x = findBinBetween xs x 0 last
 
 
 ||| Interface describing how a type can be displayed as a 2d grid of characters
@@ -155,7 +278,11 @@ interface Display (a : Type) where
 -- Display Char where
 --   display x = (1 ** 1 ** [[x]])
 
-
+-- public export
+-- Num Unit where
+--   fromInteger _ = ()
+--   () * () = ()
+--   () + () = ()
 
 namespace RandomUtils
 -- Probably there's a faster way to do this
@@ -171,15 +298,13 @@ namespace RandomUtils
 
   public export
   Random a => Random b => Random (a, b) where
-    randomIO = ?what
-    randomRIO (lo, hi) = ?what2
-
-
+    randomIO = ?randomIO_rhs_1
+    randomRIO (lo, hi) = ?randomRIO_rhs_2
 
 
 
 -- for reshaping a tensor
-rr : {n, x, y : Nat}
+rrrrr : {n, x, y : Nat}
   -> Fin (S n)
   -> {auto prf : n = x * y}
   -> (Fin (S x), Fin (S y))
@@ -318,6 +443,32 @@ applyWhen False f a = a
 applyWhen True f a = f a
 
 
+namespace All
+  namespace Vect
+    public export
+    rewriteAllMap : {xs : Vect n a} ->
+      All p (f <$> xs) ->
+      All (p . f) xs
+    rewriteAllMap {xs = []} [] = []
+    rewriteAllMap {xs = (x :: xs)} (a :: as) = a :: rewriteAllMap as
+
+    public export
+    rewriteAllMap' : {xs : Vect n a} ->
+      All (p . f) xs ->
+      All p (f <$> xs)
+    rewriteAllMap' {xs = []} [] = []
+    rewriteAllMap' {xs = (x :: xs)} (a :: as) = a :: rewriteAllMap' as
+  
+  namespace List
+    public export
+    rewriteAllMap : {xs : List a} ->
+      All p (f <$> xs) ->
+      All (p . f) xs
+    rewriteAllMap {xs = []} [] = []
+    rewriteAllMap {xs = (x :: xs)} (a :: as) = a :: rewriteAllMap as
+
+
+
 public export
 record Iso (a, b : Type) where
   constructor MkIso
@@ -325,101 +476,6 @@ record Iso (a, b : Type) where
   backward : b -> a
   forwardBackward : (x : a) -> backward (forward x) = x
   backwardForward : (y : b) -> forward (backward y) = y
-
-
-namespace FinArithmetic
-  ||| Like weakenN from Data.Fin, but where n is on the other side of +
-  public export
-  weakenN' : (0 n : Nat) -> Fin m -> Fin (n + m)
-  weakenN' n x = rewrite plusCommutative n m in weakenN n x
-  
-  ||| Like weakenN, but with mutliplication
-  ||| Like shiftMul, but without changing the value of the index
-  public export
-  weakenMultN : {n : Nat} ->
-    (m : Nat) -> {auto prf : IsSucc m} ->
-    (i : Fin n) -> Fin (m * n)
-  weakenMultN (S 0) {prf = ItIsSucc} i = rewrite multOneLeftNeutral n in i
-  weakenMultN (S (S k)) {prf = ItIsSucc} i = weakenN' n (weakenMultN (S k) i)
-
-  multRightUnit : (m : Nat) -> m * 1 = m
-  multRightUnit 0 = Refl
-  multRightUnit (S k) = cong S (multRightUnit k)
-
-  multRightZeroCancel : (m : Nat) -> m * 0 = 0
-  multRightZeroCancel 0 = Refl
-  multRightZeroCancel (S k) = multRightZeroCancel k
-
-  ||| Variant of `shift` from Data.Fin, but with multiplication
-  ||| Given an index i : Fin n, it recasts it as one where steps are stride sized
-  ||| That is, returns stride * i : Fin (stride * n)
-  ||| Implemented by recursing on i, adding stride each time
-  public export
-  shiftMul : {n : Nat} ->
-    (stride : Nat) -> {auto prf : IsSucc stride} ->
-    (i : Fin n) -> Fin (n * stride)
-  shiftMul (S s) {prf = ItIsSucc} FZ = FZ
-  shiftMul stride (FS i) = shift stride (shiftMul stride i)
-
-  shiftMulTest : shiftMul {n=3} 5 1 = 5
-  shiftMulTest = Refl
-
-  ||| Analogous to strengthen from Data.Fin
-  ||| Attempts to strengthen the bound on Fin (m + n) to Fin m
-  ||| If it doesn't succeed, then returns the remainder in Fin n
-  public export
-  strengthenN : {m, n : Nat} -> Fin (m + n) -> Either (Fin m) (Fin n)
-  strengthenN {m = 0} x = Right x
-  strengthenN {m = (S k)} FZ = Left FZ
-  strengthenN {m = (S k)} (FS x) with (strengthenN x)
-    _ | (Left p) = Left $ FS p
-    _ | (Right q) = Right q
-  -- strengthenN {m = 0} x = Nothing
-  -- strengthenN {m = (S k)} FZ = Just FZ
-  -- strengthenN {m = (S k)} (FS x) with (strengthenN x)
-  --   _ | Nothing = Nothing
-  --   _ | (Just p) = Just $ FS p
-    --= let t = strengthenN x
-    --  in ?strengthenN_rhs_3
-
-  -- strengthenN {n = 0} x = Just x
-  -- strengthenN {m = 0} {n = (S k)} FZ = Nothing
-  -- strengthenN {m = (S j)} {n = (S k)} FZ = Just FZ
-  -- strengthenN {m} {n = (S k)} (FS x)
-  --   = let t = strengthenN x
-  --         v = Fin.FS
-  --     in ?what -- strengthenN x
-
-
---         restCount = indexCount is -- fpn = 13 : Fin (20)
--- iCTest1 : indexCount {shape = [3, 4, 5]} [1, 2, 3] = 33
--- iCTest1 = ?iCTest_rhs
-  
-  ||| Like finS, but without wrapping
-  ||| finS' last = last
-  public export
-  finS' : {n : Nat} -> Fin n -> Fin n
-  finS' {n = 1} x = x
-  finS' {n = (S (S k))} FZ = FS FZ
-  finS' {n = (S (S k))} (FS x) = FS $ finS' x
-  --finS' {n = S _} x = case strengthen x of
-  --    Nothing => x
-  --    Just y => FS y
-
-  finSTest : finS' {n = 5} 3 = 4
-  finSTest = Refl
-
-  finSTest2 : finS' {n = 5} 4 = 4
-  finSTest2 = Refl
-  
-  
-  ||| Adds two Fin n, and bounds the result
-  ||| Meaning (93:Fin 5) + (4 : Fin 5) = 4
-  public export
-  addFinsBounded : {n : Nat} -> Fin n -> Fin n -> Fin n
-  addFinsBounded x FZ = x
-  addFinsBounded x (FS y) = addFinsBounded (finS' x) (weaken y)
-
 
 public export
 multSucc : {m, n : Nat} -> IsSucc m -> IsSucc n -> IsSucc (m * n)
@@ -430,78 +486,26 @@ allSuccThenProdSucc : (xs : List Nat) -> {auto ps : All IsSucc xs} -> IsSucc (pr
 allSuccThenProdSucc [] {ps = []} = ItIsSucc
 allSuccThenProdSucc (_ :: xs') {ps = p :: _} = multSucc p (allSuccThenProdSucc xs')
 
--- t : Bool -> Type
--- t False = Int
--- t True = (String, String, String)
--- 
--- f : (b : Bool) -> t b
--- f False = 3
--- f True = ?hole2
+
+public export
+updateAt : Eq a => (a -> b) -> (a, b) -> (a -> b)
+updateAt f (i, val) i' = if i == i' then val else f i'
 
 
-testt : (shape : List Nat) -> Type
-testt [] = Unit
-testt (x :: xs) = (Fin x, testt xs)
+||| Graph of a dependent function
+public export
+graph : {t : a -> Type} ->
+  (g : (x : a) -> t x) ->
+  a -> (x : a ** t x)
+graph g x = (x ** g x)
 
-ggh : (shape : List Nat) -> testt shape
-
-
-interface Interface1 a where
-  constructor MkInterface1
-  getInterface1 : a
-
-interface Interface1 t => Interface2 t where
-  constructor MkInterface2
-  getInterface2 : t
-
-Interface1 Nat where
-  getInterface1 = 3
-
-[four] Interface1 Nat where
-  getInterface1 = 4
-
-getBoth : (i : Interface2 a) => (a, a)
-getBoth = (getInterface1, getInterface2)
-
-
-llll : Num a => List a
-
-llll2 : List (Num a => a)
-
-lk : (a :  Type ** List (Interface1 a => a))
-lk = (Nat ** [3, 5])
-
--- private prefix 0 #
--- record ApplF (lprop : Vect m ((Type -> Type) -> Type)) where
---   constructor (#)
---   F : Type -> Type
---   {auto 0 prf : All (\p => p F) lprop}
-
-interface MyInterface f where
-  tttt : (a -> b) -> (f a -> f b)
-
-
--- ex0 : List (ApplF [Functor, Applicative])
--- ex0 = [# Vect 4]
--- 
--- ex1 : List (ApplF [Functor, Applicative])
--- ex1 = [# List, # Vect 4]
--- 
--- ex2 : List (ApplF [Functor, Applicative])
--- ex2 = [# Maybe, # List, # Vect 100]
-
-data Repr : Type -> Type where
-  MkRepr : (a -> Int) -> Repr a
-
-failing
-  shouldNotTypeCheck : List (ApplF [Functor, Applicative])
-  shouldNotTypeCheck = [# Repr]
-
-  aIntt : Int
-  aIntt = 3
-
-
-
+||| Version of `map` for dependent function
+||| Note that here `x : a` is identity in some sense, it comes from `f a`
+public export
+dependentMap : Functor f => {t : a -> Type} ->
+  (g : (x : a) -> t x) ->
+  f a -> f (x : a ** t x)
+dependentMap g fa = map (graph g) fa
 
 {-
 
@@ -537,23 +541,19 @@ filter'' p [] = (0 ** [])
 filter'' p (x :: xs) with (filter' p xs)
   _ | (_ ** xs') = if p x then (_ ** x :: xs') else (_ ** xs')
 
-
--- g : String
--- g = assert_total "asdf"
-
 {-
 Prelude.absurd : Uninhabited t => t -> a
 
- -}
+-}
 
-h : {n : Nat} -> Vect n a -> Nat
-h xs = n
-
-
-g : {0 n : Nat} -> Vect n a -> Nat
-g [] = 0
-g (x :: xs) = 1 + (g xs)
-
-proof2 : (v : Vect n a) -> g v = n
-proof2 [] = Refl
-proof2 (x :: xs) = cong (1 +) (proof2 xs)
+-- h : {n : Nat} -> Vect n a -> Nat
+-- h xs = n
+-- 
+-- 
+-- g : {0 n : Nat} -> Vect n a -> Nat
+-- g [] = 0
+-- g (x :: xs) = 1 + (g xs)
+-- 
+-- proof2 : (v : Vect n a) -> g v = n
+-- proof2 [] = Refl
+-- proof2 (x :: xs) = cong (1 +) (proof2 xs)

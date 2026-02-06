@@ -10,7 +10,7 @@ TensorType is a framework for pure functional tensor processing, implemented in 
 * **supports non-cubical tensors**: tensors of trees and arbitrary containers are supported, instead of just arrays
 * **is made with ergonomics in mind**: it aims to provide the standard NumPy/PyTorch interface to the user in a purely functional language
 
-At the moment its main purpose is enabling rapid prototyping of structured neural network architectures. For instance, it is expressive enough to [implement generalised cross-attention](https://github.com/bgavran/TensorType/blob/main/src/Architectures/Transformer/Attention.idr#L9) (as described in the [Generalised Transformers blog post](https://glaive-research.org/2025/02/11/Generalized-Transformers-from-Applicative-Functors.html)).
+At the moment its main purpose is enabling rapid prototyping of structured neural network architectures. For instance, it is expressive enough to [implement generalised cross-attention](https://github.com/bgavran/TensorType/blob/main/src/NN/Architectures/Transformer/Attention.idr#L9) (as described in the [Generalised Transformers blog post](https://glaive-research.org/2025/02/11/Generalized-Transformers-from-Applicative-Functors.html)).
 
 > [!NOTE]
 > TensorType is in very early stages of development; expect breaking changes. It is not yet performant: down the line the goal is to obtain performance in a systematic way, not at the expense of types, but [because of them](#Aim-of-TensorType).
@@ -133,7 +133,7 @@ t0Again : CTensor [Vect 3, Vect 4] Double
 t0Again = t0
 ```
 
-Here `Vect` does not refer to `Vect` from `Data.Vect`, but rather the `Vect` container implemented [here](https://github.com/bgavran/TensorType/blob/main/src/Data/Container/Object/Instances.idr#L68).
+Here `Vect` does not refer to `Vect` from `Data.Vect`, but rather the `Vect` container implemented [here](https://github.com/bgavran/TensorType/blob/main/src/Data/Container/Base/Object/Instances.idr#L68).
 
 Everything we can do with `Tensor` we can do with `CTensor`, including building concrete tensors:
 
@@ -262,7 +262,7 @@ traversalExample : CTensor [List] Double
 traversalExample = restructure (wrap inorder) treeExample1
 ```
 
-All of these can be used to define all sorts of novel network architectures, see [src/Architectures](https://github.com/bgavran/TensorType/tree/main/src/Architectures) for examples.
+All of these can be used to define all sorts of novel network architectures, see [src/Architectures](https://github.com/bgavran/TensorType/tree/main/src/NN/Architectures) for examples.
 
 ## Installation instructions
 
@@ -295,12 +295,15 @@ This especially holds in the context of non-cubical tensors, which are at the mo
 
 ## Technical details
 
-TensorType's implementation hinges on three interdependent components:
+TensorType is based on the research from my PhD thesis [Fundamental Components of Deep Learning: A category-theoretic approach](https://arxiv.org/abs/2403.13001).
+
+Its implementation hinges on three interdependent components:
 
 * **Containers** for **well-typed indexing of non-cubical tensors**: they allow us to validate that an index into a generalised tensor is not out of bounds at compile-time. Doing this with cubical containers is easy since they expose the size information at the type level (i.e. `Tensor [2,3,4] Double`), but once we move on to the world of applicative functors this is no longer the case. Checking that an index into a `CTensor [BinTreeNode] Double` is not out of bounds is only possible if the underlying functor additionally comes equipped with the data of the valid set of "shapes" and the valid "positions" for that shape. This is equivalent to asking that the functor is polynomial, or that the functor is an extension of a container.
 * **Applicative functors** for **generalised linear algebra**: they allow us to perform generalised linear algebra operations as described in the [Applicative Programming with Naperian Functors](https://www.cs.ox.ac.uk/people/jeremy.gibbons/publications/aplicative.pdf) paper.
 * **Dependent lenses** for **reshaping and traversing operations**: they allow us to define morphisms of containers, and therefore generalised tensor reshaping operations that do not operate on the content of the data, only the shape. These include views, reshapes, and traversals, and many other culprits that appear in libraries like NumPy.
 
+To find out more about the container aspect of TensorType, check out the following [blog post](https://glaive-research.org/2026/01/21/Generalised-tensors.html).
 
 ## Planned features
 
@@ -309,6 +312,9 @@ TensorType's implementation hinges on three interdependent components:
   * Type-safe einsum
   * Type-safe broadcasting, stacking, padding, etc. for both cubical and applicative tensors
   * Common linear algebra operations
+  * Neural network facilities:
+    * Automatic differentiation (forward/backward mode AD, differentiation through products, sums, (co)inductive types)
+    * Parameter management (initialisation, updates)
 * Efficiency:
   * In-place operations/views, and research on feasibility of linear types for doing so
   * Support for different tensor representation in the backend, and their tracking at the type level:

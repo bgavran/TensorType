@@ -51,10 +51,10 @@ SAImpl : {a : Type} -> Num a =>
   (allAlg : AllAlgebra [inputStructure, features] a) =>
   {default id causalMask : CTensor [inputStructure, inputStructure] a -> CTensor [inputStructure, inputStructure] a} ->
   (softargmax : CTensor [inputStructure] a -> CTensor [inputStructure] a) ->
-  (input : CTensor [inputStructure, features] a) ->
-  (params : CSelfAttentionParams features a) ->
+  DPair (CTensor [inputStructure, features] a)
+        (const (CSelfAttentionParams features a)) ->
   CTensor [inputStructure, features] a
-SAImpl {allAlg = Cons} {causalMask} softargmax input (MkCSAParams queryMat valueMat keyMat)
+SAImpl {allAlg = Cons} {causalMask} softargmax (input ** (MkCSAParams queryMat valueMat keyMat))
   = let queries = queryMat `matrixMatrixProduct` input
         keys = keyMat `matrixMatrixProduct` input
         values = valueMat `matrixMatrixProduct` input

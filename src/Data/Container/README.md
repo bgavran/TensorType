@@ -1,3 +1,5 @@
+TODO update this, we now have `Base` and `Additive`
+
 The boundary of this sublibrary to the outside world is via `Data.Container.idr`
 which rexports all the relevant submodules.
 

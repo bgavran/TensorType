@@ -143,10 +143,17 @@ namespace Flatten
 namespace Max
   ||| Maximum value in a tensor
   ||| Returns Nothing if the tensor is empty
+  public export
   max : Foldable (CTensor shape) => Ord a =>
     CTensor shape a -> Maybe a
   max = maxInList . cFlatten
 
+  public export
+  maxT : Foldable (CTensor shape) => Ord a =>
+    CTensor shape a -> CTensor [Maybe] a
+  maxT t = ># max t
+  
+  
   -- TODO Fix for strided
   -- max {shape = []} t = maxA (FromCubicalTensor t)
   -- max {shape = (s :: ss)} t = let tt = maxA (FromCubicalTensor t) in ?max_rhs_1
@@ -234,6 +241,12 @@ namespace Misc
   variance t =
     let inputMinusMean = t - pure (mean {shape=[n]} t)
     in mean {shape=[n]} (inputMinusMean * inputMinusMean)
+
+
+  public export
+  cumulativeSum : {n : Nat} -> Num a =>
+    Tensor [n] a -> Tensor [n] a
+  cumulativeSum = (#>#) (scanl1 (+))
 
 
 

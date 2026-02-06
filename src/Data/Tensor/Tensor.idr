@@ -3,8 +3,10 @@ module Data.Tensor.Tensor
 import public Data.DPair
 import public Data.Fin.Split
 
-import public Data.Container
-import public Data.Container.Object.Instances as Cont
+import public Data.Container.Base
+import public Data.Container.Applicative
+import public Data.Container.Base.Object.Instances as Cont
+import public Data.Num
 
 import public Data.Layout
 import public Misc
@@ -212,6 +214,24 @@ namespace TensorFromConcrete
     CTensor shape a -> concreteTypeTensor shape a
   (#>) = toConcreteTy
 
+  public export infixr 0 >#>, #>#
+
+  public export
+  (>#>) : {shapeOld, shapeNew : List Cont} ->
+    (allConcreteOld : AllConcrete shapeOld) =>
+    (allConcreteNew : AllConcrete shapeNew) =>
+    (CTensor shapeOld a -> CTensor shapeNew b) ->
+    concreteTypeTensor shapeOld a -> concreteTypeTensor shapeNew b
+  (>#>) f ct = #> (f (># ct))
+
+  public export
+  (#>#) : {shapeOld, shapeNew : List Cont} ->
+    (allConcreteOld : AllConcrete shapeOld) =>
+    (allConcreteNew : AllConcrete shapeNew) =>
+    (concreteTypeTensor shapeOld a -> concreteTypeTensor shapeNew b) ->
+    CTensor shapeOld a -> CTensor shapeNew b
+  (#>#) f t = ># (f (#> t))
+
 
 namespace TensorInstances
   namespace ApplicativeInstance
@@ -319,6 +339,7 @@ namespace TensorInstances
     public export
     {shape : List Cont} -> Exp a => All TensorMonoid shape => Exp (CTensor shape a) where
       exp = (exp <$>)
+      log = (log <$>)
       minusInfinity = pure minusInfinity
 
 
@@ -602,6 +623,17 @@ namespace TensorInstances
     -- sstc t = show t
 
   namespace TensorContractions
+    -- reduce : {c : Cont} -> Algebra (Ext c) a =>
+    --   Ext c a -> Ext Scalar a
+    -- reduce x = () <| \() => reduce x
+    
+    -- public export
+    -- dotWith : {cont : Cont} -> TensorMonoid cont => Algebra (Ext cont) c =>
+    --   (a -> b -> c) ->
+    --   Ext cont a -> Ext cont b -> Ext Scalar c
+    -- dotWith f ea eb
+    --   = reduce $ extMap tensorM $ (uncurry f <$> pairExtensions ea eb)
+
     public export
     dotWith : {shape : List Cont} ->
       Algebra (CTensor shape) c => All TensorMonoid shape =>
