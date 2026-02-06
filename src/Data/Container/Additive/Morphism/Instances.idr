@@ -38,6 +38,12 @@ leftUnitInv : {c : AddCont} -> c =%> (Scalar >< c)
 leftUnitInv = !%+ \x => (((), x) ** \((), x') => x')
 
 public export
+swapMiddle : {c1, c2, c3, c4 : AddCont} ->
+  ((c1 >< c2) >< (c3 >< c4)) =%> ((c1 >< c3) >< (c2 >< c4))
+swapMiddle = !%+ \((x, y), (z, w)) => (((x, z), (y, w)) **
+  \((x', z'), (y', w')) => ((x', y'), (z', w')))
+
+public export
 Copy : {c : AddCont} ->
   c =%> (c >< c)
 Copy = !%+ \x => ((x, x) ** uncurry (c.Plus x))

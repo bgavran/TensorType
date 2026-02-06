@@ -116,19 +116,6 @@ namespace ParametricFunctions
     (\_ => p)
     (\(x ** p') => f (x, p'))
 
-  -- public export
-  -- mul : Num a => (a, a) -> a
-  -- mul (x, y) = x * y
-
-  -- public export
-  -- mulParametric : {a : Type} -> Num a => a -\-> a
-  -- mulParametric = binaryOpToPara mul
-
-  -- public export
-  -- mulNotDependent : IsNotDependent ParametricFunctions.mulParametric
-  -- mulNotDependent = %search
-
-
 namespace ParametricDependentLenses
   ||| DParametric dependent lenses
   ||| Not really used in this repo
@@ -140,7 +127,6 @@ namespace ParametricDependentLenses
   ParaAddDLens : (a, b : AddCont) -> Type
   ParaAddDLens = DepParaMor PairAddCont
 
-  
   public export
   (=\\==>) : (a, b : AddCont) -> Type
   a =\\==> b = ParaAddDLens a b
@@ -178,7 +164,6 @@ namespace DependentParametricDependentLenses
   (=\\=>) : (a, b : AddCont) -> Type
   a =\\=> b = DParaAddDLens a b
   
-
   public export
   trivialParam : {0 a, b : AddCont} -> (a =%> b) -> a =\\=> b
   trivialParam f = MkPara
@@ -189,7 +174,6 @@ namespace DependentParametricDependentLenses
   id : a =\\=> a
   id = trivialParam id
   
-
   public export
   composePara : a =\\=> b -> b =\\=> c -> a =\\=> c
   composePara (MkPara p f) (MkPara q g) = MkPara
@@ -249,18 +233,6 @@ namespace DependentParametricDependentLenses
   binaryOpToPara f = MkPara p f
 
   %hide Data.Container.Base.Morphism.Definition.DependentLenses.(=%>)
-
-  -- public export
-  -- mul : Num a => (Const a >< Const a) =%> (Const a)
-  -- mul = !%+ \(x, y) => (x * y ** \z' => (z' * y, z' * x))
-
-  -- public export
-  -- mulParametric : {a : Type} -> Num a => (Const a) =\\==> (Const a)
-  -- mulParametric = binaryOpToPara mul
-
-  -- public export
-  -- mulNotDependent : IsNotDependent ParametricDependentLenses.mulParametric
-  -- mulNotDependent = MkNonDep (Const _) (fromNonDepProduct mul)
 
 -- public export
 -- dependentMap : {t : a -> Type} -> (f : (x : a) -> t x) ->

@@ -14,7 +14,7 @@ record DataLoader (input : Type) (output : Type) where
   {auto isSucc : IsSucc datasetSize}
 
 
-
+||| Samples a single item from the dataset
 public export
 sample : DataLoader input output -> IO (input, output)
 sample (MkDataLoader datasetSize dataset) = do

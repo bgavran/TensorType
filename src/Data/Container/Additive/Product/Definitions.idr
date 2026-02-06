@@ -42,7 +42,6 @@ namespace HancockTensorProduct
       (neutral (UMon pc ps), neutral (UMon (qc ps) qs))}}
 
 
-
 ||| Coproduct
 public export
 (>+<) : AddCont -> AddCont -> AddCont
@@ -50,6 +49,14 @@ c >+< d = MkAddCont (UC c >+< UC d)
   @{MkI @{\case
     Left cs => MkComMonoid (plus (UMon c cs)) (neutral (UMon c cs))
     Right ds => MkComMonoid (plus (UMon d ds)) (neutral (UMon d ds))}}
+
+
+||| Composition
+(>@) : AddCont -> AddCont -> AddCont
+c @> d = MkAddCont (UC c @> UC d)
+  @{MkI @{\(dShp <| dPosToCShp) => MkComMonoid
+    (\l, r => (d.Plus dShp (fst l) (fst r) ** c.Plus ?xxx ?ccccc ?ddddd))
+    (d.Zero dShp ** c.Zero $ dPosToCShp (d .Zero dShp))}} 
 
 ||| (Infinitary) coproduct of monoids
 ||| It is a subtype of the Pi type with finite support

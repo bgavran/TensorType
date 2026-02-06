@@ -32,8 +32,6 @@ record Optimiser (paramCont : AddCont) (stateTy : Type) where
   initParam : IO paramCont.Shp
   initState : IO stateTy
 
-
-
 public export
 (.fwd) : Optimiser p s -> (p.Shp, s) -> p.Shp
 (.fwd) (MkOptimiser opt _ _) = opt.fwd
@@ -45,6 +43,8 @@ public export
   (pCont.Shp, stateTy)
 (.bwd) (MkOptimiser opt _ _) = opt.bwd
 
+||| From 8.1.3. "Can we compose optimisers?" of https://arxiv.org/abs/2403.13001
+||| Not used yet
 public export
 composeParallel : Optimiser pCont s ->
   Optimiser qCont t -> 

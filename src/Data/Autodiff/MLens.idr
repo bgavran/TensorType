@@ -1,6 +1,6 @@
 module Data.Autodiff.MLens
 
-import Data.Container
+import Data.Container.Base
 import Data.Vect.Quantifiers
 
 export prefix 0 !%%
