@@ -37,6 +37,8 @@ modules = Data.Container.Base
         , Data.Container.Additive.Object.Definition
         , Data.Container.Additive.Object.Instances
         , Data.Container.Additive.Morphism.Definition
+        , Data.Container.Additive.Morphism.Instances
+        , Data.Container.Additive.Extension.Definition
         , Data.Container.Additive.Product.Definitions
 
         , Data.Container.Applicative
@@ -68,6 +70,9 @@ modules = Data.Container.Base
         , Data.Tree
         , Data.Algebra
         , Data.Num
+        , Data.ComMonoid
+
+        , Data.Autodiff.MLens
 
         , Control.Monad.Distribution
         , Control.Monad.Sample
