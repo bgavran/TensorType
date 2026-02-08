@@ -13,4 +13,4 @@ paraMapFirstAxis : {c : Axis} ->
   (nonDep : IsNotDependent pf) =>
   Tensor (c :: cs) a -\-> Tensor (c :: ds) a
 paraMapFirstAxis (MkPara (const pType) f) {nonDep = MkNonDep pType f} = MkPara
-  (\_ => pType) (\t, p => flip f p <-$> t)
+  (\_ => pType) (\(t ** p) => flip (curry f) p <-$> t)

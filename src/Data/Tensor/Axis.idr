@@ -4,7 +4,7 @@ import public Decidable.Equality
 import Data.Vect.Elem
 import Data.Vect.Quantifiers
 
-import Data.Container
+import Data.Container.Base
 import Data.Unique.Vect
 import Misc
 

@@ -8,8 +8,10 @@ import Data.DPair
 import public Decidable.Equality
 import public Data.Fin.Split
 
-import public Data.Container
-import public Data.Container.Object.Instances as Cont
+import public Data.Container.Base
+import public Data.Container.Applicative
+import public Data.Container.Base.Object.Instances as Cont
+import public Data.Num
 
 import public Data.Layout
 import public Data.Tensor.Axis
@@ -279,6 +281,28 @@ namespace TensorFromConcrete
     Tensor shape a -> concreteTypeTensor shape a
   (#>) = toConcreteTy
 
+  public export infixr 0 >#>, #>#
+
+  public export
+  (>#>) : {rankOld, rankNew : Nat} ->
+    {shapeOld : TensorShape rankOld} ->
+    {shapeNew : TensorShape rankNew} ->
+    (allConcreteOld : AllConcrete (conts shapeOld)) =>
+    (allConcreteNew : AllConcrete (conts shapeNew)) =>
+    (Tensor shapeOld a -> Tensor shapeNew b) ->
+    concreteTypeTensor shapeOld a -> concreteTypeTensor shapeNew b
+  (>#>) f ct = #> (f (># ct))
+
+  public export
+  (#>#) : {rankOld, rankNew : Nat} ->
+    {shapeOld : TensorShape rankOld} ->
+    {shapeNew : TensorShape rankNew} ->
+    (allConcreteOld : AllConcrete (conts shapeOld)) =>
+    (allConcreteNew : AllConcrete (conts shapeNew)) =>
+    (concreteTypeTensor shapeOld a -> concreteTypeTensor shapeNew b) ->
+    Tensor shapeOld a -> Tensor shapeNew b
+  (#>#) f t = ># (f (#> t))
+
 
 namespace Reshape
   ||| A wrapper around `extMap`
@@ -422,6 +446,7 @@ namespace TensorInstances
     All TensorMonoid (conts shape) =>
     Exp (Tensor shape a) where
       exp = (exp <$>)
+      log = (log <$>)
       minusInfinity = pure minusInfinity
 
   namespace DiagonalAxis

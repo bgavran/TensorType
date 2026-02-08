@@ -15,8 +15,8 @@ SelfAttentionMat : {n, d : Nat} ->
   Tensor ["seqLen" ~~> n, "numTokens" ~~> d] Double -\->
   Tensor ["seqLen" ~~> n, "numTokens" ~~> d] Double
 SelfAttentionMat {causalMask} = case causalMask of
-  False => SelfAttention softargmax
-  True => SelfAttention {causalMask=Attention.causalMask} softargmax
+  False => SelfAttention softargmaxImpl
+  True => SelfAttention {causalMask=Attention.causalMask} softargmaxImpl
 
 ||| Let's fix a simple input matrix
 inputMatrix : Tensor ["seqLen" ~~> 3, "numTokens" ~~> 2] Double

@@ -4,7 +4,7 @@ import Data.Vect
 
 %hide Data.Vect.transpose
 
--- Needed to define transposition
+-- Needed to define transposition, and diagonal elements
 {-
 Lists -> not Naperian! Their shape isn't uniform (they can be of different lengths)
 Stream -> Naperian, and is represented by Nat
@@ -12,8 +12,7 @@ Vect n ->Naperian, and are represented by Fin n
 
 BinTree in general is not Naperian, but if we restrict to trees of a particular shape, then they are Naperian
 
-Q: Are Naperian functors just containers with unit shape?
-This is about non-ragged shapes.
+Naperian functors arise out of containers with a unit shape
 * Would ragged shapes imply dependent types?
 -}
 

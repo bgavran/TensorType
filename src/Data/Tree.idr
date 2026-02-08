@@ -120,17 +120,18 @@ namespace BinaryTrees
         pure x = Leaf x
         fs <*> xs = map {f=BinTreeLeaf} (uncurry ($)) $ liftA2BinTreeLeaf fs xs 
   
-    -- Is this even possible?
-    -- probably is, but foldable really means traversing in a linear order
-    -- with tree in principle we'd have to process each subtree in parallel
-    -- but we could implement foldable by first making a choice on how to traverse a tree and turn it into a list, and then performing the fold on the resulting list
+    ||| This requires us traversing a tree in a linear order
+    ||| This means we have to make a choice on which subtree to process first
+    ||| Another way is to first implement a traversal of the tree, and
+    ||| then use that
     public export
     Foldable BinTreeLeaf where
       foldr f z (Leaf leaf) = f leaf z
-      foldr f z (Node _ leftTree rightTree) = ?oo_1 where
-        leftTreeRes : acc
-        leftTreeRes = foldr {t=BinTreeLeaf} f z leftTree
-        rightTreeRes = foldr {t=BinTreeLeaf} f z rightTree
+      foldr f z (Node () leftTree rightTree) =
+        -- Process left first, i.e. fold right with z, then use that 
+        -- as accumulator for left
+        let rightResult = foldr {t=BinTreeLeaf} f z rightTree
+        in foldr {t=BinTreeLeaf} f rightResult leftTree
   
   namespace NodesOnly
     public export

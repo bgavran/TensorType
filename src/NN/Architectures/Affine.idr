@@ -20,8 +20,8 @@ affineImpl : {x, y : Axis} ->
   Num a =>
   AllAlgebra [x] a =>
   TensorMonoid x.cont => TensorMonoid y.cont =>
-  Tensor [x] a -> AffineLayerParams x y a -> Tensor [y] a
-affineImpl input (MkParams weights bias)
+  DPair (Tensor [x] a) (const (AffineLayerParams x y a)) -> Tensor [y] a
+affineImpl (input ** (MkParams weights bias))
   = matrixVectorProduct weights input + bias
 
 public export

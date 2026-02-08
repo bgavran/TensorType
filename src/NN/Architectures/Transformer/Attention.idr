@@ -59,11 +59,10 @@ SAImpl : {a : Type} -> Num a =>
   {default id causalMask : Tensor [inputStructure, inputStructure] a ->
                            Tensor [inputStructure, inputStructure] a} ->
   (softargmax : Tensor [inputStructure] a -> Tensor [inputStructure] a) ->
-  (input : Tensor [inputStructure, features] a) ->
-  (params : SelfAttentionParams features a) ->
+  DPair (Tensor [inputStructure, features] a)
+        (const (SelfAttentionParams features a)) ->
   Tensor [inputStructure, features] a
-SAImpl {allAlg = Cons, causalMask}
-  softargmax input (MkSAParams queryMat valueMat keyMat)
+SAImpl {allAlg = Cons} {causalMask} softargmax (input ** (MkSAParams queryMat valueMat keyMat))
   = let queries = queryMat `matrixMatrixProduct` input
         keys = keyMat `matrixMatrixProduct` input
         values = valueMat `matrixMatrixProduct` input

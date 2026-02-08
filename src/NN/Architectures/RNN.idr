@@ -3,7 +3,6 @@ module NN.Architectures.RNN
 import Data.Tensor
 import Data.Para
 
-
 ||| Defines the type of a RNN cell as a parametric map
 ||| @ x the type of the input
 ||| @ s the type of the state
@@ -21,12 +20,12 @@ RNN x s y n = (Vect n x, s) -\-> (Vect n y, s)
 ||| Given a rnn cell, implement the full RNN by iterating that cell
 ||| Helper function for `RNNPara`
 public export
-RNNImpl : (cell : (x, s) -> p -> (y, s)) ->
-  (Vect n x, s) -> p -> (Vect n y, s)
-RNNImpl _ ([], s) _ = ([], s)
-RNNImpl cell ((x :: xs), s) p =
-  let (y, s') = cell (x, s) p
-      (ys, s'') = RNNImpl cell (xs, s') p
+RNNImpl : (cell : DPair (x, s) (const p) -> (y, s)) ->
+  DPair (Vect n x, s) (const p) -> (Vect n y, s)
+RNNImpl _ (([], s) ** _) = ([], s)
+RNNImpl cell (((x :: xs), s) ** p) =
+  let (y, s') = cell ((x, s) ** p)
+      (ys, s'') = RNNImpl cell ((xs, s') ** p)
   in (y :: ys, s'')
 
 ||| Parametric map for the full RNN
@@ -49,7 +48,7 @@ runRNN rnn xs initialState p = fst $ Run rnn (xs, initialState) p
 
 public export
 exampleRNN : RNNCell Double Double Double
-exampleRNN = MkPara (\_ => ()) (\(x, s), () => (if s > 4 then x else 0, s + 1))
+exampleRNN = MkPara (\_ => ()) (\((x, s) ** ()) => (if s > 4 then x else 0, s + 1))
 
 public export
 exampleInput : Vect 10 Double

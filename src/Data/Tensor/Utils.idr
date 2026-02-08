@@ -156,6 +156,7 @@ namespace Flatten
 namespace Max
   ||| Maximum value in a tensor
   ||| Returns Nothing if the tensor is empty
+  public export
   max : {0 shape : TensorShape rank} ->
     Foldable (Tensor shape) => Ord a =>
     Tensor shape a -> Maybe a
@@ -241,6 +242,17 @@ namespace Misc
   variance @{MkIsCubical _ n} t =
     let inputMinusMean = t - pure (mean t)
     in mean (inputMinusMean * inputMinusMean)
+
+  public export
+  cumulativeSum : {c : Axis} -> Num a =>
+    (isCubical : IsCubical c) =>
+    Tensor [c] a -> Tensor [c] a
+  -- cumulativeSum {isCubical=(MkIsCubical _ n)} t
+  --   = let tt = map {f=Vect n} (scanl1 (+)) (#> t)
+  --         
+  --     in ?qqwer -- #> ((scanl1 (+)) (#> t))  --(#>#) 
+
+
 
 
 namespace Traversals
