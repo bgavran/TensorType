@@ -14,7 +14,7 @@ TensorType is a framework for pure functional tensor processing, implemented in 
 At the moment its main purpose is enabling rapid prototyping of structured neural network architectures. For instance, it is expressive enough to [implement generalised cross-attention](https://github.com/bgavran/TensorType/blob/main/src/Architectures/Transformer/Attention.idr#L9) (as described in the [Generalised Transformers blog post](https://glaive-research.org/2025/02/11/Generalized-Transformers-from-Applicative-Functors.html)).
 
 > [!NOTE]
-> TensorType is in early stages of development; expect breaking changes. Named axes are not yet fully integrated, and TensorType is not yet performant: down the line the goal is to obtain performance in a systematic way, not at the expense of types, but [because of them](#Aim-of-TensorType).
+> TensorType is in early stages of development; expect breaking changes. Named axes are not yet fully integrated, and TensorType is not yet performant. Down the line the goal is to obtain performance systematically, not at the expense of types, but [because of them](#Aim-of-TensorType).
 
 * [Examples](#Examples)
 * [Installation instructions](#Installation-instructions)
