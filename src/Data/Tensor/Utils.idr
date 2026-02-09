@@ -80,7 +80,7 @@ namespace Range
     public export
     arange : {0 stop : Axis} -> IsCubical stop =>
       Cast Nat a => Tensor [stop] a
-    arange @{MkIsCubical _ n} = ># (cast . finToNat) <$> positions {f=Vect n}
+    arange @{MkIsCubical _ n} = cast . finToNat <$> positions {sh=()}
 
   namespace TwoArgs
     ||| A range of numbers [start, stop>
@@ -90,7 +90,7 @@ namespace Range
       (cStart : IsCubical start) => (cStop : IsCubical stop) =>
       Cast Nat a => Tensor [stop.name ~~> minus (dim stop) (dim start)] a
     arangeFromTo {cStart=(MkIsCubical _ n)} {cStop=(MkIsCubical _ m)}
-      = ># (cast . (+n) . finToNat) <$> positions {f=Vect (minus m n)}
+      = cast . (+n) . finToNat <$> positions {sh=()}
 
 namespace Flip
   ||| Reverse a tensor along a given axis

@@ -156,31 +156,46 @@ public export
 EmptyExtEq : {0 c : Cont} -> IsNaperian c => Ext c Unit = Unit
 EmptyExtEq @{(MkIsNaperian pos)} = believe_me () -- what does wrong if we do this
 
+namespace Transpose
+  public export
+  transposeLens : IsNaperian c => IsNaperian d => (c >@ d) =%> (d >@ c)
+  transposeLens @{MkIsNaperian _} @{MkIsNaperian _} = !% \(() <| _) =>
+    (() <| (\_ => ()) ** \(dInd ** cInd) => (cInd ** dInd))
 
-public export
-tensorIsNaperianShape : {shape : List Cont} ->
-  (allNap : All IsNaperian shape) =>
-  IsNaperian (Tensor shape)
-tensorIsNaperianShape {shape = []} = MkIsNaperian ()
-tensorIsNaperianShape {shape = (_ :: ss), allNap = ((MkIsNaperian pos) :: ns)}
-  = let tg = tensorIsNaperianShape {shape = ss} 
-    in ?tensorIsNaperianShape_rhs_1
-    --in rewrite naperianShpEq @{tg}
-    --in (rewrite (EmptyExtEq {c=(Nap pos)})
-    --in let tg = MkIsNaperian in ?tensorIsNaperianShape_rhs_2)
+  ||| This and the above function should be one and the same, up to rebracketing
+  public export
+  transpose : IsNaperian c => IsNaperian d =>
+    Tensor [c, d] =%> Tensor [d, c]
+  transpose @{MkIsNaperian _} @{MkIsNaperian _} = !% \(() <| _) =>
+    (() <| (\_ => () <| (\_ => ())) ** \(dInd ** cInd ** ()) =>
+      (cInd ** (dInd ** ())))
+    
 
-public export
-transformToHancock : {shape : List Cont} ->
-  All IsNaperian shape =>
-  Tensor shape =%> HancockTensor shape
-transformToHancock {shape = []} = id
-transformToHancock {shape = (_ :: ss)} @{((MkIsNaperian pos) :: ns)}
-  = let f = (%!) (transformToHancock {shape = ss} @{ns})
-        (_ ** h) = f (foldOverNaperianShapeComp {shape=ss})
-    in !% \(() <| content) => (((), foldOverNaperianShapeHancock) **
-      \(p, fld) => (p ** ?hhh))
-      -- (((), rewrite -- foldOverNaperianShapeHancock {shape=ss} @{ns} in ()) **
-    --   \(p, fld) => (p ** ?bnn))
+
+-- public export
+-- tensorIsNaperianShape : {shape : List Cont} ->
+--   (allNap : All IsNaperian shape) =>
+--   IsNaperian (Tensor shape)
+-- tensorIsNaperianShape {shape = []} = MkIsNaperian ()
+-- tensorIsNaperianShape {shape = (_ :: ss), allNap = ((MkIsNaperian pos) :: ns)}
+--   = let tg = tensorIsNaperianShape {shape = ss} 
+--     in ?tensorIsNaperianShape_rhs_1
+--     --in rewrite naperianShpEq @{tg}
+--     --in (rewrite (EmptyExtEq {c=(Nap pos)})
+--     --in let tg = MkIsNaperian in ?tensorIsNaperianShape_rhs_2)
+
+-- public export
+-- transformToHancock : {shape : List Cont} ->
+--   All IsNaperian shape =>
+--   Tensor shape =%> HancockTensor shape
+-- transformToHancock {shape = []} = id
+-- transformToHancock {shape = (_ :: ss)} @{((MkIsNaperian pos) :: ns)}
+--   = let f = (%!) (transformToHancock {shape = ss} @{ns})
+--         (_ ** h) = f (foldOverNaperianShapeComp {shape=ss})
+--     in !% \(() <| content) => (((), foldOverNaperianShapeHancock) **
+--       \(p, fld) => (p ** ?hhh))
+--       -- (((), rewrite -- foldOverNaperianShapeHancock {shape=ss} @{ns} in ()) **
+--     --   \(p, fld) => (p ** ?bnn))
 
 -- need to organise this
 namespace BinTree

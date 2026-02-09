@@ -763,57 +763,13 @@ t1 = reduce t0 "batch"
       traverse = tensorTraverse
 
   namespace NaperianInstance
-
-    namespace Index
-      ||| Datatype for indexing into a Naperian tensor
-      public export
-      data IndexNaperian : (shape : TensorShape rank) ->
-        (allNap : All IsNaperian (conts shape)) =>
-        Type where
-        Nil : IndexNaperian []
-        (::) : {0 a : Axis} -> {0 as : TensorShape k} ->
-          (rest : All IsNaperian (conts as)) =>
-          (nap : IsNaperian a) =>
-          Log a ->
-          NewAxisConsistent a as =>
-          IndexNaperian as {allNap=rest} ->
-          IndexNaperian (a :: as) {allNap=(toContNaperian nap :: rest)}
-
-    public export
-    tensorLookup : {shape : TensorShape rank} ->
-      All IsNaperian (conts shape) =>
-      Tensor shape a ->
-      (IndexNaperian shape -> a)
-    tensorLookup {shape = []} t _ = extract t
-    tensorLookup {shape = (_ :: as)} t ((::) {nap = (MkIsNaperian _ _)} i is)
-      = tensorLookup (lookup (extractTopExt t) i) is
-
-    public export
-    tensorTabulate : {shape : TensorShape rank} ->
-      (allNap : All IsNaperian (conts shape)) =>
-      (IndexNaperian shape -> a) -> Tensor shape a
-    tensorTabulate {shape = [], allNap = []} f = embed (f Nil)
-    tensorTabulate {shape = ((_ ~> _) :: _), allNap = MkIsNaperian _ :: _} f
-       = embedTopExt $ tabulate $ \i => tensorTabulate $ \is => f (i :: is)
-
-    public export
-    {shape : TensorShape rank} ->
-    (allAppl : All TensorMonoid (conts shape)) =>
-    (allNaperian : All IsNaperian (conts shape)) =>
-    Naperian (Tensor shape) where
-      Log = IndexNaperian shape
-      lookup = tensorLookup
-      tabulate = tensorTabulate
-
     public export
     transposeMatrix : {i, j : Axis} ->
       NewAxisConsistent i [j] => NewAxisConsistent j [i] =>
       (ni : IsNaperian i) => (nj : IsNaperian j) =>
       Tensor [i, j] a -> Tensor [j, i] a
     transposeMatrix {ni=(MkIsNaperian _ _)} {nj=(MkIsNaperian _ _)}
-      = fromExtensionComposition
-      . transpose
-      . toExtensionComposition
+      = restructure transpose
 
     transposeTest : Tensor ["i" ~~> 2, "j" ~~> 3] a ->
                     Tensor ["j" ~~> 3, "i" ~~> 2] a
@@ -824,7 +780,7 @@ t1 = reduce t0 "batch"
     public export
     positions : {0 c : Axis} ->
       {sh : c.cont.Shp} -> Tensor [c] (c.cont.Pos sh)
-    positions = extToVector positionsCont
+    positions = extToVector (positionsCont {sh=sh})
 
 namespace ShowInstance
   public export
@@ -1287,3 +1243,45 @@ namespace Slice
   ||| CTensor [BinTree, List] a
   namespace NonCubicalSlicing
 -}
+
+
+    -- namespace Index
+    --   ||| Datatype for indexing into a Naperian tensor
+    --   public export
+    --   data IndexNaperian : (shape : TensorShape rank) ->
+    --     (allNap : All IsNaperian (conts shape)) =>
+    --     Type where
+    --     Nil : IndexNaperian []
+    --     (::) : {0 a : Axis} -> {0 as : TensorShape k} ->
+    --       (rest : All IsNaperian (conts as)) =>
+    --       (nap : IsNaperian a) =>
+    --       Log a ->
+    --       NewAxisConsistent a as =>
+    --       IndexNaperian as {allNap=rest} ->
+    --       IndexNaperian (a :: as) {allNap=(toContNaperian nap :: rest)}
+
+    -- public export
+    -- tensorLookup : {shape : TensorShape rank} ->
+    --   All IsNaperian (conts shape) =>
+    --   Tensor shape a ->
+    --   (IndexNaperian shape -> a)
+    -- tensorLookup {shape = []} t _ = extract t
+    -- tensorLookup {shape = (_ :: as)} t ((::) {nap = (MkIsNaperian _ _)} i is)
+    --   = tensorLookup (lookup (extractTopExt t) i) is
+
+    -- public export
+    -- tensorTabulate : {shape : TensorShape rank} ->
+    --   (allNap : All IsNaperian (conts shape)) =>
+    --   (IndexNaperian shape -> a) -> Tensor shape a
+    -- tensorTabulate {shape = [], allNap = []} f = embed (f Nil)
+    -- tensorTabulate {shape = ((_ ~> _) :: _), allNap = MkIsNaperian _ :: _} f
+    --    = embedTopExt $ tabulate $ \i => tensorTabulate $ \is => f (i :: is)
+
+    -- public export
+    -- {shape : TensorShape rank} ->
+    -- (allAppl : All TensorMonoid (conts shape)) =>
+    -- (allNaperian : All IsNaperian (conts shape)) =>
+    -- Naperian (Tensor shape) where
+    --   Log = IndexNaperian shape
+    --   lookup = tensorLookup
+    --   tabulate = tensorTabulate

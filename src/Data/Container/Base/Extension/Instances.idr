@@ -7,7 +7,7 @@ import Data.Container.Base.Object.Definition
 import Data.Container.Base.Object.Instances
 import Data.Container.Base.Extension.Definition
 
-import Data.Functor.Naperian
+-- import Data.Functor.Naperian
 import Misc
 
 %hide Prelude.(<|)
@@ -105,19 +105,10 @@ IsNaperian c => Applicative (Ext c) where
   pure @{MkIsNaperian _} a = () <| \_ => a
   (<*>) fs xs @{MkIsNaperian _} = uncurry ($) <$> liftA2ConstCont fs xs 
 
-||| The extension of a Naperian container is a Naperian functor
-||| All Naperian functors are applicative, but not vice versa
-||| Notably, lists are not applicative
-public export
-IsNaperian c => Naperian (Ext c) where
-  Log @{MkIsNaperian pos} = pos
-  lookup @{MkIsNaperian pos} = index
-  tabulate @{MkIsNaperian pos} = \content => () <| content
-
-||| Generalisation of 'positions' from Data.Functor
+||| Generalisation of 'positions' from Data.Functor.Naperian
 ||| Works for an arbitrary container, as long as we supply its shape
-||| The definition in Data.Functor.positions is for Naperian containers
+||| The definition in Data.Functor.Naperian.positions is for Naperian containers
 ||| i.e. containers with a unit shape
 public export
-positionsCont : {sh : c.Shp} -> Ext c (c.Pos sh)
+positionsCont : {0 c : Cont} -> {sh : c.Shp} -> Ext c (c.Pos sh)
 positionsCont = sh <| id

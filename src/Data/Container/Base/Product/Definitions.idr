@@ -16,13 +16,15 @@ public export infixr 0 ><
 public export infixr 0 >*<
 public export infixr 0 >+<
 public export infixr 0 >@
+public export infixr 0 @>
 public export infixr 0 <%>
 
-||| Categorical product of containers
-||| Monoid with UnitCont
-public export
-(>*<) : Cont -> Cont -> Cont
-c1 >*< c2 = ((s, s') : (c1.Shp, c2.Shp)) !> Either (c1.Pos s) (c2.Pos s')
+namespace CategoricalProduct
+  ||| Categorical product of containers
+  ||| Monoid with UnitCont
+  public export
+  (>*<) : Cont -> Cont -> Cont
+  c1 >*< c2 = ((s, s') : (c1.Shp, c2.Shp)) !> Either (c1.Pos s) (c2.Pos s')
 
 ||| Non-categorical product of containers, often also called
 ||| 'Hancock' (Scotland), 'Dirichlet' (Spivak), or 'Tensor product' (various)
@@ -49,25 +51,39 @@ namespace HancockTensorProduct
 
 
 
-||| Coproduct of containers
-||| Monoid with Empty
-public export
-(>+<) : Cont -> Cont -> Cont
-c1 >+< c2 = (es : Either c1.Shp c2.Shp) !> either c1.Pos c2.Pos es
+namespace CategoricalCoproduct
+  ||| Coproduct of containers
+  ||| Monoid with Empty
+  public export
+  (>+<) : Cont -> Cont -> Cont
+  c1 >+< c2 = (es : Either c1.Shp c2.Shp) !> either c1.Pos c2.Pos es
 
-||| Composition of containers making Ext (c >@ d) = (Ext c) . (Ext d)
-||| Non-symmetric in general, and not in diagrammatic order
-||| Monoid with Scalar
-public export
-(>@) : Cont -> Cont -> Cont
-c >@ d = (ex : Ext c d.Shp) !> (cp : c.Pos (shapeExt ex) ** d.Pos (index ex cp))
+namespace CompositionProduct
+  ||| Composition of containers making Ext (c >@ d) = (Ext c) . (Ext d)
+  ||| Non-symmetric in general, and not in diagrammatic order
+  ||| Monoid with Scalar
+  public export
+  (>@) : Cont -> Cont -> Cont
+  c >@ d = (ex : Ext c d.Shp) !>
+           (cp : c.Pos (shapeExt ex) ** d.Pos (index ex cp))
 
-public export infixr 0 @>
+  public export
+  compositionMap : (c1 =%> d1) -> (c2 =%> d2) -> (c1 >@ c2) =%> (d1 >@ d2)
+  compositionMap f g = !% \(c1Shp <| c2Index) =>
+    ((fst ((%!) f c1Shp) <| \d1Pos =>
+      let gOut  = (%!) g (c2Index (snd ((%!) f c1Shp) d1Pos))
+      in fst gOut) ** \(d1Pos ** d2Pos) => (snd ((%!) f c1Shp) d1Pos **
+        snd ((%!) g (c2Index (snd ((%!) f c1Shp) d1Pos))) d2Pos))
 
-||| Diagrammatic composition of containers
-public export
-(@>) : Cont -> Cont -> Cont
-c @> d = (ex : Ext d c.Shp) !> (dp : d.Pos (shapeExt ex) ** c.Pos (index ex dp))
+  public export 
+  associateToRight : ((c >@ d) >@ e) =%> (c >@ (d >@ e))
+  associateToRight = !% \(h <| k) => ?associateToRight_rhs
+  
+  ||| Diagrammatic composition of containers
+  public export
+  (@>) : Cont -> Cont -> Cont
+  c @> d = (ex : Ext d c.Shp) !>
+           (dp : d.Pos (shapeExt ex) ** c.Pos (index ex dp))
 
 namespace MonoidalClosure
   ||| Every lens gives rise to a container

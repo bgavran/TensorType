@@ -12,7 +12,7 @@ import Language.Reflection
 import Data.Unique.Vect
 import Data.Unique.List
 import Data.Tensor
-import Data.Functor.Naperian
+-- import Data.Functor.Naperian
 import Misc
 
 %language ElabReflection

@@ -11,7 +11,7 @@ import public Data.Container.Base.Instances
 -- for manipulating concrete tree instances
 import public Data.Tree
 import public Data.Functor.Algebra
-import public Data.Functor.Naperian
+-- import public Data.Functor.Naperian
 import public Data.Container.Base.TreeUtils
 
 -- temp/misc

@@ -44,7 +44,7 @@ outputMatrix = Run (SelfAttentionMat {causalMask=True}) inputMatrix params
 SelfAttentionTree : {d : Nat} ->
   Tensor ["inputStructure" ~> BinTreeLeaf, "numTokens" ~> Vect d] Double -\->
   Tensor ["inputStructure" ~> BinTreeLeaf, "numTokens" ~> Vect d] Double
-SelfAttentionTree = SelfAttention softargmax
+SelfAttentionTree = SelfAttention softargmaxImpl
 
 ||| We fix a simple input tree
 ||| Notably, the set of parameters can be the same as the one for matrices
