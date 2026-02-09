@@ -16,16 +16,15 @@ import Data.Layout
 import Misc
 
 ||| "State" as defined in https://arxiv.org/abs/2403.13001 and open games 
-||| Given a shape of any container, can be defined as a dependent lens
+||| Given a shape of any container, state can be defined
 public export
-State : {c : Cont} -> c.Shp -> Scalar =%> c
+State : c.Shp -> Scalar =%> c
 State x = !% \() => (x ** const ())
 
 ||| "Costate" as defined in categorical deep learning and open games
 ||| Models the notion of a dependent function using dependent lenses
 public export
-Costate : {0 c : Cont} ->
-  (s : (x : c.Shp) -> c.Pos x) ->
+Costate : (s : (x : c.Shp) -> c.Pos x) ->
   c =%> Scalar
 Costate s = !% \x => (() ** \() => s x)
 
@@ -62,6 +61,16 @@ wrapIntoVector : {c, d : Cont} ->
 wrapIntoVector (!% f) =
   !% \e => let (y ** ky) = f (shapeExt e)
            in (y <| \_ => () ** \(cp ** ()) => (ky cp ** ()))
+
+||| Wraps a dependent lens `c =%> d`
+||| into one of type `c >< Scalar =%> d >< Scalar`
+||| Needed because `c >< Scalar` isn't automatically reduced to `c`
+public export
+wrapIntoVectorHancock : {c, d : Cont} ->
+  c =%> d ->
+  HancockTensor [c] =%> HancockTensor [d]
+wrapIntoVectorHancock f = !% \(x, ()) =>
+  ((f.fwd x, ()) ** \(y', ()) => (f.bwd x y', ())) 
 
 namespace CubicalHelpers
   ||| Helper function allowing `shape` in `cubicalShape` to have zero annotation
@@ -109,11 +118,11 @@ unflattenCubical {shape = (_ :: ss), ac=((MkIsCubical n) :: as)} lo =
 
 ||| This is simply a rewrite!
 public export
-reshapeFlattenedTensor : {oldShape, newShape : List Cont} ->
+recastFlattenedTensor : {oldShape, newShape : List Cont} ->
   (oldAc : All IsCubical oldShape) => (newAc : All IsCubical newShape) =>
   {auto prf : size oldShape = size newShape} ->
   Vect (size oldShape) =%> Vect (size newShape)
-reshapeFlattenedTensor = !% \() => (() ** \i => rewrite prf in i)
+recastFlattenedTensor = !% \() => (() ** \i => rewrite prf in i)
 
 ||| Reshapes a cubical tensor by first flattening it to a linear representation,
 ||| casting the type to the new shape, and then unflattening it back
@@ -125,36 +134,9 @@ reshape : {oldShape, newShape : List Cont} ->
   {auto prf : size oldShape = size newShape} ->
   Tensor oldShape =%> Tensor newShape
 reshape lo = flattenCubical lo
-         %>> reshapeFlattenedTensor
+         %>> recastFlattenedTensor
          %>> unflattenCubical lo
 
-
-||| Technically this is Unit, but hard to prove
-public export
-foldOverNaperianShapeComp : {shape : List Cont} ->
-  (allNap : All IsNaperian shape) =>
-  (Tensor shape).Shp
-foldOverNaperianShapeComp {shape = []} = ()
-foldOverNaperianShapeComp {allNap = ((MkIsNaperian pos) :: ns)}
-  = () <| \_ => foldOverNaperianShapeComp
-
-public export
-naperianHancockShape : {shape : List Cont} ->
-  (allNap : All IsNaperian shape) =>
-  (HancockTensor shape).Shp = Unit
-naperianHancockShape = believe_me ()
-
-public export
-foldOverNaperianShapeHancock : {shape : List Cont} ->
-  (allNap : All IsNaperian shape) =>
-  (HancockTensor shape).Shp
-foldOverNaperianShapeHancock {shape = []} = ()
-foldOverNaperianShapeHancock {allNap = ((MkIsNaperian _) :: _)}
-  = ((), foldOverNaperianShapeHancock)
-
-public export
-EmptyExtEq : {0 c : Cont} -> IsNaperian c => Ext c Unit = Unit
-EmptyExtEq @{(MkIsNaperian pos)} = believe_me () -- what does wrong if we do this
 
 namespace Transpose
   public export
@@ -169,7 +151,81 @@ namespace Transpose
   transpose @{MkIsNaperian _} @{MkIsNaperian _} = !% \(() <| _) =>
     (() <| (\_ => () <| (\_ => ())) ** \(dInd ** cInd ** ()) =>
       (cInd ** (dInd ** ())))
+
+||| Functionality for transforming a tensor into a hancock tensor
+namespace TransformIntoHancockTensor
+  public export
+  hancockTensorNaperianShape : {shape : List Cont} ->
+    (allNap : All IsNaperian shape) =>
+    (HancockTensor shape).Shp
+  hancockTensorNaperianShape {shape = []} = ()
+  hancockTensorNaperianShape {allNap = ((MkIsNaperian _) :: _)}
+    = ((), hancockTensorNaperianShape)
+  
+  ||| Helper to compute the unique shape of Tensor when all containers are Naperian
+  public export
+  tensorNaperianShape : {shape : List Cont} ->
+    (allNap : All IsNaperian shape) =>
+    (Tensor shape).Shp
+  tensorNaperianShape {shape = []} = ()
+  tensorNaperianShape {shape = (_ :: ss), allNap = ((MkIsNaperian _) :: ns)}
+    = () <| \_ => tensorNaperianShape {shape = ss} @{ns}
+  
+  ||| Analogous to `naperianPosEq` but for the HancockTensor structure
+  ||| We can't use `naperianPosEq` directly because the shape of the resulting
+  ||| container is not Unit, it is only isomorphic to it
+  public export
+  hancockTensorPosEq : {shape : List Cont} ->
+    (allNap : All IsNaperian shape) =>
+    {0 x, y : (HancockTensor shape).Shp} ->
+    (HancockTensor shape).Pos x = (HancockTensor shape).Pos y
+  hancockTensorPosEq {allNap = []} = Refl
+  hancockTensorPosEq {allNap = ((MkIsNaperian _) :: _)} = cong2 Pair
+    (naperianPosEq @{MkIsNaperian _} {x=()} {y=()})
+    hancockTensorPosEq
+  
+  ||| Tensor shape is isomorphic to HancockTensor shape when all containers in
+  ||| the shape are Naperian. This is one arrow of that isomorphism
+  public export
+  transformToHancock : {shape : List Cont} ->
+    All IsNaperian shape =>
+    Tensor shape =%> HancockTensor shape
+  transformToHancock {shape = []} = id
+  transformToHancock {shape = (_ :: _)} @{((MkIsNaperian _) :: _)}
+    = !% \(() <| content) => (((), hancockTensorNaperianShape) **
+       \(p, restPos) =>
+         let (_ ** recBack) = (%!) transformToHancock (content p)
+         in (p ** recBack $ replace {p = id} hancockTensorPosEq restPos))
+
+
+public export
+EmptyExtEq : {0 c : Cont} -> IsNaperian c => Ext c Unit = Unit
+EmptyExtEq @{(MkIsNaperian pos)} = believe_me () -- what does wrong if we do this
+
     
+
+  -- ||| Technically this is Unit, but hard to prove
+  -- public export
+  -- foldOverNaperianShapeComp : {shape : List Cont} ->
+  --   (allNap : All IsNaperian shape) =>
+  --   (Tensor shape).Shp
+  -- foldOverNaperianShapeComp {shape = []} = ()
+  -- foldOverNaperianShapeComp {allNap = ((MkIsNaperian pos) :: ns)}
+  --   = () <| \_ => foldOverNaperianShapeComp
+  -- 
+  -- public export
+  -- naperianHancockShape : {shape : List Cont} ->
+  --   (allNap : All IsNaperian shape) =>
+  --   (HancockTensor shape).Shp = Unit
+  -- naperianHancockShape = believe_me ()
+  -- 
+  -- public export
+  -- foldOverNaperianShapeHancock : {shape : List Cont} ->
+  --   (allNap : All IsNaperian shape) =>
+  --   (HancockTensor shape).Shp
+  -- foldOverNaperianShapeHancock {shape = []} = ()
+  -- foldOverNaperianShapeHancock {allNap = ((MkIsNaperian _) :: _)}
+  --   = ((), foldOverNaperianShapeHancock)
 
 
 -- public export

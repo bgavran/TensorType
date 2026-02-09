@@ -42,11 +42,11 @@ namespace DependentLenses
   ||| See fwd of `DChart`
   public export
   (.fwd) : c1 =%> c2 -> c1.Shp -> c2.Shp
-  (.fwd) f = \y => ((%! f) y).fst
+  (.fwd) f x = ((%! f) x).fst
 
   public export
   (.bwd) : (f : c1 =%> c2) -> (x : c1.Shp) -> c2.Pos (f.fwd x) -> c1.Pos x
-  (.bwd) f = \x => ((%! f) x).snd
+  (.bwd) f x y' = ((%! f) x).snd y'
 
   ||| Composition of dependent lenses
   public export

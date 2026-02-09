@@ -64,6 +64,17 @@ IsCubical c => SeqMonoid c where
   seqN @{MkIsCubical n} = State ()
   seqM @{MkIsCubical n} = !% \(() <| _) => (() ** \i => (i ** i))
 
+public export
+diagonal : {c : Cont} ->
+  TensorMonoid c => 
+  IsNaperian c =>
+  Tensor [c, c] =%> Tensor [c]
+diagonal = transformToHancock {shape=[c, c]}
+         %>> (!% \(x, (y, ())) => let (z ** kz) = (%!) tensorM (x, y) 
+                                  in (z ** \z' => let (x', y') = kz z'
+                                                  in (x', y', ())))
+         %>> !% \x => (x <| (\_ => ()) ** fst)
+
 namespace BinTreeUtils
   public export
   pairBTreeShapes : BinTreeShape -> BinTreeShape -> BinTreeShape

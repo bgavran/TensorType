@@ -352,9 +352,9 @@ exMatrix2 = reshape $ arange {stop="v" ~~> 9}
 
 
 public export
-tTest : Tensor ["i" ~~> 80] Double
+tTest : Tensor ["i" ~~> 800] Double
 tTest = arange
 
 public export
-tRes : Tensor ["i" ~~> 2, "j" ~~> 40] Double
+tRes : Tensor ["i" ~~> 2, "j" ~~> 400] Double
 tRes = reshape tTest

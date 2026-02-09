@@ -62,12 +62,15 @@ public export
 Log : (0 c : Cont) -> IsNaperian c => Type
 Log _ @{MkIsNaperian pos} = pos
 
+-- ||| If we have a Naperian container, we can always produce (the unique)
+-- ||| inhabitant of it shape
+-- public export
+-- naperianShape : IsNaperian c => c.Shp
+-- naperianShape @{(MkIsNaperian pos)} = ()
+-- 
 public export
-naperianShpEq : IsNaperian c => c.Shp = Unit
-naperianShpEq @{(MkIsNaperian pos)} = Refl
-
--- naperianPosEq : IsNaperian c => c.Pos x -> x = ()
--- naperianPosEq = ?naperianPosEq_rhs
+naperianPosEq : IsNaperian c => {0 x, y : c.Shp} -> c.Pos x = c.Pos y
+naperianPosEq @{MkIsNaperian _} = Refl
 
 ||| A container is cubical whenever it is Finite and Naperian
 ||| Effectively, captures `Vect n` containers, up to isomorphism

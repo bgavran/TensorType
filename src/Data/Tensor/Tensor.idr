@@ -47,8 +47,7 @@ General functionality includes:
 
 ||| Tensor is the core datatype of TensorType.
 ||| Implementation-wise, it's a wrapper around the extension of `Cont.Tensor`
-||| to aid type inference, but also because it adds the functionality of axis
-||| names
+||| to aid type inference, and to add the axis name functionality
 public export
 record Tensor
   (shape : TensorShape rank)
@@ -453,9 +452,14 @@ namespace TensorInstances
     public export
     diagonal : {i : Axis} ->
       (t : Tensor [i, i] a) ->
-      IsNaperian i => TensorMonoid (i.cont) =>
+      IsNaperian i.cont => TensorMonoid (i.cont) =>
       Tensor [i] a
-    diagonal t = restructure (let tt = tensorM {c=i.cont} in ?diagonal_rhs) t
+    diagonal t = restructure diagonal t
+
+    public export
+    tDiag : Tensor ["i" ~~> 2, "i" ~~> 2] Double
+    tDiag = ># [ [100, 0]
+               , [0, 47] ] 
 
 
 
