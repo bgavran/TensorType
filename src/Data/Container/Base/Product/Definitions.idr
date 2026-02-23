@@ -18,11 +18,45 @@ public export infixr 0 >+<
 public export infixr 0 >@
 public export infixr 0 <%>
 
-||| Categorical product of containers
-||| Monoid with UnitCont
-public export
-(>*<) : Cont -> Cont -> Cont
-c1 >*< c2 = ((s, s') : (c1.Shp, c2.Shp)) !> Either (c1.Pos s) (c2.Pos s')
+namespace All
+  public export
+  data AllPos : {cs : Vect n Cont} -> All Shp cs -> Type where
+    Nil : AllPos []
+    (::) : {0 cs : Vect m Cont} -> {0 ss : All Shp cs} ->
+      Pos c s -> AllPos {cs=cs} ss -> AllPos {cs=(c::cs)} (s :: ss)
+
+namespace Any
+  namespace FromAnyShape
+    public export
+    data AnyPos : {cs : Vect n Cont} -> Any Shp cs -> Type where
+      Here : {0 s : c.Shp} -> {cs : Vect m Cont} ->
+        c.Pos s -> AnyPos (Here {x=c} {xs=cs} s)
+      There : {0 cs : Vect m Cont} -> {0 ss : Any Shp cs} ->
+        AnyPos ss -> AnyPos (There {x=c} ss)
+  
+  namespace FromAllShape
+    public export
+    data AnyPos : {cs : Vect n Cont} -> All Shp cs -> Type where
+      Here : {0 c : Cont} -> {0 s : c.Shp} ->
+        {cs : Vect m Cont} -> {ss : All Shp cs} ->
+        c.Pos s -> AnyPos {cs=(c::cs)} (s :: ss)
+      There : {0 cs : Vect m Cont} -> {0 ss : All Shp cs} ->
+        AnyPos ss -> AnyPos {cs=(c::cs)} (s :: ss)
+
+
+
+namespace Product
+  ||| Categorical product of containers
+  ||| Monoid with UnitCont
+  public export
+  (>*<) : Cont -> Cont -> Cont
+  c1 >*< c2 = ((s, s') : (c1.Shp, c2.Shp)) !> Either (c1.Pos s) (c2.Pos s')
+
+  ||| N-ary product of containers
+  public export
+  AllAny : {n : Nat} -> Vect n Cont -> Cont
+  AllAny xs = (shps : All Shp xs) !> AnyPos shps
+
 
 ||| Non-categorical product of containers, often also called
 ||| 'Hancock' (Scotland), 'Dirichlet' (Spivak), or 'Tensor product' (various)
@@ -37,6 +71,21 @@ namespace HancockTensorProduct
   hancockMap f g = !% \(c, d) => ((f.fwd c, g.fwd d) **
     \(c', d') => (f.bwd c c', g.bwd d d'))
 
+  namespace Monadic
+    public export
+    hancockMap : {m : Type -> Type} -> Monad m =>
+      {c1, d1, c2, d2 : Cont} ->
+      MLens {m=m} c1 d1 -> MLens {m=m} c2 d2 -> MLens {m=m} (c1 >< c2) (d1 >< d2)
+    hancockMap f g = !%% \(c, d) => do
+      (x ** kx) <- (%%! f) c
+      (y ** ky) <- (%%! g) d
+      pure ((x, y) ** \x'y' => (kx (fst x'y'), ky (snd x'y')))
+
+  ||| N-ary Hancock product of containers
+  public export
+  AllAll : {n : Nat} -> Vect n Cont -> Cont
+  AllAll xs = (shps : All Shp xs) !> AllPos shps
+
   ||| Dependent Hancock (tensor) product of containers.
   ||| This is the analogue of DPair for containers:
   ||| Given a container `pc` and a family `qc : pc.Shp -> Cont`,
@@ -48,12 +97,17 @@ namespace HancockTensorProduct
     ((p ** q) : DPair pc.Shp (Shp . qc)) !> (pc.Pos p, (qc p).Pos q)
 
 
+namespace Coproduct
+  ||| Coproduct of containers
+  ||| Monoid with Empty
+  public export
+  (>+<) : Cont -> Cont -> Cont
+  c1 >+< c2 = (es : Either c1.Shp c2.Shp) !> either c1.Pos c2.Pos es
 
-||| Coproduct of containers
-||| Monoid with Empty
-public export
-(>+<) : Cont -> Cont -> Cont
-c1 >+< c2 = (es : Either c1.Shp c2.Shp) !> either c1.Pos c2.Pos es
+  ||| Coproduct of `n` containers 
+  public export
+  Any : {n : Nat} -> Vect n Cont -> Cont
+  Any xs = (shp : Any Shp xs) !> AnyPos shp
 
 ||| Composition of containers making Ext (c >@ d) = (Ext c) . (Ext d)
 ||| Non-symmetric in general, and not in diagrammatic order
@@ -98,33 +152,26 @@ namespace CartesianClosure
     = (f : ((x : c.Shp) -> (y : d.Shp ** d.Pos y -> Maybe (c.Pos x))))
       !> (xx : c.Shp ** yy' : d.Pos (fst (f xx)) ** ?cartesianClosureImpl)
 
+namespace ConvexCombProduct
+  ||| Probabilistic product of containers
+  ||| Convex combination of shapes, and a product of positions
+  ||| This is equivalent to the n-ary Hancock tensor product of containers, 
+  ||| together with a choice of a point inside an n-simplex
+  public export
+  ConvexComb : {n : Nat} -> Vect n Cont -> Cont
+  ConvexComb xs = ((shp, p) : (All Shp xs, Dist n)) !> AllPos shp
 
-public export
-data AllPos : {cs : Vect n Cont} -> All Shp cs -> Type where
-  Nil : AllPos []
-  (::) : {0 cs : Vect m Cont} -> {0 ss : All Shp cs} ->
-    Pos c s -> AllPos {cs=cs} ss -> AllPos {cs=(c::cs)} (s :: ss)
-
-
-||| Probabilistic product of containers
-||| Convex combination of shapes, and a product of positions
-||| This is equivalent to the n-ary Hancock tensor product of containers, 
-||| together with a choice of a point inside an n-simplex
-public export
-ConvexComb : {n : Nat} -> Vect n Cont -> Cont
-ConvexComb xs = ((p, shp) : (Dist n, All Shp xs)) !> AllPos shp
-
--- DCont : (n : Nat) -> Cont
--- DCont n = (_ : Dist n) !> Unit
--- 
--- ProdCont : Vect n Cont -> Cont 
--- ProdCont xs = (ys : All Shp xs) !> AllPos ys
--- 
--- DistCont : Vect n Cont -> Cont
--- DistCont xs = ProdCont xs >< DCont
-
---(<%>) : Cont -> Cont -> Cont
---c <%> d = (Tensor [2] Double, (c1.Shp, c2.Shp)) !> 
+  -- DCont : (n : Nat) -> Cont
+  -- DCont n = (_ : Dist n) !> Unit
+  -- 
+  -- ProdCont : Vect n Cont -> Cont 
+  -- ProdCont xs = (ys : All Shp xs) !> AllPos ys
+  -- 
+  -- DistCont : Vect n Cont -> Cont
+  -- DistCont xs = ProdCont xs >< DCont
+  
+  --(<%>) : Cont -> Cont -> Cont
+  --c <%> d = (Tensor [2] Double, (c1.Shp, c2.Shp)) !> 
 
 
 ||| Derivative of a container

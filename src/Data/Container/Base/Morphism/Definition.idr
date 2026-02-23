@@ -21,6 +21,13 @@ public export prefix 0 &!
 public export prefix 0 :!
 export infixl 5 %>> -- composition of dependent lenses
 export infixl 5 &>> -- composition of dependent charts
+export infixl 5 %%>> -- composition of monadic dependent lenses
+
+
+public export prefix 0 !%% -- constructor the "monadic" dependent lens
+public export prefix 0 %%!
+export infixl 5 %>>= -- composition of "monadic" dependent lenses
+
 
 namespace DependentLenses
   ||| Dependent lenses
@@ -150,3 +157,52 @@ chartToLens : {c1, c2 : Cont} -> {r : Type}
   ->  (c1 `valuedIn` r) =%> (c2 `valuedIn` r)
 chartToLens f = !% \x => let (y ** ky) = (((&!) f) x)
                          in (y ** (. ky))
+
+
+
+||| Similar to a monadic dependent lens, but not quite
+||| Unclear on relationship to other lenses, but needed for sampling
+namespace MLens
+  parameters {m : Type -> Type} {auto mm : Monad m} 
+    public export
+    data MLens : (c1, c2 : Cont) -> Type where
+        (!%%) : {0 c1, c2 : Cont} ->
+          ((x : c1.Shp) -> m (y : c2.Shp ** (c2.Pos y -> c1.Pos x))) ->
+          MLens c1 c2
+  
+    public export
+    (%%!) : MLens c1 c2 -> (x : c1.Shp) -> m (y : c2.Shp ** (c2.Pos y -> c1.Pos x))
+    (%%!) (!%% f) x = f x
+
+    -- fwd, bwd, comp, id
+
+    public export
+    (.fwd) : MLens c1 c2 -> c1.Shp -> m c2.Shp
+    (.fwd) f = \x => fst <$> (%%! f) x
+
+    -- liftBw : Monad m => {c1, c2 : Cont} ->
+    --   (x : c1.Shp) -> (y : m c2.Shp) ->
+    --   (c2.Pos y -> c1.Pos x) -> c2.Pos (m y) -> 
+
+    --public export
+    --(.bwd) : MLens c1 c2 -> (x : c1.Shp) -> m (c2.Pos (f.fwd x) -> c1.Pos x)
+
+    ||| Composition of monadic dependent lenses
+    public export
+    compMDepLens : MLens a b -> MLens b c -> MLens a c
+    compMDepLens (!%% f) (!%% g) = !%% \x => do
+      (b ** kb) <- f x
+      (c ** kc) <- g b
+      pure (c ** kb . kc)
+
+    public export
+    (%%>>) : MLens a b -> MLens b c -> MLens a c
+    (%%>>) = compMDepLens
+
+    public export
+    id : MLens a a
+    id = !%% \x => pure (x ** id)
+
+    public export
+    liftDLens : (c1 =%> c2) -> MLens c1 c2
+    liftDLens f = !%% \x => pure (f.fwd x ** f.bwd x)

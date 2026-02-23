@@ -50,16 +50,21 @@ namespace CommonNames
   Matrix : (row, col : Nat) -> (dtype : Type) -> Type
   Matrix row col dtype = Tensor [row, col] dtype
 
-namespace ZerosOnes
+namespace FillZerosOnes
+  public export
+  fill : Num a => {shape : List Cont} -> All TensorMonoid shape =>
+    a -> CTensor shape a
+  fill x = tensorReplicate x
+
   public export
   zeros : Num a => {shape : List Cont} -> All TensorMonoid shape =>
     CTensor shape a
-  zeros = tensorReplicate (fromInteger 0)
+  zeros = fill (fromInteger 0)
 
   public export
   ones : Num a => {shape : List Cont} -> All TensorMonoid shape =>
     CTensor shape a
-  ones = tensorReplicate (fromInteger 1)
+  ones = fill (fromInteger 1)
 
 
   ||| An identity matrix with True on the diagonal and False elsewhere
@@ -265,6 +270,15 @@ namespace Random
     randomIO = sequence (pure randomIO)
 
     randomRIO (lo, hi) = sequence $ randomRIO <$> liftA2 lo hi
+
+  tta : Applicative (Tensor [1])
+  tta = %search
+
+  ttt : Traversable (Tensor [1])
+  ttt = %search
+  
+  ttd : Random Double
+  ttd = %search
 
 -- Idris can't find the parametric randomIO interface so reimpementing here
 public export

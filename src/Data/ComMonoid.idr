@@ -26,6 +26,7 @@ public export
 numIsMonoid : Num a => ComMonoid a
 numIsMonoid = MkComMonoid (+) 0
 
+
 %hint
 public export
 pairIsMonoid : ComMonoid a => ComMonoid b => ComMonoid (a, b)

@@ -342,6 +342,13 @@ namespace TensorInstances
       log = (log <$>)
       minusInfinity = pure minusInfinity
 
+    public export
+    {shape : List Cont} -> FromDouble a => All TensorMonoid shape =>
+      FromDouble (CTensor shape a) where
+        fromDouble x = tensorReplicate (fromDouble x)
+
+
+
 
   namespace AlgebraInstance
     ||| Unlike all other instantiations of 'AllX', `AllAlgebra` is not
@@ -819,7 +826,7 @@ namespace SetterGetter
   ||| This dependency is not needed for cubical tensors
   public export
   data Index : (shape : List Cont) -> (t : CTensor shape dtype) -> Type where
-    Nil : {val : dtype} -> Index [] (embed val)
+    Nil : {t : CTensor [] dtype} -> Index [] t
     (::) : {t : CTensor (c :: cs) dtype} ->
       (p : c.Pos (shapeExt (extractTopExt t))) ->
       Index cs (index (extractTopExt t) p) ->
@@ -830,7 +837,7 @@ namespace SetterGetter
   public export
   index : {shape : List Cont} ->
     (t : CTensor shape a) -> Index shape t -> a
-  index {shape = []} (embed val) [] = val
+  index {shape = []} t [] = extract t
   index {shape = (c :: cs)} t (i :: is) =
     index (index (extractTopExt t) i) is
 

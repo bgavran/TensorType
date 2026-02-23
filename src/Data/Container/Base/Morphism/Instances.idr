@@ -2,6 +2,8 @@ module Data.Container.Base.Morphism.Instances
 
 import Data.Fin
 import Data.Fin.Split
+import Data.Vect
+import Data.Vect.Quantifiers
 
 import Data.Container.Base.Object.Definition
 import Data.Container.Base.Morphism.Definition
@@ -10,6 +12,9 @@ import Data.Container.Base.Product.Definitions
 import Data.Container.Base.Object.Instances
 
 import Data.Container.Base.TreeUtils
+
+import Control.Monad.Distribution
+import Control.Monad.Sample.Definition
 
 import Data.Layout
 import Misc
@@ -25,6 +30,13 @@ fromCostate : {0 c : Cont} ->
   c =%> Scalar ->
   (x : c.Shp) -> c.Pos x
 fromCostate f x = snd ((%! f) x) ()
+
+namespace Monadic
+  public export
+  fromCostate : {m : Type -> Type} -> Monad m => {0 c : Cont} ->
+    MLens {m=m} c Scalar ->
+    (x : c.Shp) -> m (c.Pos x)
+  fromCostate f x = ((\b => b ()) . snd) <$> ((%%! f) x)
 
 
 public export
@@ -160,3 +172,12 @@ maybeToList = !% \b => case b of
 -- traverseLeaf (NodeS lt rt) (GoLeft x) = weakenN (numLeaves rt) (traverseLeaf lt x)
 -- traverseLeaf (NodeS lt rt) (GoRight x) = shift (numLeaves lt) (traverseLeaf rt x)
 -- 
+
+
+
+namespace Sample
+  public export
+  Uniform : {n : Nat} -> IsSucc n =>
+    {xs : Vect n Cont} ->
+    AllAll xs =%> ConvexComb xs
+  Uniform = !% \shapes => ((shapes, uniform) ** id)

@@ -1,48 +1,54 @@
-module NN.Training.Examples
+module NN.Training.Examples.LinearRegression
+
+import System.Random
 
 import Data.Tensor
 import Data.Container.Additive
 import NN.Optimisers.Definition
 import NN.Optimisers.Instances
-import NN.Training.Optimisation
+import NN.Training.Training
 import NN.Training.DataLoader
 import NN.Utils
+import Data.Autodiff.Ops
+import Control.Monad.Identity
+
 import Data.Para
 
-namespace AdditiveLenses
-  %hide Data.Container.Base.Morphism.Definition.DependentLenses.(=%>)
-
-  public export
-  MulParametric : ParaAddDLens (Const Double) (Const Double)
-  MulParametric = binaryOpToPara {p=Const Double} Mul
-
-  public export
-  AddParametric : ParaAddDLens (Const Double) (Const Double)
-  AddParametric = binaryOpToPara {p=Const Double} Sum
-
-  public export
-  AffineParametric : ParaAddDLens (Const Double) (Const Double)
-  AffineParametric = composePara MulParametric AddParametric
 
 public export
-linearRegressionDataLoader : DataLoader Double Double
-linearRegressionDataLoader = MkDataLoader 3 [
-  (1, 5),
-  (2, 9),
-  (3, 13)]
+exampleInputs : Vect 5 Double
+exampleInputs = [1, 2, 3, 4, 5]
 
 public export
-linearRegression : (f : ParaAddDLens (Const Double) (Const Double)) ->
-  Num (GetParam f).Shp => Neg (GetParam f).Shp =>
+groundTruth : Double -> Double
+groundTruth x = 2 * x + 1
+
+public export
+linearRegressionDataLoader : Monad m => m (DataLoader Double Double)
+linearRegressionDataLoader = makeDataLoader exampleInputs (pure . groundTruth)
+
+public export
+linearRegression : (f : ParaAddMLens {m=IO} (Const Double) (Const Double)) ->
+  Neg (GetParam f).Shp => Fractional (GetParam f).Shp =>
+  Sqrt (GetParam f).Shp =>
+  Random (GetParam f).Shp =>
   FromDouble (GetParam f).Shp => Show (GetParam f).Shp =>
   (isFlat : IsFlat (GetParam f)) =>
   (numSteps : Nat) ->
-  IO (GetParam f).Shp
+  IO ()
 linearRegression f@(MkPara (MkAddCont (Const p)) _)
-  {isFlat = MkIsFlat p @{mon}} numSteps =
-  let opt = GD {pType=p} {lr=0.01} -- {gamma=0.9}
-      dataLoader = sample linearRegressionDataLoader
-  in fst <$> optimiseLearner f MSE dataLoader opt numSteps
+  {isFlat = MkIsFlat p @{mon}} numSteps = do
+  trainData <- linearRegressionDataLoader
+  testDataLoader <- makeDataLoader [20, 50, 100] (pure . groundTruth)
+  pTrained <- fst <$> train
+    f
+    (liftAddDLens SquaredDifference)
+    (sample trainData)
+    (GDMomentum {pType=(GetParam f).Shp})
+    numSteps
+  eval f pTrained (snd $ inputs testDataLoader)
+  avgLoss <- averageLoss f (liftAddDLens SquaredDifference) pTrained (dataset testDataLoader)
+  putStrLn "Average loss: \{show avgLoss}"
 
 public export
 minimiseCopyMulGD : (startingValue : Double) ->
@@ -50,7 +56,7 @@ minimiseCopyMulGD : (startingValue : Double) ->
   IO Double
 minimiseCopyMulGD startingValue numSteps =
   let opt = GD {pType=Double} {lr=0.001}
-  in fst <$> optimise (pure $ Copy %>> Mul) opt numSteps
+  in fst <$> optimise (pure $ liftAddDLens (Copy %>> Mul)) opt numSteps
 
 public export
 minimiseCopyMulMomentum : (startingValue : Double) ->
@@ -58,7 +64,7 @@ minimiseCopyMulMomentum : (startingValue : Double) ->
   IO Double
 minimiseCopyMulMomentum startingValue numSteps =
   let opt = GDMomentum {pType=Double} {lr=0.001} {gamma=0.9}
-  in fst <$> optimise (pure $ Copy %>> Mul) opt numSteps
+  in fst <$> optimise (pure $ liftAddDLens (Copy %>> Mul)) opt numSteps
 
 {-
 public export

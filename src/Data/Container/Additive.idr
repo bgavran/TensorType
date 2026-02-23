@@ -1,5 +1,7 @@
 module Data.Container.Additive
 
+import public Data.Vect.Quantifiers
+
 import public Data.ComMonoid
 
 -- need to import base container as a foundation for additive ones

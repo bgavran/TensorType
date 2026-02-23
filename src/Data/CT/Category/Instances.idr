@@ -11,6 +11,10 @@ TypeCat : Cat
 TypeCat = MkCat Type (\a, b => a -> b)
 
 public export
+Kleisli : Monad m => Cat
+Kleisli = MkCat Type (\a, b => a -> m b)
+
+public export
 Cat : Cat
 Cat = MkCat Cat Functor
 
@@ -35,3 +39,11 @@ AddDLens = MkCat AddCont (=%>)
 public export
 AddDChart : Cat
 AddDChart = MkCat AddCont (=&>)
+
+public export
+MLens : Monad m => Cat
+MLens = MkCat Cont (MLens {m=m})
+
+public export
+MAddLens : Monad m => Cat
+MAddLens = MkCat AddCont (MAddLens {m=m})

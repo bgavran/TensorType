@@ -3,7 +3,8 @@ module NN.Training.DataLoader
 import Data.Vect
 
 import Control.Monad.Distribution
-import Control.Monad.Sample
+import Control.Monad.Sample.Definition
+import Control.Monad.Sample.Instances
 
 
 public export
@@ -13,6 +14,18 @@ record DataLoader (input : Type) (output : Type) where
   dataset : Vect datasetSize (input, output)
   {auto isSucc : IsSucc datasetSize}
 
+public export
+inputs : DataLoader input output -> (n ** Vect n input)
+inputs (MkDataLoader datasetSize dataset) = (datasetSize ** fst <$> dataset)
+
+public export
+makeDataLoader : Monad m => {datasetSize : Nat} -> IsSucc datasetSize =>
+  (inputs : Vect datasetSize input) ->
+  (groundTruthFn : input -> m output) ->
+  m (DataLoader input output)
+makeDataLoader xs groundTruthFn = do 
+  ys <- traverse {f=m} {t=Vect datasetSize} groundTruthFn xs
+  pure $ MkDataLoader datasetSize (zip xs ys)
 
 ||| Samples a single item from the dataset
 public export
