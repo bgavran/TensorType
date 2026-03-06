@@ -44,11 +44,6 @@ public export
 sum : ComMonoid a => List a -> a
 sum @{mon} = foldr (plus mon) (neutral mon)
 
--- allisComonoid : {xs : List a} -> {p : a -> ComMonoid b} -> All 
-
-
-ttt : ComMonoid a => ComMonoid (IO a)
-
 
 namespace NotExposingType
   ||| Same as ComMonoid, but without exposing the underlying carrier in the type

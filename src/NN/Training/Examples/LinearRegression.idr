@@ -43,20 +43,23 @@ linearRegression f@(MkPara (MkAddCont (Const p)) _)
   pTrained <- fst <$> train
     f
     SquaredDifference
-    (sample trainData)
+    (toCostate $ \() => do 
+       td <- sample trainData
+       pure [td]) -- (toCostate $ \_ => sample trainData)
     (GDMomentum {pType=(GetParam f).Shp})
     numSteps
   eval f pTrained (snd $ inputs testDataLoader)
   avgLoss <- averageLoss f SquaredDifference pTrained (dataset testDataLoader)
   putStrLn "Average loss: \{show avgLoss}"
 
+{- 
 public export
 minimiseCopyMulGD : (startingValue : Double) ->
   (numSteps : Nat) ->
   IO Double
 minimiseCopyMulGD startingValue numSteps =
   let opt = GD {pType=Double} {lr=0.001}
-  in fst <$> optimise (pure $ (Copy %>> Mul)) opt numSteps
+  in fst <$> optimise {e=Scalar} ?hehe opt numSteps
 
 public export
 minimiseCopyMulMomentum : (startingValue : Double) ->

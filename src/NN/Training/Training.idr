@@ -149,10 +149,10 @@ forwardWithLoss f loss p xys =
 
 public export
 buildSupervisedLearningSystem : {x, y, p, l : AddCont} ->
-  Num l.Shp =>
+  Num l.Shp => IsFlat l =>
   (f : x >< p =%> y) ->
   (loss : (y >< y) =%> l) ->
-  (p =%> (LabelledData x y) >@ l)
+  (p =%> (pushDown (x >< y)) >@ l)
 buildSupervisedLearningSystem f loss =
   let withLoss : ((x >< p) >< y) =%> l
       withLoss = (f >< id) %>> (loss)
@@ -162,8 +162,8 @@ buildSupervisedLearningSystem f loss =
 
       systemRebracketed : ((x >< y) >< p) =%> l
       systemRebracketed = rebracket %>> withLoss
-
-  in ?hmmmm -- !%+ \p => (() <| forwardWithLoss f.fwd loss.fwd p **
+  in pushIntoContinuation {d=x><y} systemRebracketed
+     -- !%+ \p => (() <| forwardWithLoss f.fwd loss.fwd p **
      --  \ll => let lbwd = loss.bwd
      --             tt = (\(lio ** gradSum) => ?uhh) <$> ll
      --         in ?bw)
@@ -184,7 +184,7 @@ buildSupervisedLearningSystem f loss =
 --       final = onlyP %>> (ULens (rebracket %>> withLoss))
 
 public export
-train : {x, y, l : AddCont} -> InterfaceOnPositions l Num =>
+train : {x, y, l : AddCont} -> InterfaceOnPositions l Num => IsFlat l =>
   {default 100 printEvery : Nat} ->
   (f : ParaAddDLens x y) ->
   Show (GetParam f).Shp => Num l.Shp =>
@@ -197,13 +197,12 @@ train : {x, y, l : AddCont} -> InterfaceOnPositions l Num =>
   IO ((GetParam f).Shp, stateTy)
 train (MkPara p f) loss dataSampler = optimise
   {l=l}
-  {e=LabelledData x y}
+  {e=pushDown (x><y)}
   {printEvery=printEvery}
   {initParam=initParam}
   (buildSupervisedLearningSystem f loss)
   dataSampler
 
-{-
 
 public export
 totalLoss : {x, y : AddCont} ->
@@ -261,6 +260,7 @@ eval (MkPara pCont f) p (x :: xs) = do
   putStrLn "Input: \{show x}, Predicted: \{show yPred}"
   eval (MkPara pCont f) p xs
 
+{-
 
 public export
 debugPrint : {x, y : AddCont} ->

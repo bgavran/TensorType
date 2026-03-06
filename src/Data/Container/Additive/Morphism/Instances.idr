@@ -1,6 +1,7 @@
 module Data.Container.Additive.Morphism.Instances
 
 import Data.Vect
+import Data.List.Quantifiers
 import Data.Vect.Quantifiers
 
 import Data.Container.Base
@@ -44,19 +45,33 @@ fromCostate f x = f.bwd x ()
 
 public export
 pushDown : AddCont -> AddCont
-pushDown c = !! (Const2 Unit c.Shp)
+pushDown d = !! (Const2 Unit d.Shp)
 
 public export
-pushIntoContinuation : {d, p, l : AddCont} ->
-  (d >< p =%> l) ->
+pushIntoContinuationList : {d, p, l : AddCont} ->
+  (f : d >< p =%> l) ->
   (p =%> (pushDown d) >@ (List l))
-pushIntoContinuation f = !%+ \p => (() <|
-  \ds => (\d => f.fwd (d, p)) <$> ds **
-    \ll => let tt = (\ds => ?hehe) <$> ll
-           in ?fnfnn)
+pushIntoContinuationList f = !%+ \param => (() <|
+  \ds => map (\dShp => f.fwd (dShp, param)) ds **
+    \ll => sum @{UMon p param} (ll >>=
+      \(ds ** grads) => extractPGrads param ds grads))
+  where
+    extractPGrads : (param : p.Shp) ->
+      (ds : List d.Shp) ->
+      All l.Pos ((\dShp => f.fwd (dShp, param)) <$> ds) ->
+      List (p.Pos param)
+    extractPGrads param [] [] = []
+    extractPGrads param (dShp :: ds) (grad :: grads) =
+      snd (f.bwd (dShp, param) grad) :: extractPGrads param ds grads
 
--- pushIntoContinuation f = !% \p => (() <| \d => f.fwd (d, p) **
---   \(d ** l') => snd $ f.bwd (d, p) l')
+public export
+pushIntoContinuation : {d, p, l : AddCont} -> (flat : IsFlat l) => Num l.Shp =>
+  (f : d >< p =%> l) ->
+  (p =%> (pushDown d) >@ l)
+pushIntoContinuation {flat = MkIsFlat _} f = !%+ \param => (() <|
+  \ds => sum @{numIsMonoid} (map (\dShp => f.fwd (dShp, param)) ds) **
+    \ll => sum @{UMon p param} (ll >>=
+      \(ds ** grad) => (\dShp => snd (f.bwd (dShp, param) grad)) <$> ds))
 
 namespace Monadic
   public export
