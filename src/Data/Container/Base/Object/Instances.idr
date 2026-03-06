@@ -5,6 +5,7 @@ import Data.Fin
 import Data.Container.Base.Object.Definition
 import Data.Container.Base.Product.Definitions
 import Data.Container.Base.TreeUtils
+import Control.Monad.Distribution
 
 ||| Empty container, isomorphic to Void
 ||| As a polynomial functor: F(X) = 0
@@ -129,3 +130,9 @@ Const a = Const2 a a
 public export
 Nap : Type -> Cont
 Nap b = Const2 Unit b
+
+
+||| Can't believe this works?
+public export
+Sample : Nat -> Cont
+Sample n = Const2 (Dist n) (Fin n)

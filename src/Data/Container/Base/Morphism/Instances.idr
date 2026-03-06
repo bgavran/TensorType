@@ -11,25 +11,68 @@ import Data.Container.Base.Extension.Definition
 import Data.Container.Base.Product.Definitions
 import Data.Container.Base.Object.Instances
 
+import Data.Container.Base.Quantifiers
 import Data.Container.Base.TreeUtils
 
 import Control.Monad.Distribution
 import Control.Monad.Sample.Definition
 
+import Data.Num
 import Data.Layout
 import Misc
 
 public export
-Costate : {0 c : Cont} ->
-  (s : (x : c.Shp) -> c.Pos x) ->
-  c =%> Scalar
-Costate s = !% \x => (() ** \() => s x)
+State : Cont -> Type
+State c = Scalar =%> c
+
+public export
+Costate : Cont -> Type
+Costate c = c =%> Scalar
+
+public export
+toState : {0 c : Cont} -> (x : c.Shp) -> State c
+toState x = !% \() => (x ** \_ => ())
+
+public export
+fromState : {0 c : Cont} ->
+  State c ->
+  c.Shp
+fromState f = f.fwd ()
 
 public export
 fromCostate : {0 c : Cont} ->
-  c =%> Scalar ->
+  Costate c ->
   (x : c.Shp) -> c.Pos x
-fromCostate f x = snd ((%! f) x) ()
+fromCostate f x = f.bwd x ()
+
+public export
+toCostate : {0 c : Cont} ->
+  ((x : c.Shp) -> c.Pos x) ->
+  Costate c
+toCostate s = !% \x => (() ** \() => s x)
+
+public export
+fromNapCostateToState : {0 c : Cont} ->
+  Costate (Nap c.Shp) -> State c
+fromNapCostateToState f = toState (f.bwd () ())
+
+public export
+fromStateToNapCostate : {0 c : Cont} ->
+  State c -> Costate (Nap c.Shp)
+fromStateToNapCostate f = toCostate f.fwd
+
+public export
+pushDown : Cont -> Cont
+pushDown c = Const2 Unit c.Shp
+
+public export
+pushIntoContinuation : {d, p, l : Cont} ->
+  (d >< p =%> l) ->
+  (p =%> (pushDown d) >@ l)
+pushIntoContinuation f = !% \p => (() <| \d => f.fwd (d, p) **
+  \(d ** l') => snd $ f.bwd (d, p) l')
+
+
 
 namespace Monadic
   public export
@@ -39,9 +82,67 @@ namespace Monadic
   fromCostate f x = ((\b => b ()) . snd) <$> ((%%! f) x)
 
 
+namespace HancockTensorProduct
+  public export
+  leftUnit : (Scalar >< c) =%> c
+  leftUnit = !% \((), s) => (s ** \p => ((), p))
+  
+  public export
+  rightUnit : (c >< Scalar) =%> c
+  rightUnit = !% \(x, ()) => (x ** \x' => (x', ()))
+
+  public export
+  leftUnitInv : c =%> (Scalar >< c)
+  leftUnitInv = !% \x => (((), x) ** \((), x') => x')
+
+  public export
+  rightUnitInv : c =%> (c >< Scalar)
+  rightUnitInv = !% \x => ((x, ()) ** \(x', ()) => x')
+
+  public export
+  assocL : ((a >< b) >< c) =%> (a >< (b >< c))
+  assocL = !% \((a, b), c) => ((a, (b, c)) ** \(a', (b', c')) => ((a', b'), c'))
+
+  public export
+  assocR : (a >< (b >< c)) =%> ((a >< b) >< c)
+  assocR = !% \(a, (b, c)) => (((a, b), c) ** \((a', b'), c') => (a', (b', c')))
+
+  public export
+  swap : (a >< b) =%> (b >< a)
+  swap = !% \(a, b) => ((b, a) ** \(b', a') => (a', b'))
+
+namespace CompositionProduct
+  public export
+  leftUnit : (Scalar >@ c) =%> c
+  leftUnit = !% \(() <| cShp) => (cShp () ** \c' => (() ** c'))
+
+  public export
+  rightUnit : (c >@ Scalar) =%> c
+  rightUnit = !% \(s <| _) => (s ** \cp => (cp ** ()))
+
+  public export
+  leftUnitInv : c =%> (Scalar >@ c)
+  leftUnitInv = !% \x => (() <| (\_ => x) ** \(() ** c') => c')
+  
+  public export
+  rightUnitInv : c =%> (c >@ Scalar)
+  rightUnitInv = !% \s => (s <| const () ** fst)
+
+
+||| Interaction between composition and tensor product
 public export
-rightUnit : (c >< Scalar) =%> c
-rightUnit = !% \(x, ()) => (x ** \x' => (x', ()))
+duoidal : ((c >@ d) >< (e >@ f)) =%> ((c >< e) >@ (d >< f))
+duoidal = !% \((sc <| idxC), (se <| idxE)) =>
+  ((sc, se) <| \(cp, ep) => (idxC cp, idxE ep) **
+    \((cp, ep) ** (dp, fp)) => ((cp ** dp), (ep ** fp)))
+
+||| Specific distributive law we need
+public export
+distribute : ((c >< e) =%> s) ->
+  ((c >< (e >@ g)) =%> (s >@ g))
+distribute f = (rightUnitInv >< id {a=e >@ g})
+             %>> duoidal {d = Scalar}
+             %>> (f >@ leftUnit)
 
 ||| Ext is a functor of type Cont -> [Type, Type]
 ||| On objects it maps a container to a polynomial functor
@@ -173,11 +274,50 @@ maybeToList = !% \b => case b of
 -- traverseLeaf (NodeS lt rt) (GoRight x) = shift (numLeaves lt) (traverseLeaf rt x)
 -- 
 
+public export
+Sample : MonadSample m => {n : Nat} -> IsSucc n =>
+  (m <!> Sample n) =%> Scalar
+Sample = toCostate sample
 
+public export
+selectShape : {cs : Vect k Cont} ->
+  (shapes : All Shp cs) -> (i : Fin k) -> Any Shp cs
+selectShape (s :: _) FZ = Here s
+selectShape (_ :: ss) (FS j) = There (selectShape ss j)
 
-namespace Sample
-  public export
-  Uniform : {n : Nat} -> IsSucc n =>
-    {xs : Vect n Cont} ->
-    AllAll xs =%> ConvexComb xs
-  Uniform = !% \shapes => ((shapes, uniform) ** id)
+||| Extract the position from an AnyPos at a given index
+public export
+extractPos : {n : Nat} -> {xs : Vect n Cont} ->
+  {shapes : All Shp xs} ->
+  (i : Fin n) ->
+  AnyShpPos (selectShape shapes i) ->
+  AnyPos shapes
+extractPos {shapes = (_ :: _)} FZ (Here x) = Here x
+extractPos {shapes = (_ :: _)} (FS j) (There rest)
+  = There $ extractPos j rest
+
+public export
+SampleAndChoose : {n : Nat} -> {xs : Vect n Cont} ->
+  ConvexComb xs =%> (Sample n >@ Any xs)
+SampleAndChoose = !% \(d, shapes) =>
+  (d <| selectShape shapes ** \(i ** grad) => (0, [extractPos i grad]))
+
+-- SampleAndChooseWithDist = !% \(d, shapes) =>
+--   (d <| electShape shapes ** \(i ** grad) => (0, [(i ** extractPos i grad)]))
+
+-- public export
+-- GetDist : {n : Nat} -> {xs : Vect n Cont} ->
+--   ConvexComb xs =%> Simplex n
+-- GetDist = !% \(d, shapes) => (d ** \d' => (d', ?GetDist_rhs))
+
+public export
+handleEffect : Monad m =>
+  (handler : (m <!> effect) =%> Scalar) ->
+  (program : a =%> effect) ->
+  m <!> a =%> Scalar
+handleEffect handler program = !% \x =>
+  let (ef ** nn) = (%! program) x
+      (() ** rest) = (%! handler) ef
+  in (() ** \() => do 
+    e <- rest ()
+    pure (nn e))

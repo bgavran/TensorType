@@ -24,8 +24,6 @@ data InterfaceOnPositions : (c : Cont) -> (i : Type -> Type) -> Type where
   MkI : (p : (s : c.Shp) -> i (c.Pos s)) =>
     InterfaceOnPositions c i
 
-
-
 ||| Used in learning, where we want to know that the tangent space over a
 ||| particular parameter is equal to the parameter space itself
 public export

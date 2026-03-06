@@ -32,6 +32,7 @@ modules = Data.Container.Base
         , Data.Container.Base.Instances
         , Data.Container.Base.InstanceInterfaces
         , Data.Container.Base.TreeUtils
+        , Data.Container.Base.Quantifiers
 
         , Data.Container.Additive
         , Data.Container.Additive.Object.Definition
@@ -40,6 +41,7 @@ modules = Data.Container.Base
         , Data.Container.Additive.Morphism.Instances
         , Data.Container.Additive.Extension.Definition
         , Data.Container.Additive.Product.Definitions
+        , Data.Container.Additive.Quantifiers
 
         , Data.Container.Applicative
         , Data.Container.Applicative.Object.Instances

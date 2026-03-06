@@ -28,7 +28,7 @@ linearRegressionDataLoader : Monad m => m (DataLoader Double Double)
 linearRegressionDataLoader = makeDataLoader exampleInputs (pure . groundTruth)
 
 public export
-linearRegression : (f : ParaAddMLens {m=IO} (Const Double) (Const Double)) ->
+linearRegression : (f : ParaAddDLens (Const Double) (Const Double)) ->
   Neg (GetParam f).Shp => Fractional (GetParam f).Shp =>
   Sqrt (GetParam f).Shp =>
   Random (GetParam f).Shp =>
@@ -42,12 +42,12 @@ linearRegression f@(MkPara (MkAddCont (Const p)) _)
   testDataLoader <- makeDataLoader [20, 50, 100] (pure . groundTruth)
   pTrained <- fst <$> train
     f
-    (liftAddDLens SquaredDifference)
+    SquaredDifference
     (sample trainData)
     (GDMomentum {pType=(GetParam f).Shp})
     numSteps
   eval f pTrained (snd $ inputs testDataLoader)
-  avgLoss <- averageLoss f (liftAddDLens SquaredDifference) pTrained (dataset testDataLoader)
+  avgLoss <- averageLoss f SquaredDifference pTrained (dataset testDataLoader)
   putStrLn "Average loss: \{show avgLoss}"
 
 public export
@@ -56,7 +56,7 @@ minimiseCopyMulGD : (startingValue : Double) ->
   IO Double
 minimiseCopyMulGD startingValue numSteps =
   let opt = GD {pType=Double} {lr=0.001}
-  in fst <$> optimise (pure $ liftAddDLens (Copy %>> Mul)) opt numSteps
+  in fst <$> optimise (pure $ (Copy %>> Mul)) opt numSteps
 
 public export
 minimiseCopyMulMomentum : (startingValue : Double) ->
@@ -64,7 +64,7 @@ minimiseCopyMulMomentum : (startingValue : Double) ->
   IO Double
 minimiseCopyMulMomentum startingValue numSteps =
   let opt = GDMomentum {pType=Double} {lr=0.001} {gamma=0.9}
-  in fst <$> optimise (pure $ liftAddDLens (Copy %>> Mul)) opt numSteps
+  in fst <$> optimise (pure $ (Copy %>> Mul)) opt numSteps
 
 {-
 public export

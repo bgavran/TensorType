@@ -6,6 +6,8 @@ import Data.Container.Additive
 import NN.Architectures.Softargmax
 import Control.Monad.Distribution
 
+import Data.Container.Additive.Quantifiers
+
 import Data.Para
 
 %hide Data.Container.Base.Morphism.Definition.DependentLenses.(=%>)
@@ -22,6 +24,13 @@ namespace Combinators
     {l : Type} -> Num l =>
     Loss y {l} -> Loss z {l} -> Loss (y >< z) {l}
   pairLossFunctions loss1 loss2 = swapMiddle %>> (loss1 >< loss2) %>> Sum
+
+  public export
+  composeLossFunctions : {y, z : AddCont} ->
+    {l : Type} -> Num l =>
+    Loss y {l} -> Loss z {l} -> Loss (y >@ z) {l}
+  composeLossFunctions loss1 loss2 = let tt = loss1 >@ loss2
+                                     in ?composeLossFunctions_rhs
 
   public export
   sequenceLossFunctions : {y, z : AddCont} ->

@@ -124,6 +124,10 @@ namespace ParametricDependentLenses
   DParaDLens = DepParaMor DPairCont
 
   public export
+  ParaDLens : (a, b : Cont) -> Type
+  ParaDLens = DepParaMor PairCont
+
+  public export
   ParaAddDLens : (a, b : AddCont) -> Type
   ParaAddDLens = DepParaMor PairAddCont
 

@@ -11,6 +11,8 @@ import Data.Container.Additive.Object.Instances
 import Data.Container.Additive.Morphism.Definition
 import Data.Container.Additive.Product.Definitions
 
+import Data.Container.Additive.Quantifiers
+
 import Control.Monad.Distribution
 import Control.Monad.Sample.Definition
 
@@ -20,14 +22,41 @@ import Misc
 %hide Data.Vect.Quantifiers.All.index
 
 public export
-State : {0 c : AddCont} -> (x : c.Shp) -> Scalar =%> c
-State x = !%+ \() => (x ** \_ => ())
+toState : {0 c : AddCont} -> (x : c.Shp) -> Scalar =%> c
+toState x = !%+ \() => (x ** \_ => ())
 
 public export
-Costate : {0 c : AddCont} ->
+fromState : {0 c : AddCont} -> Scalar =%> c -> c.Shp
+fromState f = f.fwd ()
+
+public export
+toCostate : {0 c : AddCont} ->
   (s : (x : c.Shp) -> c.Pos x) ->
   c =%> Scalar
-Costate s = !%+ \x => (() ** \() => s x)
+toCostate s = !%+ \x => (() ** \() => s x)
+
+public export
+fromCostate : {0 c : AddCont} ->
+  c =%> Scalar ->
+  (x : c.Shp) -> c.Pos x
+fromCostate f x = f.bwd x ()
+
+
+public export
+pushDown : AddCont -> AddCont
+pushDown c = !! (Const2 Unit c.Shp)
+
+public export
+pushIntoContinuation : {d, p, l : AddCont} ->
+  (d >< p =%> l) ->
+  (p =%> (pushDown d) >@ (List l))
+pushIntoContinuation f = !%+ \p => (() <|
+  \ds => (\d => f.fwd (d, p)) <$> ds **
+    \ll => let tt = (\ds => ?hehe) <$> ll
+           in ?fnfnn)
+
+-- pushIntoContinuation f = !% \p => (() <| \d => f.fwd (d, p) **
+--   \(d ** l') => snd $ f.bwd (d, p) l')
 
 namespace Monadic
   public export
@@ -39,20 +68,81 @@ public export
 constantOne : {c : AddCont} ->
   InterfaceOnPositions c Num =>
   c =%> Scalar
-constantOne @{MkI @{p}} = Costate {c=c} (\x => let numPos = p x in 1)
+constantOne @{MkI @{p}} = toCostate {c=c} (\x => let numPos = p x in 1)
+
+namespace HancockTensorProduct
+  public export
+  leftUnit : {c : AddCont} -> (Scalar >< c) =%> c
+  leftUnit = !%+ \((), s) => (s ** \p => ((), p))
+  
+  public export
+  rightUnit : {c : AddCont} -> (c >< Scalar) =%> c
+  rightUnit = !%+ \(x, ()) => (x ** \x' => (x', ()))
+
+  public export
+  leftUnitInv : {c : AddCont} -> c =%> (Scalar >< c)
+  leftUnitInv = !%+ \x => (((), x) ** \((), x') => x')
+  
+  public export
+  rightUnitInv : {c : AddCont} -> c =%> (c >< Scalar)
+  rightUnitInv = !%+ \x => ((x, ()) ** \(x', ()) => x')
+
+  public export
+  assocL : {0 a, b, c : AddCont} -> ((a >< b) >< c) =%> (a >< (b >< c))
+  assocL = !%+ \((a, b), c) => ((a, (b, c)) ** \(a', (b', c')) => ((a', b'), c'))
+
+  public export
+  assocR : {0 a, b, c : AddCont} -> (a >< (b >< c)) =%> ((a >< b) >< c)
+  assocR = !%+ \(a, (b, c)) => (((a, b), c) ** \((a', b'), c') => (a', (b', c')))
+
+  public export
+  swap : {0 a, b : AddCont} -> (a >< b) =%> (b >< a)
+  swap = !%+ \(a, b) => ((b, a) ** \(b', a') => (a', b'))
+
+namespace CompositionProduct
+  public export
+  leftUnit : {c : AddCont} -> (Scalar >@ c) =%> c
+  leftUnit = !%+ \(() <| cShp) => (cShp () ** \c' => [(() ** c')])
+
+  public export
+  rightUnit : {c : AddCont} -> (c >@ Scalar) =%> c
+  rightUnit = !%+ \(s <| _) => (s ** \p => [(p ** ())])
+
+  public export
+  leftUnitInv : {c : AddCont} -> c =%> (Scalar >@ c)
+  leftUnitInv = !%+ \s => (() <| (\_ => s) ** \ll =>
+    sum @{UMon c s} (snd <$> ll))
+  
+  ||| Right unit inverse: c =%> c >@ I
+  public export
+  rightUnitInv : {c : AddCont} -> c =%> (c >@ Scalar)
+  rightUnitInv = !%+ \s => (s <| const () ** \ll =>
+    sum @{UMon c s} (fst <$> ll))
 
 public export
-rightUnit : {c : AddCont} -> (c >< Scalar) =%> c
-rightUnit = !%+ \(x, ()) => (x ** \x' => (x', ()))
+duoidal : {c, d, e, f : AddCont} ->
+  ((c >@ d) >< (e >@ f)) =%> ((c >< e) >@ (d >< f))
+duoidal = !%+ \((sc <| idxC), (se <| idxE)) =>
+  ((sc, se) <| \(cp, ep) => (idxC cp, idxE ep) **
+    \ll => ((\((cp, ep) ** (dp, fp)) => (cp ** dp)) <$> ll,
+            (\((cp, ep) ** (dp, fp)) => (ep ** fp)) <$> ll))
 
 public export
-rightUnitInv : {c : AddCont} -> c =%> (c >< Scalar)
-rightUnitInv = !%+ \x => ((x, ()) ** \(x', ()) => x')
+rebracketcomptensor: {e, y : AddCont} -> ((e >@ y) >< y) =%> (e >@ (y >< y))
+rebracketcomptensor = (id {c=e >@ y} >< leftUnitInv {c=y})
+                      %>> duoidal {c=e} {d=y} {e=Scalar} {f=y}
+                      %>> (rightUnit {c=e} >@ id {c=(y><y)})
+
 
 public export
-leftUnitInv : {c : AddCont} -> c =%> (Scalar >< c)
-leftUnitInv = !%+ \x => (((), x) ** \((), x') => x')
+distribute : {c, e, g : AddCont} ->
+  ((c >< e) =%> s) ->
+  ((c >< (e >@ g)) =%> (s >@ g))
+distribute f = (rightUnitInv >< id {c=e >@ g})
+             %>> duoidal {d = Scalar}
+             %>> (f >@ leftUnit)
 
+  
 namespace Monadic
   public export
   rightUnitInv : {m : Type -> Type} -> Monad m => {c : AddCont} ->
@@ -76,10 +166,18 @@ Copy : {c : AddCont} ->
 Copy = !%+ \x => ((x, x) ** uncurry (c.Plus x))
 
 public export
+PairMaps : {c, d, e : AddCont} ->
+  (f : c =%> d) ->
+  (g : c =%> e) ->
+  c =%> (d >< e)
+PairMaps f g = Copy %>> (f >< g)
+
+public export
 Delete : {c : AddCont} ->
   c =%> Scalar
 Delete = !%+ \x => (() ** \() => c.Zero x)
 
+||| Note that this doesn't exist for ordinary containers!
 public export
 ProjLeft : {c, d : AddCont} ->
   (c >< d) =%> c
@@ -103,7 +201,7 @@ Negate = !%+ \x => (-x ** \x' => -x')
 public export
 Zero : Num a =>
   Scalar =%> Const a
-Zero = State 0
+Zero = toState 0
 
 public export
 Mul : Num a =>
@@ -115,30 +213,38 @@ public export
 SquaredDifference : {a : Type} -> Num a => Neg a => (Const a >< Const a) =%> (Const a)
 SquaredDifference = ((id {c=Const a}) >< Negate) %>> Sum %>> Copy %>> Mul
 
-public export
-fromCostate : {m : Type -> Type} -> Monad m => {0 c : AddCont} ->
-  MAddLens {m=m} c Scalar ->
-  (x : c.Shp) -> m (c.Pos x)
-fromCostate f x = ((\b => b ()) . snd) <$> ((%%!+ f) x)
+namespace Monadic
+  public export
+  fromCostate : {m : Type -> Type} -> Monad m => {0 c : AddCont} ->
+    MAddLens {m=m} c Scalar ->
+    (x : c.Shp) -> m (c.Pos x)
+  fromCostate f x = ((\b => b ()) . snd) <$> ((%%!+ f) x)
 
 namespace Sample
   ||| Select a shape from All to produce an Any at the given index
   ||| Same as `index i (allAnies shapes)` but reduces better
   public export
   selectShape : {cs : Vect k AddCont} ->
-    (i : Fin k) -> (shapes : All (.Shp) cs) -> Any (.Shp) cs
-  selectShape FZ (s :: ss) = Here s
-  selectShape (FS j) (s :: ss) = There (selectShape j ss)
+    (shapes : All (.Shp) cs) -> (i : Fin k) -> Any (.Shp) cs
+  selectShape (s :: ss) FZ = Here s
+  selectShape (s :: ss) (FS j) = There (selectShape ss j)
 
   ||| Extract the position from an AnyPos at a given index
   public export
   extractPos : {n : Nat} -> {xs : Vect n AddCont} -> {shapes : All (.Shp) xs} ->
     (i : Fin n) ->
-    AnyPos (selectShape i shapes) ->
+    AnyShpPos (selectShape shapes i) ->
     (index i xs).Pos (index i shapes)
   extractPos {shapes = (_ :: _)} FZ (Here x') = x'
   extractPos {shapes = (_ :: _)} (FS j) (There rest) = extractPos j rest
-  
+
+  -- public export
+  -- SampleAndChooseWithDist : {n : Nat} -> {xs : Vect n AddCont} ->
+  --   ConvexComb xs =%> (Simplex n >< (Sample n >@ Any xs))
+  -- SampleAndChooseWithDist = ?SampleAndChooseWithDist_rhs
+
+
+  {-
   ||| Sample from a convex combination of options.
   |||
   ||| Forward: Sample an index, and route only the chosen shape forward.
@@ -152,7 +258,7 @@ namespace Sample
     MAddLens {m=m} (ConvexComb xs) (Any xs)
   Sample = !%%+ \(d, shapes) => do
     i <- sample d
-    pure (selectShape i shapes ** \x' => (0, [(i ** extractPos i x')]))
+    pure (selectShape shapes i ** \x' => (0, [(i ** extractPos i x')]))
 
   public export
   GetDist : {m : Type -> Type} -> MonadSample m =>
@@ -168,13 +274,36 @@ namespace Sample
     {xs : Vect n AddCont} ->
     MAddLens {m=m} (ConvexComb xs) (Simplex n >< Any xs)
   SampleAndKeepDist = liftAddDLens Copy %%+>> (GetDist >< Sample)
+  -
 
-  ||| Same as 'Sample' but preserves the distribution
-  public export
-  SampleAndKeepDistt : {m : Type -> Type} -> MonadSample m =>
-    {n : Nat} -> IsSucc n =>
-    {xs : Vect n AddCont} ->
-    MAddLens {m=m} (ConvexComb xs) (Simplex n >@ Any xs)
-  SampleAndKeepDistt = !%%+ \(d, shapes) => do
-    (i ** ki) <- (%%!+ Sample) (d, shapes)
-    pure (d <| \_ => i ** \di => ki (snd di))
+-- parameters (f : Type -> Type)
+--   ||| These are all of the morphisms in the cokleisli category of (f <!> -)  
+--   public export
+--   MonLens : Cont -> Cont -> Type
+--   MonLens c d = (f <!> c) =%> d
+-- 
+--   public export
+--   counit : Monad f => f <!> c =%> c
+--   counit = !% \x => (x ** pure)
+-- 
+--   public export
+--   cojoin : Monad f => (f <!> c) =%> (f <!> (f <!> c))
+--   cojoin = !% \x => (x ** join)
+
+  
+public export
+record FCoAlgCont (f : Type -> Type) where
+  constructor MkFCoAlgCont
+  carrier : Cont
+  coalg : (a : carrier.Shp) -> f (carrier.Pos a) -> carrier.Pos a
+
+public export
+coAlgMorphism : (c, d : FCoAlgCont f) -> Type
+coAlgMorphism c d = c.carrier =%> d.carrier
+
+convert : FCoAlgCont List -> AddCont
+convert (MkFCoAlgCont carrier coalg) = MkAddCont
+  carrier
+  {mon=(MkI @{\s => MkComMonoid
+    (\l, r => coalg s [l, r])
+    (coalg s [])})}

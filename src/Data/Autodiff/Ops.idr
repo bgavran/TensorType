@@ -115,7 +115,7 @@ sameFromTensor : {a, b : Type} -> Num a => Num b => {n : Nat} ->
   ParaAddDLens (Const a) (Const b) ->
   ParaAddDLens (Const (Tensor [1] a)) (Const (Tensor [n] b))
 sameFromTensor (MkPara pCont f) = MkPara
-  (VectAddCont $ replicate n pCont)
+  (AllAll $ replicate n pCont)
   (!%+ \(x, psShapes) =>
     let val = x @@ [0]
         outAndBw = runIdentity $ dTraverse
