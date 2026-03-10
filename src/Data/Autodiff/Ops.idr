@@ -44,6 +44,16 @@ LeakyReLUTensor = trivialParam (!%+ \x =>
   (x <&> (\xx => if xx > 0 then xx else alpha * xx) ** \dy =>
     (\(d, xx) => if xx > 0 then d else alpha * d) <$> liftA2Tensor dy x))
 
+
+public export
+coproductPair : {a, b, c, d : AddCont} ->
+  ParaAddDLens a c ->
+  ParaAddDLens b d ->
+  ParaAddDLens (a >+< b) (c >+< d)
+coproductPair (MkPara p f) (MkPara q g) = MkPara
+  (p >< q)
+  (coprodDistrOverTensor %>> (f >+< g))
+
 public export
 parallelTensor2 : {a, b: Type} -> Num a => Num b =>
   ParaAddDLens (Const a) (Const b) ->

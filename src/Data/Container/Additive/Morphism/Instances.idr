@@ -65,11 +65,11 @@ pushIntoContinuationList f = !%+ \param => (() <|
       snd (f.bwd (dShp, param) grad) :: extractPGrads param ds grads
 
 public export
-pushIntoContinuation : {d, p, l : AddCont} -> (flat : IsFlat l) => Num l.Shp =>
+pushIntoContinuation : {p : AddCont} -> (flat : IsFlat l) => Num l.Shp =>
   (f : d >< p =%> l) ->
   (p =%> (pushDown d) >@ l)
 pushIntoContinuation {flat = MkIsFlat _} f = !%+ \param => (() <|
-  \ds => sum @{numIsMonoid} (map (\dShp => f.fwd (dShp, param)) ds) **
+  \ds => sum @{numIsMonoid} ((\dShp => f.fwd (dShp, param)) <$> ds) **
     \ll => sum @{UMon p param} (ll >>=
       \(ds ** grad) => (\dShp => snd (f.bwd (dShp, param) grad)) <$> ds))
 
@@ -116,11 +116,11 @@ namespace HancockTensorProduct
 
 namespace CompositionProduct
   public export
-  leftUnit : {c : AddCont} -> (Scalar >@ c) =%> c
+  leftUnit : {0 c : AddCont} -> (Scalar >@ c) =%> c
   leftUnit = !%+ \(() <| cShp) => (cShp () ** \c' => [(() ** c')])
 
   public export
-  rightUnit : {c : AddCont} -> (c >@ Scalar) =%> c
+  rightUnit : {0 c : AddCont} -> (c >@ Scalar) =%> c
   rightUnit = !%+ \(s <| _) => (s ** \p => [(p ** ())])
 
   public export
@@ -134,6 +134,15 @@ namespace CompositionProduct
   rightUnitInv = !%+ \s => (s <| const () ** \ll =>
     sum @{UMon c s} (fst <$> ll))
 
+
+namespace Coproduct
+  public export
+  elim : {c : AddCont} ->
+    (c >+< c) =%> c
+  elim = !%+ \case
+    (Left x) => (x ** id)
+    (Right y) => (y ** id)
+
 public export
 duoidal : {c, d, e, f : AddCont} ->
   ((c >@ d) >< (e >@ f)) =%> ((c >< e) >@ (d >< f))
@@ -142,6 +151,14 @@ duoidal = !%+ \((sc <| idxC), (se <| idxE)) =>
     \ll => ((\((cp, ep) ** (dp, fp)) => (cp ** dp)) <$> ll,
             (\((cp, ep) ** (dp, fp)) => (ep ** fp)) <$> ll))
 
+public export
+coprodDistrOverTensor : {a, b, p, q : AddCont} ->
+  ((a >+< b) >< (p >< q)) =%> ((a >< p) >+< (b >< q))
+coprodDistrOverTensor = !%+ \case
+  (Left a, (p, _)) => (Left (a, p) ** \(a', p') => (a', (p', q.Zero _)))
+  (Right b, (_, q)) => (Right (b, q) ** \(b', q') => (b', (p.Zero _, q')))
+
+||| Not an isomorphism, arising from duoidal structure between >@ and ><
 public export
 rebracketcomptensor: {e, y : AddCont} -> ((e >@ y) >< y) =%> (e >@ (y >< y))
 rebracketcomptensor = (id {c=e >@ y} >< leftUnitInv {c=y})
@@ -156,6 +173,13 @@ distribute : {c, e, g : AddCont} ->
 distribute f = (rightUnitInv >< id {c=e >@ g})
              %>> duoidal {d = Scalar}
              %>> (f >@ leftUnit)
+
+public export
+extractEffect : {d, e, f : AddCont} ->
+  (d >< (e >@ f)) =%> (e >@ (d >< f))
+extractEffect = (leftUnitInv >< (id {c=e >@ f}))
+            %>> duoidal {c=Scalar}
+            %>> (leftUnit >@ (id {c=d><f}))
 
   
 namespace Monadic
@@ -209,14 +233,28 @@ Sum : Num a =>
 Sum = !%+ \(x1, x2) => (x1 + x2 ** \x' => (x', x'))
 
 public export
+bwSumList : {l : Type} -> ComMonoid l =>
+  (xs : List l) ->
+  (d' : l) ->
+  All (const l) xs
+bwSumList [] d' = []
+bwSumList (x :: xs) d' = x :: bwSumList xs x
+
+
+public export
+SumList : {l : Type} -> ComMonoid l =>
+  List (Const l) =%> Const l
+SumList = !%+ \xs => (sum xs ** \d' => bwSumList xs d')
+
+public export
 Negate : Num a => Neg a =>
   Const a =%> Const a
 Negate = !%+ \x => (-x ** \x' => -x')
 
 public export
-Zero : Num a =>
-  Scalar =%> Const a
-Zero = toState 0
+Zero : {c : AddCont} -> Num a =>
+  c =%> Const a
+Zero = !%+ \_ => (0 ** \_ => c.Zero _)
 
 public export
 Mul : Num a =>

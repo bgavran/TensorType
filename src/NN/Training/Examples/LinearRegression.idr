@@ -11,6 +11,7 @@ import NN.Training.DataLoader
 import NN.Utils
 import Data.Autodiff.Ops
 import Control.Monad.Identity
+import NN.Architectures.LossFunctions
 
 import Data.Para
 
@@ -40,16 +41,14 @@ linearRegression f@(MkPara (MkAddCont (Const p)) _)
   {isFlat = MkIsFlat p @{mon}} numSteps = do
   trainData <- linearRegressionDataLoader
   testDataLoader <- makeDataLoader [20, 50, 100] (pure . groundTruth)
-  pTrained <- fst <$> train
-    f
-    SquaredDifference
-    (toCostate $ \() => do 
-       td <- sample trainData
-       pure [td]) -- (toCostate $ \_ => sample trainData)
+  pTrained <- fst <$> optimise
+    {l=Const Double, e=pushDown (Const Double >< Const Double)}
+    (buildSupervisedLearningSystem f SquaredDifference)
+    (handleData trainData)
     (GDMomentum {pType=(GetParam f).Shp})
     numSteps
-  eval f pTrained (snd $ inputs testDataLoader)
-  avgLoss <- averageLoss f SquaredDifference pTrained (dataset testDataLoader)
+  fromCostate (eval f pTrained) (snd $ inputs testDataLoader)
+  avgLoss <- fromCostate (averageLoss f SquaredDifference pTrained) (dataset testDataLoader)
   putStrLn "Average loss: \{show avgLoss}"
 
 {- 

@@ -128,6 +128,14 @@ namespace CompositionProduct
   rightUnitInv : c =%> (c >@ Scalar)
   rightUnitInv = !% \s => (s <| const () ** fst)
 
+namespace Coproduct
+  public export
+  elim : {c : Cont} ->
+    (c >+< c) =%> c
+  elim = !% \case
+    (Left x) => (x ** id)
+    (Right y) => (y ** id)
+
 
 ||| Interaction between composition and tensor product
 public export

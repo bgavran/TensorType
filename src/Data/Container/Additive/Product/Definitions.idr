@@ -113,6 +113,14 @@ namespace Coproduct
       Left cs => MkComMonoid (plus (UMon c cs)) (neutral (UMon c cs))
       Right ds => MkComMonoid (plus (UMon d ds)) (neutral (UMon d ds))}}
 
+  namespace Morphism
+    public export
+    (>+<) : {0 c1, d1, c2, d2 : AddCont} ->
+      (c1 =%> d1) -> (c2 =%> d2) -> (c1 >+< c2) =%> (d1 >+< d2)
+    (>+<) f g = !%+ \case
+      (Left x) => (Left (f.fwd x) ** f.bwd x)
+      (Right y) => (Right (g.fwd y) ** g.bwd y)
+
   namespace List
     ||| N-ary version of coproduct
     public export
@@ -174,6 +182,10 @@ public export
 
 export prefix 9 !!
 
+||| Similar to `Nap`
+public export
+pushDown : Type -> AddCont
+pushDown b = !! (Nap b)
 
 
 namespace Composition
@@ -261,6 +273,18 @@ List : AddCont -> AddCont
 List c = MkAddCont
   (List (UC c))
   @{MkI @{allIsComonoid}}
+
+
+namespace Morphism
+  public export
+  bww : {0 c, d : AddCont} -> (f : c =%> d) -> (cs : List c.Shp) ->
+    All (d.Pos) (f.fwd <$> cs) -> All (c .Pos) cs
+  bww f [] [] = []
+  bww f (c :: cs) (a :: as) = (f.bwd c a) :: bww f cs as
+
+  public export
+  List : {0 c, d : AddCont} -> (c =%> d) -> (List c) =%> (List d)
+  List f = !%+ \cs => (f.fwd <$> cs ** bww f cs)
 
 -- duoidal and distribute have been moved to Additive.Morphism.Instances
 

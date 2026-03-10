@@ -2,6 +2,8 @@ module NN.Training.DataLoader
 
 import Data.Vect
 
+import Data.Container.Additive
+
 import Control.Monad.Distribution
 import Control.Monad.Sample.Definition
 import Control.Monad.Sample.Instances
@@ -33,3 +35,8 @@ sample : DataLoader input output -> IO (input, output)
 sample (MkDataLoader datasetSize dataset) = do
   n <- sample (uniform {i=datasetSize})
   pure (index n dataset)
+
+public export
+handleData : DataLoader x y ->
+  Costate (IO <!> pushDown (x, y))
+handleData dataLoader = toCostate $ \() => sample dataLoader <&> pure

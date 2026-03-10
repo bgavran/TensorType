@@ -144,6 +144,10 @@ namespace ParametricDependentLenses
       in (y ** \y' => (ky y', ())))
 
   public export
+  id : a =\\==> a
+  id = trivialParam id
+
+  public export
   GetParam : ParaAddDLens a b -> AddCont
   GetParam (MkPara p _) = p
 

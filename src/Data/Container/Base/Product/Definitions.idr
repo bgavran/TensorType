@@ -174,6 +174,17 @@ public export
 List : Cont -> Cont
 List c = (ss : List (c.Shp)) !> All c.Pos ss
 
+namespace Morphism
+  public export
+  bww : (f : c =%> d) -> (cs : List c.Shp) ->
+    All (d.Pos) (f.fwd <$> cs) -> All (c .Pos) cs
+  bww f [] [] = []
+  bww f (c :: cs) (a :: as) = (f.bwd c a) :: bww f cs as
+
+  public export
+  List : (c =%> d) -> (List c) =%> (List d)
+  List f = !% \cs => (f.fwd <$> cs ** bww f cs)
+
 
 
 ||| If `f` is a monad, then `f <!> -` is a comonad, and vice versa

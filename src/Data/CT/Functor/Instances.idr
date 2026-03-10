@@ -147,6 +147,13 @@ namespace AddCont
   AddContDFunFinite {n = (S k)} i = i 0 >< AddContDFunFinite (i . FS)
 
   public export
+  indexShp : {n : Nat} -> {i : Fin n -> AddCont} ->
+    (j : Fin n) ->
+    (AddContDFunFinite i).Shp -> (i j).Shp
+  indexShp {n = (S k)} FZ (s, _) = s
+  indexShp {n = (S k)} {i} (FS y) (_, ss) = indexShp {i=i . FS} y ss
+
+  public export
   AddContDFunction : {a : AddCont} -> IndexedAddCont a -> AddCont
   AddContDFunction a' = MkAddCont 
     ((s : (x : a.Shp) -> (a' x).Shp) !> ((x : a.Shp) -> (a' x).Pos (s x)))

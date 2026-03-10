@@ -264,6 +264,24 @@ findBin {n = 0} (x' :: []) x = case x' <= x of
 findBin {n = (S k)} xs x = findBinBetween xs x 0 last
 
 
+-- t : Double -> Type
+-- t 4 = Double
+-- t _ = String
+-- 
+-- th : (x : Double ** t x)
+-- th = (4 ** 5)
+-- 
+-- thh : (x : Double) -> Show (t x)
+-- thh x = ?thh_rhs
+
+public export
+mkDepPairShow : Show a => (ss : (x : a) -> Show (b x)) => (DPair a b -> String)
+mkDepPairShow = \(x ** y) => "\{show x} ** \{show (y)}"
+
+public export
+Show a => ((x : a) -> Show (b x)) => Show (DPair a b) where
+   show = mkDepPairShow
+
 ||| Interface describing how a type can be displayed as a 2d grid of characters
 public export
 interface Display (a : Type) where

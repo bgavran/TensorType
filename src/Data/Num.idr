@@ -21,7 +21,7 @@ Exp Double where
   minusInfinity = cast "-inf.0"
 
 public export
-interface Sqrt a where
+interface Num a => Sqrt a where
   sqrt : a -> a
 
 public export
