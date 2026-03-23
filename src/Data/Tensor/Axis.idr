@@ -11,18 +11,32 @@ import Misc
 {-------------------------------------------------------------------------------
 {-------------------------------------------------------------------------------
 
+~~~~~~~~~~~~~~~
 Design choices:
-1) Are axis names bound local to a tensor, or do they persist globally?
-2) Can a tensor contain duplicate axis names? (Yes?)
-3) Does tensor contraction allow duplicate axis names
+~~~~~~~~~~~~~~~
+
+1) Persistent axis names.
+
+Instead of transient axis names (bound within a function using the tensor, erased with the completion of the said function), axis names persist with the lifetime of the tensor.
+
+2) Axis declarations persist globally, but are only checked for consistency at call sites.
+
+This means that axis names are checked for consistency at each call site, rather than at declaration sites. In a proper programming language we'd track names at declaration sites and raise errors if inconsistencies/duplicates are detected, here we opt for a more pragmatic approach.
+
+3) Duplicate axis names within a tensor are allowed, as long as they refer to the same container.
+
+Otherwise it would not be clear how to take the diagonal/trace of a matrix while referring only to the axes: they'd have to have different names.
+
+4) Does tensor contraction allow duplicate axis names?
+
+
+
+Does tensor contraction allow duplicate axis names
   * in the input (yes, this is what Einsum also allows)
   * in the output (no, because otherwise its not clear what should happen)
     * this means that we can't write `einsum("i,i->ii")`
 3) How does contraction work?
   3.1) Given `t : Tensor [BatchSize, BatchSize] Double`, what is `dotGeneral t`?
-
-"instead of having 'names' be transient bindings to axes that require validation at each einsum function call invocation, and which dissapear right after the said function call, I'm attempting to build in a naming system into the core tensor calculus that persists with the lifetime of the underlying tensor. Similar to Python's XArray"
-
 
 Need to figure out how `reduce name t` acts when:
 1) `name="BatchSize"` and `t : Tensor [BatchSize, BatchSize] Double`
@@ -36,9 +50,6 @@ I suppose this is about iterators
 iterating through 
 
 
-
--- axes names persist globally, but are only checked for incompatibilities during
--- tensor formation or tensor operations. Otherwise we'd have to track contexts manually
 
 
 --- Consistency checking: ----------------- 
@@ -56,7 +67,7 @@ would throw an error on the line `BatchSize2 = ...` because we're redeclaring "b
 ------------------------------------------- 
 
 Similar projects/ideas:
-* XArray: https://docs.xarray.dev/en/stable/
+* XArray: https://docs.xarray.dev/en/stable/ (persistent axis names)
 * Haliax: https://github.com/marin-community/haliax
 
 -------------------------------------------------------------------------------}
@@ -70,7 +81,7 @@ AxisName = String
 public export infixr 0 ~> -- Constructor for container-based axes
 public export infixr 0 ~~> -- 'Constructor' for cubical axes
 
-||| An axis is a container (representing its size) together with its name
+||| An axis is a container (the "size" of the axis) together with its name
 public export
 record Axis where
   constructor (~>)

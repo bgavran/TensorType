@@ -72,6 +72,7 @@ modules = Data.Container.Base
         , Data.Functor.Naperian
         , Data.Layout
         , Data.Tree
+        , Data.Unique.Vect
         , Data.Functor.Algebra
         , Data.Num
         , Data.ComMonoid
