@@ -128,3 +128,19 @@ namespace Initial
   cata : Functor f =>
     Algebra f a -> (Initial f -> a)
   cata (MkAlgebra g) rs = g $ cata (MkAlgebra g) <$> Out rs 
+
+
+namespace Final
+  public export
+  data Final : (f : Type -> Type) -> Type where
+    MkFinal : f (Inf (Final f)) -> Final f
+
+  ||| For some reason, inlining this function in `ana` causes a compiler error
+  public export
+  embedFinal : Final f -> Inf (Final f)
+  embedFinal x = x
+
+  public export
+  ana : Functor f =>
+    (a -> f a) -> a -> Final f
+  ana next seed = MkFinal $ (embedFinal . ana next) <$> next seed
