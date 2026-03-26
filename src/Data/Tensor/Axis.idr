@@ -214,16 +214,16 @@ namespace TensorShape
     test3 : TensorShape 2
     test3 = ["batchSize" ~> Vect 128, "batchSize" ~> Vect 13]
 
-  ||| If an axis `i` can be added into a singleton list `[j]`, then
-  ||| the axis `j` can be added into a singleton list `[i]`
-  public export
-  axisConsistentSym : {i, j : Axis} ->
-    NewAxisConsistent i [j] -> NewAxisConsistent j [i]
-  axisConsistentSym (NewAxis ne) = NewAxis (notElemSym ne)
-  -- For some reason we can't pattern match on `Here`? The proof should still 
-  -- be fine... 
-  axisConsistentSym (ExistingAxis (There Here) _) impossible
-  axisConsistentSym (ExistingAxis (There (There later)) _) impossible
+  -- ||| If an axis `i` can be added into a singleton list `[j]`, then
+  -- ||| the axis `j` can be added into a singleton list `[i]`
+  -- public export
+  -- axisConsistentSym : {i, j : Axis} ->
+  --   NewAxisConsistent i [j] -> NewAxisConsistent j [i]
+  -- axisConsistentSym (NewAxis ne) = NewAxis (notElemSym ne)
+  -- -- For some reason we can't pattern match on `Here`? The proof should still 
+  -- -- be fine... 
+  -- axisConsistentSym (ExistingAxis (There Here) _) impossible
+  -- axisConsistentSym (ExistingAxis (There (There later)) _) impossible
 
   ||| Proof that an axis name appears in a tensor shape n times
   ||| The proof indirectly carries data of the exact indices where it appears
