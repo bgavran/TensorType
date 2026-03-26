@@ -12,10 +12,10 @@ import Data.CT.DependentAction.Instances
 import Data.Container.Base
 import Data.Container.Additive
 
-public export infixr 0 -\->
-public export infixr 0 -\-->
-public export infixr 0 =\\=>
-public export infixr 0 =\\==>
+public export infixr 1 -\-> -- dependent parametric functions
+public export infixr 1 -\--> -- non-dependent parametric functions
+public export infixr 1 =\\=> -- dependent parametric (additive) dependent lenses
+public export infixr 1 =\\==> -- non-dependent parametric (additive) dependent lenses
 
 {-------------------------------------------------------------------------------
 {-------------------------------------------------------------------------------
@@ -124,12 +124,28 @@ namespace ParametricDependentLenses
   DParaDLens = DepParaMor DPairCont
 
   public export
+  ParaDLens : (a, b : Cont) -> Type
+  ParaDLens = DepParaMor PairCont
+
+  public export
   ParaAddDLens : (a, b : AddCont) -> Type
   ParaAddDLens = DepParaMor PairAddCont
 
   public export
   (=\\==>) : (a, b : AddCont) -> Type
   a =\\==> b = ParaAddDLens a b
+
+  public export
+  trivialParam : {0 a, b : AddCont} -> (a =%> b) -> a =\\==> b
+  trivialParam f = MkPara
+    Scalar
+    (!%+ \(x, ()) =>
+      let (y ** ky) = (%!) f x
+      in (y ** \y' => (ky y', ())))
+
+  public export
+  id : a =\\==> a
+  id = trivialParam id
 
   public export
   GetParam : ParaAddDLens a b -> AddCont
@@ -151,6 +167,7 @@ namespace ParametricDependentLenses
         let (bPos, qPos) = g.bwd (f.fwd (x, ps), qs) cPos
             (aPos, pPos) = f.bwd (x, ps) bPos
         in (aPos, (pPos, qPos))))
+
 
 namespace DependentParametricDependentLenses
 

@@ -25,11 +25,16 @@ record DOptimiser {inputTy : Type}
 
 -- todo upgrade to something like HasIO instead of IO?
 public export
-record Optimiser (paramCont : AddCont) (stateTy : Type) where
+record Optimiser
+  (paramCont : AddCont)
+  (stateTy : Type)
+  where
   constructor MkOptimiser
   ||| Notably, this is an ordinary dependent lens, not an additive one
   opt : (Const paramCont.Shp >< Const stateTy) =%> UC paramCont
+  ||| Procedure for initialising parameters
   initParam : IO paramCont.Shp
+  ||| Procedure for initialising state
   initState : IO stateTy
 
 public export

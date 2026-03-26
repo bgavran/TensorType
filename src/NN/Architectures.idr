@@ -10,4 +10,5 @@ import public NN.Architectures.RNN
 import public NN.Architectures.Residual
 import public NN.Architectures.Transformer.Attention
 import public NN.Architectures.Transformer.Definition
+import public NN.Architectures.LossFunctions
 import public NN.Architectures.Utils

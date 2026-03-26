@@ -20,14 +20,19 @@ export typebind infixr 0 !>
 %name Cont c, c', c''
 
 ||| Constant container, one where positions do not depend on shapes
+public export
+Const2 : Type -> Type -> Cont
+Const2 a b = (_ : a) !> b
+
+||| Constant container, one where positions do not depend on shapes
 public export 
-Const : Type -> Type -> Cont
-Const a b = (_ : a) !> b
+Const : Type -> Cont
+Const a = Const2 a a
 
 ||| Naperian container: a constant container with a single shape
 public export
 Nap : Type -> Cont
-Nap b = Const Unit b
+Nap b = Const2 Unit b
 
 ||| Convenience datatype for storing the data that a container `c` has an
 ||| interface `i` on its positions

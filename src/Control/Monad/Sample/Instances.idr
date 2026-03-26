@@ -1,23 +1,12 @@
-module Control.Monad.Sample
+module Control.Monad.Sample.Instances
 
+import Control.Monad.Identity
 import System.Random
 
-import Data.Tensor 
-
+import Data.Tensor
 import Control.Monad.Distribution
-import Control.Monad.Identity
+import Control.Monad.Sample.Definition
 import NN.Architectures.Softargmax
-
-import Misc
-
-||| Interface for sampling from a distribution
-||| We require that there is at least one element in the distribution
-||| TODO add temperature as a implicit parameter with a defualt value of 1.0
-public export
-interface Monad m => MonadSample m where
-  sample : {i : Nat} -> (isSucc : IsSucc i) =>
-    Dist i -> m (Fin i)
-
 
 ||| Trivial sampler, always picks the first element
 public export
@@ -55,3 +44,12 @@ testIO = do
   -- printLn is
   printLn (count (== 0) is) -- should be ~100
   printLn (count (== 1) is) -- should be ~900
+
+public export
+testDirac : IO ()
+testDirac = do
+  let index = 4
+  let logits = diracDelta {i=10} index
+  inds <- sequence (replicate 1000 (sample logits))
+  printLn (take 10 inds)
+  printLn (count (== index) inds)

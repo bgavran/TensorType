@@ -6,6 +6,7 @@ import Data.List.Quantifiers
 import Data.Container.Base.Object.Definition
 import Data.Container.Base.Product.Definitions
 import Data.Container.Base.TreeUtils
+import Control.Monad.Distribution
 
 ||| Empty container, isomorphic to Void
 ||| As a polynomial functor: F(X) = 0
@@ -111,15 +112,8 @@ public export
 CoproductTensor : List Cont -> Cont
 CoproductTensor = foldr (>+<) Empty
 
-||| Constant container, positions can be different than shapes, but do not 
-||| depend on them. Some of the above containers can be refactored in terms of 
-||| these. But it's more illuminating to keep them in their raw form for now
-||| As a polynomial functor: F(X) = a * (X^b)
-public export
-Const2 : Type -> Type -> Cont
-Const2 a b = (_ : a) !> b
 
-||| Constant container where positions are the same as shapes
+||| Can't believe this works?
 public export
-Const : Type -> Cont
-Const a = Const2 a a
+Sample : Nat -> Cont
+Sample n = Const2 (Dist n) (Fin n)

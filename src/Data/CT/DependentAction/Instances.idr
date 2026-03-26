@@ -29,7 +29,7 @@ namespace Cont
   PairCont : DepAct DLens (Const {c=DLens})
   PairCont = MkDepAct $ \c => MkFunctor
     (c ><)
-    (hancockMap id)
+    (Morphism.(><) id)
 
   public export
   DPairCont : DepAct DLens (FamDLens {c=DLens})

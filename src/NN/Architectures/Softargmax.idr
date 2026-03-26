@@ -2,6 +2,9 @@ module NN.Architectures.Softargmax
 
 import Data.Tensor
 import Data.Para
+import Control.Monad.Distribution
+
+
 
 ||| Numerically stable log-sum-exp operation
 ||| LSE(x) = max(x) + log(Σᵢ exp(xᵢ - max(x)))
@@ -39,6 +42,8 @@ softargmaxImpl {temperature} t
   = exp <$> logSoftargmax (t <&> (/ temperature))
 
 ||| Softargmax as a parametric map, with temperature as a parameter
+||| TODO the output type should be a distribution tensor, since distributions
+||| are applicative? https://glaive-research.org/2025/02/11/Generalized-Transformers-from-Applicative-Functors.html
 public export
 softargmax : {i : Axis} ->
   {a : Type} -> Fractional a => Exp a => Ord a => Neg a =>
@@ -49,6 +54,11 @@ softargmax = MkPara
   (\_ => a) -- temperature is the parameter
   (\(t ** temperature) => softargmaxImpl {temperature} t)
 
+
+-- `Control.Monad.Distribution` and softargmax should probably be merged?
+public export
+{i : Nat} -> Show (Dist i) where
+  show (MkDist xs) = show (softargmaxImpl {i="softmaxTemp" ~~> i} (># xs))
 
 inpp : Tensor ["ieva" ~~> 3] Double
 inpp = ># [1000, 999, 998]

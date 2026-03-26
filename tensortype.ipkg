@@ -35,6 +35,7 @@ modules = Data.Container.Base
         , Data.Container.Base.Instances
         , Data.Container.Base.InstanceInterfaces
         , Data.Container.Base.TreeUtils
+        , Data.Container.Base.Quantifiers
 
         , Data.Container.Additive
         , Data.Container.Additive.Object.Definition
@@ -43,6 +44,7 @@ modules = Data.Container.Base
         , Data.Container.Additive.Morphism.Instances
         , Data.Container.Additive.Extension.Definition
         , Data.Container.Additive.Product.Definitions
+        , Data.Container.Additive.Quantifiers
 
         , Data.Container.Applicative
         , Data.Container.Applicative.Object.Instances
@@ -77,10 +79,11 @@ modules = Data.Container.Base
         , Data.Num
         , Data.ComMonoid
 
-        , Data.Autodiff.MLens
+        , Data.Autodiff.Ops
 
         , Control.Monad.Distribution
-        , Control.Monad.Sample
+        , Control.Monad.Sample.Definition
+        , Control.Monad.Sample.Instances
 
         , NN.Architectures
         , NN.Architectures.Activations
@@ -91,14 +94,17 @@ modules = Data.Container.Base
         , NN.Architectures.Transformer.Attention
         , NN.Architectures.Transformer.Definition
         , NN.Architectures.RNN
+        , NN.Architectures.LossFunctions
         , NN.Architectures.Utils
 
+        , NN.Optimisers
         , NN.Optimisers.Definition
         , NN.Optimisers.Instances
-        , NN.Training.Optimisation
+
+        , NN.Training.Training
         , NN.Utils
         , NN.Training.DataLoader
-        , NN.Training.Examples
+        , NN.Training.Examples.LinearRegression
 
         , Misc
 

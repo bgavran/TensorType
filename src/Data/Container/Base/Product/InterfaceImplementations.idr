@@ -21,7 +21,7 @@ import Data.Functor.Algebra
 
 export
 TensorMonoid Maybe where
-  tensorN = State True
+  tensorN = toState True
   tensorM = !% \(b1, b2) => (b1 && b2 ** \bb => case b1 of
     True => ((), if b2 then bb else absurd bb)
     False => absurd bb)
@@ -34,7 +34,7 @@ TensorMonoid Maybe where
 ||| applicative this is layout-aware
 export
 TensorMonoid List where
-  tensorN = State 1
+  tensorN = toState 1
   tensorM = !% \(n, m) => (n * m ** splitFinProd DefaultLayoutOrder) 
 
 {--
@@ -56,12 +56,12 @@ Applicative List where
 ||| For vecotrs produces a `zip` operation
 export
 IsNaperian c => TensorMonoid c where
-  tensorN @{(MkIsNaperian pos)} = State ()
+  tensorN @{(MkIsNaperian pos)} = toState ()
   tensorM @{(MkIsNaperian pos)} = !% \((), ()) => (() ** \i => (i, i))
 
 export
 IsCubical c => SeqMonoid c where
-  seqN @{MkIsCubical n} = State ()
+  seqN @{MkIsCubical n} = toState ()
   seqM @{MkIsCubical n} = !% \(() <| _) => (() ** \i => (i ** i))
 
 public export
@@ -135,12 +135,12 @@ namespace BinTreeUtils
 
 export
 TensorMonoid BinTree where
-  tensorN = State LeafS
+  tensorN = toState LeafS
   tensorM = !% \(sh1, sh2) => (pairBTreeShapes sh1 sh2 ** pairBTreePos)
 
 export
 TensorMonoid BinTreeLeaf where
-  tensorN = State LeafS
+  tensorN = toState LeafS
   tensorM = !% \(sh1, sh2) => (pairBTreeShapes sh1 sh2 ** pairBTreeLeafPos)
 
 -- Note, there is no TensorMonoid/Applicative instance for BinTreeNode

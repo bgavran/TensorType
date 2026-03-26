@@ -72,37 +72,38 @@ public export
   (0 t : Tensor shape a) -> Vect rank Cont
 (.sizes) _ = axisSizes shape
 
-public export
-BatchSize : Axis
-BatchSize =  "batchSize" ~> Vect 32
-
-SeqLen : Axis
-SeqLen = "seqLen" ~> List
-
-FeatureSize : Axis
-FeatureSize = "featureSize" ~> Vect 128
-
-BatchSizeNew : Axis
-BatchSizeNew = "batchSize" ~> Vect 13
-
-testBinding0 : Tensor [] Double
-
-testBinding1 : Tensor [SeqLen] Double
-
-testBinding12 : Tensor [SeqLen, SeqLen] Double
-
-testBinding2 : Tensor [BatchSize, SeqLen] Double
-
-testBinding3 : Tensor [BatchSize, SeqLen, FeatureSize] Double
-
-testBinding4 : Tensor [BatchSize, SeqLen, FeatureSize, FeatureSize] Double
-
-failing
-  ||| This fails because the same name here refers to two different sizes
-  failBinding1 : Tensor [BatchSize, BatchSizeNew] Double
-
-  ||| Same here 
-  failBinding2 : Tensor [BatchSize, rename SeqLen "batchSize"] Double
+namespace SomeTesting
+  public export
+  BatchSize : Axis
+  BatchSize =  "batchSize" ~> Vect 32
+  
+  SeqLen : Axis
+  SeqLen = "seqLen" ~> List
+  
+  FeatureSize : Axis
+  FeatureSize = "featureSize" ~> Vect 128
+  
+  BatchSizeNew : Axis
+  BatchSizeNew = "batchSize" ~> Vect 13
+  
+  testBinding0 : Tensor [] Double
+  
+  testBinding1 : Tensor [SeqLen] Double
+  
+  testBinding12 : Tensor [SeqLen, SeqLen] Double
+  
+  testBinding2 : Tensor [BatchSize, SeqLen] Double
+  
+  testBinding3 : Tensor [BatchSize, SeqLen, FeatureSize] Double
+  
+  testBinding4 : Tensor [BatchSize, SeqLen, FeatureSize, FeatureSize] Double
+  
+  failing
+    ||| This fails because the same name here refers to two different sizes
+    failBinding1 : Tensor [BatchSize, BatchSizeNew] Double
+  
+    ||| Same here 
+    failBinding2 : Tensor [BatchSize, rename SeqLen "batchSize"] Double
 
 public export
 Functor (Tensor shape) where
@@ -448,6 +449,13 @@ namespace TensorInstances
       log = (log <$>)
       minusInfinity = pure minusInfinity
 
+    public export
+    {shape : TensorShape rank} ->
+    FromDouble a =>
+    All TensorMonoid (conts shape) =>
+      FromDouble (Tensor shape a) where
+        fromDouble x = tensorReplicate (fromDouble x)
+
   namespace DiagonalAxis
     public export
     diagonal : {i : Axis} ->
@@ -460,8 +468,6 @@ namespace TensorInstances
     tDiag : Tensor ["i" ~~> 2, "i" ~~> 2] Double
     tDiag = ># [ [100, 0]
                , [0, 47] ] 
-
-
 
     --public export
     --diagonal : {k : Nat} -> {shape : TensorShape rank} ->
@@ -477,6 +483,9 @@ namespace TensorInstances
     --  = ?diagonal_rhs_1
     --diagonal {shape = (s :: ss)} t axisName {inShape = There} {k = (S (S k'))}
     --  = ?diagonal_rhs_3
+
+
+
 
   namespace AlgebraInstance
     ||| Unlike all other instantiations of 'AllX', `AllAlgebra` is not
@@ -1117,7 +1126,7 @@ namespace SetterGetter
   data Index :
     (shape : TensorShape rank) ->
     (t : Tensor shape a) -> Type where
-    Nil : {val : dtype} -> Index [] (embed val)
+    Nil : {t : Tensor [] a} -> Index [] t
     (::) : {cs : TensorShape k} ->
       NewAxisConsistent c cs =>
       {t : Tensor (c :: cs) a} ->
@@ -1130,7 +1139,7 @@ namespace SetterGetter
   public export
   index : {shape : TensorShape rank} ->
     (t : Tensor shape a) -> Index shape t -> a
-  index {shape = []} (embed val) [] = val
+  index {shape = []} t [] = extract t
   index {shape = (c :: cs)} t (i :: is) =
     index (index (extractTopExt t) i) is
 

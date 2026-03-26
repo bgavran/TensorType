@@ -15,7 +15,7 @@ import Misc
 -- This is here and not in Container.Additive because it uses `Tensor` 
 public export
 Simplex : Nat -> AddCont
-Simplex n = MkAddCont $ (_ : Dist n) !> (Tensor [n] Double)
+Simplex n = MkAddCont $ (_ : Dist n) !> (Tensor [TTInternalName ~~> n] Double)
 
 public export
 MulParametric : {a : Type} -> Num a => ParaAddDLens (Const a) (Const a)
@@ -37,8 +37,9 @@ LeakyReLU = trivialParam (!%+ \x =>
   (if x > 0 then x else alpha * x ** \x' => if x > 0 then x' else alpha))
 
 public export
-LeakyReLUTensor : {a : Type} -> {n : Nat} -> Num a => Ord a => FromDouble a =>
+LeakyReLUTensor : {a : Type} -> Num a => Ord a => FromDouble a =>
   {default 0.01 alpha : a} ->
+  {n : Axis} -> TensorMonoid n.cont =>
   ParaAddDLens (Const (Tensor [n] a)) (Const (Tensor [n] a))
 LeakyReLUTensor = trivialParam (!%+ \x =>
   (x <&> (\xx => if xx > 0 then xx else alpha * xx) ** \dy =>
@@ -55,9 +56,10 @@ coproductPair (MkPara p f) (MkPara q g) = MkPara
   (coprodDistrOverTensor %>> (f >+< g))
 
 public export
-parallelTensor2 : {a, b: Type} -> Num a => Num b =>
+parallelTensor2 : {a, b: Type} -> Num a => Num b => {axisName : String} ->
   ParaAddDLens (Const a) (Const b) ->
-  ParaAddDLens (Const (Tensor [2] a)) (Const (Tensor [2] b))
+  ParaAddDLens (Const (Tensor [axisName ~~> 2] a))
+               (Const (Tensor [axisName ~~> 2] b))
 parallelTensor2 (MkPara pCont f) = MkPara
   (pCont >< pCont)
   (!%+ \(x, (p, q)) =>
@@ -69,9 +71,10 @@ parallelTensor2 (MkPara pCont f) = MkPara
       in (># [x1', x2'], (p', q'))))
 
 public export
-parallelTensor3 : {a, b : Type} -> Num a => Num b =>
+parallelTensor3 : {a, b : Type} -> Num a => Num b => {axisName : AxisName} ->
   ParaAddDLens (Const a) (Const b) ->
-  ParaAddDLens (Const (Tensor [3] a)) (Const (Tensor [3] b))
+  ParaAddDLens (Const (Tensor [axisName ~~> 3] a))
+               (Const (Tensor [axisName ~~> 3] b))
 parallelTensor3 (MkPara pCont f) = MkPara
   (pCont >< pCont >< pCont)
   (!%+ \(x, (p, q, r)) =>
@@ -87,9 +90,11 @@ parallelTensor3 (MkPara pCont f) = MkPara
 ||| Produces a parametric map that produces `n` copies of the output, instead
 ||| of one, by using `n` different parameters
 public export
-sameFromTensor2 : {a, b : Type} -> Num a => Num b => 
+sameFromTensor2 : {a, b : Type} -> Num a => Num b =>
+  {axisName1, axisName2 : AxisName} ->
   ParaAddDLens (Const a) (Const b) ->
-  ParaAddDLens (Const (Tensor [1] a)) (Const (Tensor [2] b))
+  ParaAddDLens (Const (Tensor [axisName1 ~~> 1] a))
+               (Const (Tensor [axisName2 ~~> 2] b))
 sameFromTensor2 (MkPara pCont f) = MkPara
   (pCont >< pCont)
   (!%+ \(x, (p, q)) =>
@@ -102,9 +107,11 @@ sameFromTensor2 (MkPara pCont f) = MkPara
       in (># [x1' + x2'], (p', q'))))
 
 public export
-sameFromTensor3 : {a, b : Type} -> Num a => Num b => 
+sameFromTensor3 : {a, b : Type} -> Num a => Num b =>
+  {axisName1, axisName2 : AxisName} ->
   ParaAddDLens (Const a) (Const b) ->
-  ParaAddDLens (Const (Tensor [1] a)) (Const (Tensor [3] b))
+  ParaAddDLens (Const (Tensor [axisName1 ~~> 1] a))
+               (Const (Tensor [axisName2 ~~> 3] b))
 sameFromTensor3 (MkPara pCont f) = MkPara
   (pCont >< pCont >< pCont)
   (!%+ \(x, (p, q, r)) =>
@@ -122,8 +129,10 @@ sameFromTensor3 (MkPara pCont f) = MkPara
 ||| of one, by using `n` different parameters
 public export
 sameFromTensor : {a, b : Type} -> Num a => Num b => {n : Nat} -> 
+  {axisName1, axisName2 : AxisName} ->
   ParaAddDLens (Const a) (Const b) ->
-  ParaAddDLens (Const (Tensor [1] a)) (Const (Tensor [n] b))
+  ParaAddDLens (Const (Tensor [axisName1 ~~> 1] a))
+               (Const (Tensor [axisName2 ~~> n] b))
 sameFromTensor (MkPara pCont f) = MkPara
   (AllAll $ replicate n pCont)
   (!%+ \(x, psShapes) =>

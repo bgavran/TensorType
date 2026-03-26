@@ -38,18 +38,24 @@ namespace CommonNames
   Matrix : (row, col : Axis) -> NewAxisConsistent row [col] => (a : Type) -> Type
   Matrix row col a = Tensor [row, col] a
 
-namespace ZerosOnes
+namespace FillZerosOnes
+  public export
+  fill : Num a => {shape : TensorShape rank} ->
+    All TensorMonoid (conts shape) =>
+    a -> Tensor shape a
+  fill x = tensorReplicate x
+
   public export
   zeros : Num a => {shape : TensorShape rank} ->
     All TensorMonoid (conts shape) => 
     Tensor shape a
-  zeros = tensorReplicate (fromInteger 0)
+  zeros = fill (fromInteger 0)
 
   public export
   ones : Num a => {shape : TensorShape rank} ->
     All TensorMonoid (conts shape) => 
     Tensor shape a
-  ones = tensorReplicate (fromInteger 1)
+  ones = fill (fromInteger 1)
 
   ||| An identity matrix with True on the diagonal and False elsewhere
   public export
@@ -271,7 +277,16 @@ namespace Random
     randomRIO = ?qhwhwh
 
 
--- Idris can't find the parametric randomIO interface so reimpementing here 
+  tta : Applicative (Tensor ["a" ~~> 1])
+  tta = %search
+
+  ttt : Traversable (Tensor ["b" ~~> 1])
+  ttt = %search
+  
+  ttd : Random Double
+  ttd = %search
+
+-- Idris can't find the parametric randomIO interface so reimpementing here
 public export
 random : Num a => Random a => HasIO io =>
   (shape : TensorShape rank) ->

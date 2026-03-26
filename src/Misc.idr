@@ -14,6 +14,7 @@ import Decidable.Equality.Core
 import Data.List
 
 %hide Builtin.infixr.(#)
+%hide Data.Vect.Quantifiers.All.index
 
 namespace IsNo
   ||| IsNo is a type Idris can automatically synthesise, in contrast to
@@ -157,6 +158,8 @@ namespace VectNaperianUtils
   cons : x -> (Fin l -> x) -> (Fin (S l) -> x)
   cons x _ FZ = x
   cons _ f (FS k') = f k'
+
+  -- dcons : x -> ((i : Fin k) -> i' i) -> ((i : Fin (S k)) -> i' (cons x i'))
   
   public export
   head : (Fin (S l) -> x) -> x
@@ -230,7 +233,6 @@ namespace List
   maxInList (x :: xs) = do
     mx <- maxInList xs
     pure (max x mx)
-
 
 
 namespace FinArithmetic
@@ -381,6 +383,24 @@ findBin {n = 0} (x' :: []) x = case x' <= x of
 findBin {n = (S k)} xs x = findBinBetween xs x 0 last
 
 
+-- t : Double -> Type
+-- t 4 = Double
+-- t _ = String
+-- 
+-- th : (x : Double ** t x)
+-- th = (4 ** 5)
+-- 
+-- thh : (x : Double) -> Show (t x)
+-- thh x = ?thh_rhs
+
+public export
+mkDepPairShow : Show a => (ss : (x : a) -> Show (b x)) => (DPair a b -> String)
+mkDepPairShow = \(x ** y) => "\{show x} ** \{show (y)}"
+
+public export
+Show a => ((x : a) -> Show (b x)) => Show (DPair a b) where
+   show = mkDepPairShow
+
 ||| Interface describing how a type can be displayed as a 2d grid of characters
 public export
 interface Display (a : Type) where
@@ -403,6 +423,19 @@ interface Display (a : Type) where
 --   () * () = ()
 --   () + () = ()
 
+public export
+runIf: HasIO io => Bool -> io () -> io ()
+runIf True action = action
+runIf False action = pure ()
+
+public export
+pairIO : HasIO io => io a -> io b -> io (a, b)
+pairIO a b = do
+  a <- a
+  b <- b
+  pure (a, b)
+
+
 namespace RandomUtils
 -- Probably there's a faster way to do this
 -- public export
@@ -417,8 +450,9 @@ namespace RandomUtils
 
   public export
   Random a => Random b => Random (a, b) where
-    randomIO = ?randomIO_rhs_1
-    randomRIO (lo, hi) = ?randomRIO_rhs_2
+    randomIO = pairIO randomIO randomIO
+    randomRIO ((loA, loB), (hiA, hiB))
+      = pairIO (randomRIO (loA, hiA)) (randomRIO (loB, hiB))
 
 
 
@@ -545,6 +579,27 @@ namespace All
     rewriteAllMap {xs = []} [] = []
     rewriteAllMap {xs = (x :: xs)} (a :: as) = a :: rewriteAllMap as
 
+  ||| Cnvert an all to a vector if it's made out of replicated things
+  public export
+  allToVect : Vect.Quantifiers.All.All p (replicate n a) -> Vect n (p a)
+  allToVect [] = []
+  allToVect (aa :: aaps) = aa :: allToVect aaps
+
+  public export
+  constantToVect : {xs : Vect n a} ->
+    Vect.Quantifiers.All.All (const b) xs -> Vect n b
+  constantToVect [] = []
+  constantToVect (bb :: bbs) = bb :: constantToVect bbs
+
+
+||| Dependent parametric traverse
+public export
+dTraverse : Applicative f =>
+  ((p : pType) -> f (q p)) ->
+  (xs : Vect n pType) ->
+  f (All q xs)
+dTraverse f [] = pure []
+dTraverse f (p :: ps) = [| f p :: dTraverse f ps |]
 
 
 public export
@@ -584,6 +639,15 @@ dependentMap : Functor f => {t : a -> Type} ->
   (g : (x : a) -> t x) ->
   f a -> f (x : a ** t x)
 dependentMap g fa = map (graph g) fa
+
+
+-- ||| Duplicate of `index` from Data.Vect.Quantifiers.All, but with an
+-- ||| additional `public` export modifier
+public export
+index : (i : Fin k) -> Vect.Quantifiers.All.All p ts -> p (Vect.index i ts)
+index FZ (x :: xs) = x
+index (FS j) (x :: xs) = index j xs
+
 
 {-
 
