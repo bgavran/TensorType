@@ -73,15 +73,6 @@ pushIntoContinuation f = !% \p => (() <| \d => f.fwd (d, p) **
   \(d ** l') => snd $ f.bwd (d, p) l')
 
 
-
-namespace Monadic
-  public export
-  fromCostate : {m : Type -> Type} -> Monad m => {0 c : Cont} ->
-    MLens {m=m} c Scalar ->
-    (x : c.Shp) -> m (c.Pos x)
-  fromCostate f x = ((\b => b ()) . snd) <$> ((%%! f) x)
-
-
 namespace HancockTensorProduct
   public export
   leftUnit : (Scalar >< c) =%> c

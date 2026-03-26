@@ -73,12 +73,6 @@ pushIntoContinuation {flat = MkIsFlat _} f = !%+ \param => (() <|
     \ll => sum @{UMon p param} (ll >>=
       \(ds ** grad) => (\dShp => snd (f.bwd (dShp, param) grad)) <$> ds))
 
-namespace Monadic
-  public export
-  State : {m : Type -> Type} -> Monad m => {0 c : AddCont} ->
-    (x : c.Shp) -> MAddLens {m} Scalar c
-  State x = !%%+ \() => pure (x ** \_ => ())
-
 public export
 constantOne : {c : AddCont} ->
   InterfaceOnPositions c Num =>
@@ -182,17 +176,6 @@ extractEffect = (leftUnitInv >< (id {c=e >@ f}))
             %>> (leftUnit >@ (id {c=d><f}))
 
   
-namespace Monadic
-  public export
-  rightUnitInv : {m : Type -> Type} -> Monad m => {c : AddCont} ->
-    MAddLens {m} c (c >< Scalar)
-  rightUnitInv = !%%+ \x => pure ((x, ()) ** \x'unit => fst x'unit)
-
-  public export
-  leftUnitInv : {m : Type -> Type} -> Monad m => {c : AddCont} ->
-    MAddLens {m} c (Scalar >< c)
-  leftUnitInv = !%%+ \x => pure (((), x) ** \unitx' => snd unitx')
-
 public export
 swapMiddle : {c1, c2, c3, c4 : AddCont} ->
   ((c1 >< c2) >< (c3 >< c4)) =%> ((c1 >< c3) >< (c2 >< c4))
@@ -266,13 +249,6 @@ public export
 SquaredDifference : {a : Type} -> Num a => Neg a => (Const a >< Const a) =%> (Const a)
 SquaredDifference = ((id {c=Const a}) >< Negate) %>> Sum %>> Copy %>> Mul
 
-namespace Monadic
-  public export
-  fromCostate : {m : Type -> Type} -> Monad m => {0 c : AddCont} ->
-    MAddLens {m=m} c Scalar ->
-    (x : c.Shp) -> m (c.Pos x)
-  fromCostate f x = ((\b => b ()) . snd) <$> ((%%!+ f) x)
-
 namespace Sample
   ||| Select a shape from All to produce an Any at the given index
   ||| Same as `index i (allAnies shapes)` but reduces better
@@ -290,44 +266,6 @@ namespace Sample
     (index i xs).Pos (index i shapes)
   extractPos {shapes = (_ :: _)} FZ (Here x') = x'
   extractPos {shapes = (_ :: _)} (FS j) (There rest) = extractPos j rest
-
-  -- public export
-  -- SampleAndChooseWithDist : {n : Nat} -> {xs : Vect n AddCont} ->
-  --   ConvexComb xs =%> (Simplex n >< (Sample n >@ Any xs))
-  -- SampleAndChooseWithDist = ?SampleAndChooseWithDist_rhs
-
-
-  {-
-  ||| Sample from a convex combination of options.
-  |||
-  ||| Forward: Sample an index, and route only the chosen shape forward.
-  |||
-  ||| Backward: receive a position for the chosen branch, and return it
-  ||| as a singleton tagged list. Gradients w.r.t. distribution are 0
-  public export
-  Sample : {m : Type -> Type} -> MonadSample m =>
-    {n : Nat} -> IsSucc n =>
-    {xs : Vect n AddCont} ->
-    MAddLens {m=m} (ConvexComb xs) (Any xs)
-  Sample = !%%+ \(d, shapes) => do
-    i <- sample d
-    pure (selectShape shapes i ** \x' => (0, [(i ** extractPos i x')]))
-
-  public export
-  GetDist : {m : Type -> Type} -> MonadSample m =>
-    {n : Nat} -> IsSucc n =>
-    {xs : Vect n AddCont} ->
-    MAddLens {m=m} (ConvexComb xs) (Simplex n)
-  GetDist = liftAddDLens (ProjLeft {d=PreparedChoice xs})
-
-  ||| Same as 'Sample' but preserves the distribution
-  public export
-  SampleAndKeepDist : {m : Type -> Type} -> MonadSample m =>
-    {n : Nat} -> IsSucc n =>
-    {xs : Vect n AddCont} ->
-    MAddLens {m=m} (ConvexComb xs) (Simplex n >< Any xs)
-  SampleAndKeepDist = liftAddDLens Copy %%+>> (GetDist >< Sample)
-  -
 
 -- parameters (f : Type -> Type)
 --   ||| These are all of the morphisms in the cokleisli category of (f <!> -)  

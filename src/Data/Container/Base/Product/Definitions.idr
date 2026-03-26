@@ -70,16 +70,6 @@ namespace HancockTensorProduct
     (><) f g = !% \(c, d) => ((f.fwd c, g.fwd d) **
       \(c', d') => (f.bwd c c', g.bwd d d'))
 
-    namespace Monadic
-      public export
-      (><) : {m : Type -> Type} -> Monad m =>
-        {c1, d1, c2, d2 : Cont} ->
-        MLens {m=m} c1 d1 -> MLens {m=m} c2 d2 -> MLens {m=m} (c1 >< c2) (d1 >< d2)
-      (><) f g = !%% \(c, d) => do
-        (x ** kx) <- (%%! f) c
-        (y ** ky) <- (%%! g) d
-        pure ((x, y) ** \x'y' => (kx (fst x'y'), ky (snd x'y')))
-
   ||| Dependent Hancock (tensor) product of containers.
   ||| This is the analogue of DPair for containers:
   ||| Given a container `pc` and a family `qc : pc.Shp -> Cont`,

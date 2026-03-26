@@ -52,34 +52,3 @@ namespace AddCont
     (DepHancockProduct c)
     (\r => !%+ \(x ** p) => ((x ** (r x).fwd p) **
                \(x', p') => (x', (r x).bwd p p')))
-
-
-namespace MLens
-  public export
-  PairMLens : Monad m => DepAct MLens (Const {c=MLens {m}})
-  PairMLens = MkDepAct $ \c => MkFunctor
-    (c ><)
-    (Monadic.(><) id)
-
-  public export
-  DPairMLens : Monad m => DepAct MLens (FamMLens {m=m} {c=MLens {m}})
-  DPairMLens = MkDepAct $ \c => MkFunctor
-    (DepHancockProduct c)
-    (\r => !%% \(x ** p) => do
-      (y ** ky) <- (%%! r x) p
-      pure ((x ** y) ** \x'y' => (fst x'y', ky (snd x'y'))))
-
-namespace MAddLens
-  public export
-  PairMAddLens : Monad m => DepAct MAddLens (Const {c=MAddLens {m}})
-  PairMAddLens = MkDepAct $ \c => MkFunctor
-    (c ><)
-    (id ><)
-
-  public export
-  DPairMAddLens : Monad m => DepAct MAddLens (FamMAddLens {m=m} {c=MAddLens {m}})
-  DPairMAddLens = MkDepAct $ \c => MkFunctor
-    (DepHancockProduct c)
-    (\r => !%%+ \(x ** p) => do
-      (y ** ky) <- (%%!+ r x) p
-      pure ((x ** y) ** \x'y' => (fst x'y', ky (snd x'y'))))

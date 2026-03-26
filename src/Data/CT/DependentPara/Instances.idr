@@ -12,10 +12,10 @@ import Data.CT.DependentAction.Instances
 import Data.Container.Base
 import Data.Container.Additive
 
-public export infixr 1 -\->
-public export infixr 1 -\-->
-public export infixr 1 =\\=>
-public export infixr 1 =\\==>
+public export infixr 1 -\-> -- dependent parametric functions
+public export infixr 1 -\--> -- non-dependent parametric functions
+public export infixr 1 =\\=> -- dependent parametric (additive) dependent lenses
+public export infixr 1 =\\==> -- non-dependent parametric (additive) dependent lenses
 
 {-------------------------------------------------------------------------------
 {-------------------------------------------------------------------------------
@@ -167,65 +167,6 @@ namespace ParametricDependentLenses
         let (bPos, qPos) = g.bwd (f.fwd (x, ps), qs) cPos
             (aPos, pPos) = f.bwd (x, ps) bPos
         in (aPos, (pPos, qPos))))
-
-namespace MonadicParametricDependentLenses
-  ||| DParametric dependent lenses
-  ||| Not really used in this repo
-  public export
-  DParaMLens : Monad m => (a, b : Cont) -> Type
-  DParaMLens = DepParaMor (DPairMLens {m=m})
-
-  public export
-  ParaAddMLens : Monad m => (a, b : AddCont) -> Type
-  ParaAddMLens = DepParaMor (PairMAddLens {m=m})
-
-  public export
-  (=\\==>) : Monad m => (a, b : AddCont) -> Type
-  a =\\==> b = ParaAddMLens {m=m} a b
-
-  public export
-  GetParam : Monad m => ParaAddMLens {m=m} a b -> AddCont
-  GetParam (MkPara p _) = p
-
-  public export
-  trivialParam : {m : Type -> Type} -> Monad m =>
-    {0 a, b : AddCont} -> 
-    MAddLens {m=m} a b ->
-    ParaAddMLens {m=m} a b
-  trivialParam f = MkPara
-    Scalar
-    $ !%%+ \(x, ()) => do
-      (y ** ky) <- (%%!+ f) x
-      pure $ (y ** \y' => (ky y', ()))
-
-  -- trivialParam f = MkPara
-  --   (\_ => Scalar)
-  --   (!% !% \(x ** ()) => let (y ** ky) = (%!) f x in (y ** \y' => (ky y', ())))
-
-  public export
-  composePara : {m : Type -> Type} -> Monad m =>
-    ParaAddMLens {m=m} a b ->
-    ParaAddMLens {m=m} b c ->
-    ParaAddMLens {m=m} a c
-  composePara (MkPara p f) (MkPara q g) = MkPara
-    (p >< q)
-    $ !%%+ \(x, (ps, qs)) => do
-      (b ** kf) <- (%%!+ f) (x, ps)
-      (c ** kg) <- (%%!+ g) (b, qs)
-      pure (c ** \c' =>
-        let (b', q') = kg c'
-            (a', p') = kf b'
-        in (a', (p', q')))
-
-
-  public export
-  liftPara : {m : Type -> Type} -> Monad m =>
-    ParaAddDLens a b -> ParaAddMLens {m=m} a b
-  liftPara (MkPara p f) = MkPara
-    p
-    $ !%%+ \(x, ps) =>
-      let (y ** ky) = (%! f) (x, ps)
-      in pure (y ** \y' => ky y')
 
 
 namespace DependentParametricDependentLenses

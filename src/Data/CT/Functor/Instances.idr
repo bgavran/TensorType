@@ -35,17 +35,6 @@ namespace Fam
   FamIndCat : {c : Cat} -> IndCat TypeCat
   FamIndCat = MkFunctor (\a => FamObj {c=c} a) FamMor
 
-  FamMMor : Monad m => {c : Cat} ->
-    {x, y : Type} -> (x -> m y) -> Functor (FamObj {c=c} (m y)) (FamObj {c=c} x)
-  FamMMor f = MkFunctor (. f) (\j, xx => j (f xx))
-
-  ||| I think this is all wrong, there's no way to write morphisms
-  ||| But for this implenmentation of Para we only need the object level!
-  public export
-  FamIndMCat : Monad m => {c : Cat} -> IndCat (Kleisli {m=m})
-  FamIndMCat = MkFunctor (\a => FamObj {c=c} a) ?technicallWrongButDoWeNeedThis
-  
-
 ||| Functor which projects the forward part of a dependent lens
 public export
 Base : Functor DLens TypeCat
@@ -64,25 +53,6 @@ AddBase = MkFunctor (.Shp) (.fwd)
 public export
 FamAddDLens : {c : Cat} -> IndCat AddDLens
 FamAddDLens = composeFunctors AddBase (FamIndCat {c=c})
-
-namespace Monadic
-  public export
-  MBase : Monad m => Functor (MLens {m=m}) (Kleisli {m=m})
-  MBase = MkFunctor (.Shp) (.fwd)
-
-  public export
-  FamMLens : Monad m => {c : Cat} -> IndCat (MLens {m=m})
-  FamMLens = composeFunctors (MBase {m=m}) (FamIndMCat {c=c})
-
-  public export
-  MAddBase : Monad m => Functor (MAddLens {m=m}) (Kleisli {m=m})
-  MAddBase = MkFunctor (.Shp) (.fwd)
-
-  public export
-  FamMAddLens : Monad m => {c : Cat} -> IndCat (MAddLens {m=m})
-  FamMAddLens = composeFunctors (MAddBase {m=m}) (FamIndMCat {c=c})
-
-
 
 --------------------------------------------------------------------------------
 -- Dependent Types in Poly (Category of Containers & Dependent Lenses)

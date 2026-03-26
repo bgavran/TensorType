@@ -76,18 +76,6 @@ namespace Product
     (><) f g = !%+ \(c, d) => ((f.fwd c, g.fwd d) **
       \(c', d') => (f.bwd c c', g.bwd d d'))
 
-    namespace Monadic -- todo this needs to be cleaned up
-      public export -- move monadic stuff into its own container directory
-      (><) : {m : Type -> Type} -> Monad m =>
-        {c1, d1, c2, d2 : AddCont} ->
-        MAddLens {m=m} c1 d1 -> MAddLens {m=m} c2 d2 ->
-          MAddLens {m=m} (c1 >< c2) (d1 >< d2)
-      (><) f g = !%%+ \(c, d) => do
-        (c' ** kb) <- (%%!+ f) c
-        (d' ** kc) <- (%%!+ g) d
-        pure ((c', d') ** \c'd' => (kb (fst c'd'), kc (snd c'd')))
-
-
   ||| Dependent Hancock (tensor) product of additive containers.
   ||| This is the analogue of DPair for containers:
   ||| Given a container `pc` and a family `qc : pc.Shp -> AddCont`,

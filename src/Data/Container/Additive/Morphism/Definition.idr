@@ -16,10 +16,6 @@ public export prefix 0 :!
 public export prefix 0 !%+ -- constructor the addittive closed dlens
 export infixl 5 %>> -- composition of dependent lenses
 export infixl 5 &>> -- composition of dependent charts
-export infixl 5 %%+>> -- composition of monadic dependent lenses
-
-public export prefix 0 !%%+
-public export prefix 0 %%!+
 
 namespace DependentLenses
   ||| Forward-backward morphism between additive containers
@@ -117,45 +113,3 @@ namespace DependentCharts
   public export
   chartInputs : {c, d : AddCont} -> (0 f : c =&> d) -> AddCont
   chartInputs _ = c
-
-
-namespace MLens
-  parameters {m : Type -> Type} {auto mm : Monad m} 
-    ||| Similar to a monadic dependent lens, but not quite
-    public export
-    data MAddLens : (c1, c2 : AddCont) -> Type where
-        (!%%+) : {0 c1, c2 : AddCont} ->
-          ((x : c1.Shp) -> m (y : c2.Shp ** (c2.Pos y -> c1.Pos x))) ->
-          MAddLens c1 c2
-  
-    public export
-    (%%!+) : MAddLens c1 c2 -> (x : c1.Shp) ->
-      m (y : c2.Shp ** (c2.Pos y -> c1.Pos x))
-    (%%!+) (!%%+ f) x = f x
-
-    public export
-    (.fwd) : MAddLens c1 c2 -> c1.Shp -> m c2.Shp
-    (.fwd) f = \x => fst <$> (%%!+ f) x
-
-    public export
-    compMAddLens : MAddLens a b -> MAddLens b c -> MAddLens a c
-    compMAddLens (!%%+ f) (!%%+ g) = !%%+ \x => do
-      (b ** kb) <- f x
-      (c ** kc) <- g b
-      pure (c ** kb . kc)
-
-    public export
-    (%%+>>) : MAddLens a b -> MAddLens b c -> MAddLens a c
-    (%%+>>) = compMAddLens
-
-    public export
-    id : MAddLens c c
-    id = !%%+ \x => pure (x ** id)
-
-    public export
-    liftAddDLens : (c1 =%> c2) -> MAddLens c1 c2
-    liftAddDLens f = !%%+ \x => pure (f.fwd x ** f.bwd x)
-
-    public export
-    UMLens : MAddLens c1 c2 -> MLens {m=m} (UC c1) (UC c2)
-    UMLens (!%%+ f) = !%% f
