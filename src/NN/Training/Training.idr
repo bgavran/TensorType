@@ -223,6 +223,7 @@ train f loss handleData = optimise
 -}
 
 {-
+-- todo write a variant of this with effects?
 public export
 debugPrint : {x, y : AddCont} ->
   Show x.Shp => Show y.Shp =>
