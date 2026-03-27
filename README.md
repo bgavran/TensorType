@@ -118,11 +118,11 @@ indexExample : Double
 indexExample = t0 @@ [1, 2]
 
 ||| Sets the value of t0 at location [1, 3] to 99 
-setExample : Tensor [3, 4]
+setExample : Tensor ["j" ~~> 3, "k" ~~> 4] Double
 setExample = set t0 [1, 3] 99
 
 ||| Takes the first two rows, and 1st column of t0
-sliceExample : Tensor [2, 1] Double
+sliceExample : Tensor ["j" ~~> 2, "k" ~~> 1] Double
 sliceExample = take [2, 1] t0
 ```
 
@@ -275,7 +275,7 @@ Here is the in-order traversal of `treeExample1` from above.
     / \
 (-42)  46 
 -}
-traversalExample : Tensor ["myTree" ~> List] Double
+traversalExample : Tensor ["myList" ~> List] Double
 traversalExample = restructure (wrapIntoVector inorder) treeExample1
 ```
 
