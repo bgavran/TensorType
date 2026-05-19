@@ -15,9 +15,9 @@ import NN.Architectures.Utils
 public export
 Transformer : {a : Type} -> Num a => Ord a =>
   {inputStructure, features : Axis} ->
-  (ac : NewAxisConsistent inputStructure [features]) =>
-  (TensorMonoid inputStructure.cont) =>
-  (TensorMonoid features.cont) =>
+  (ac : inputStructure `ConsistentWith` [features]) =>
+  TensorMonoid inputStructure.cont =>
+  TensorMonoid features.cont =>
   (allAlg : AllAlgebra [inputStructure, features] a) =>
   {default id causalMask : Tensor [inputStructure, inputStructure] a ->
                            Tensor [inputStructure, inputStructure] a} ->

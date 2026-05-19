@@ -7,7 +7,7 @@ import Data.Tensor
 public export
 paraMapFirstAxis : {c : Axis} ->
   {cs : TensorShape rank} -> {ds : TensorShape rank'} ->
-  NewAxisConsistent c cs => NewAxisConsistent c ds =>
+  c `ConsistentWith` cs => c `ConsistentWith` ds =>
   Num a =>
   (pf : Tensor cs a -\-> Tensor ds a) ->
   (nonDep : IsNotDependent pf) =>

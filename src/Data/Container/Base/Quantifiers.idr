@@ -7,6 +7,7 @@ import Data.Vect.Quantifiers
 import Data.Container.Base.Object.Definition
 
 ||| Quantifiers for lists
+||| The predicate for each container's shape is considered its positions
 ||| We can have All/Any on shapes, and All/Any on positions
 ||| We get 3 valid combinations, since AnyAll=AnyAny.
 ||| That overlap is called AnyShpPos below

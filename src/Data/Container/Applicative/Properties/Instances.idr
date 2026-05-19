@@ -1,4 +1,4 @@
-module Data.Container.Applicative.Concrete.Instances
+module Data.Container.Applicative.Properties.Instances
 
 import Data.Container.Base
 import Data.Container.Applicative.Object.Instances
@@ -30,9 +30,8 @@ toRoseTreeSame (NodeS (len <| content) <| contentAt)
                 <$> (\i => content i <| contentAt . SubTree i)
                 <$> positionsCont)
 
-
 public export
-FromConcrete RoseTree where
+IsConcrete RoseTree where
   concreteType = RoseTreeSame
   concreteFunctor = %search
   fromConcreteTy = fromRoseTreeSame

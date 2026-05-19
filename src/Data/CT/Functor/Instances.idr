@@ -87,6 +87,7 @@ namespace Type
   TypeDFun fam = (x : a) -> fam x
 
 namespace Cont
+  ||| TODO probably name clash with other "Indexed container"
   public export
   IndexedCont : Cont -> Type
   IndexedCont c = c.Shp -> Cont
@@ -181,41 +182,3 @@ trivialFam = \_ => ((_ : ()) !> Void)
 public export
 boolFam : {c : Cont} -> IndexedCont c
 boolFam = \_ => ((_ : Bool) !> Void)
-
---------------------------------------------------------------------------------
--- COMPARISON WITH CHARTS/LENSES
---
--- A chart `c =&> d` is a MORPHISM in Poly, involving both shapes AND positions.
--- A family `c.Shp -> Cont` is just a FUNCTION on shapes.
---
--- Charts give richer structure (relating positions), but families are simpler
--- and sufficient for forming dependent sums and products.
---
--- You CAN extract a family from certain charts:
---------------------------------------------------------------------------------
-
--- The "universe" container: shapes are types, positions are their elements  
-public export
-ContUniverse : Cont
-ContUniverse = (t : Type) !> t
-
--- From a chart to Universe, extract just the shape-level data as a family
--- (This loses the position-level information from the chart!)
-public export
-famFromChart : (c : Cont) -> (f : c =&> ContUniverse) -> IndexedCont c
-famFromChart c f = \s => ((_ : f.fwd s) !> Void)
-  -- We get family shapes from f.fwd, but lose the f.bwd data
-  -- The chart's f.bwd : (s : c.Shp) -> c.Pos s -> f.fwd s 
-  -- doesn't fit into ContFam's structure
-
---------------------------------------------------------------------------------
--- WHY Poly ISN'T LOCALLY CARTESIAN CLOSED
---
--- In a locally cartesian closed category, for any morphism f : A -> B,
--- the pullback functor f* : C/B -> C/A has a right adjoint Πf.
---
--- In Poly, this fails for general dependent lenses. The right adjoint
--- only exists for CARTESIAN morphisms (where the backward map is an iso).
---
--- Reference: von Glehn thesis, Section 4.3
---------------------------------------------------------------------------------

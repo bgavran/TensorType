@@ -28,7 +28,7 @@ public export
 ||| Underlying monoid structure of positions
 public export
 UMon : (c : AddCont) -> (s : c.Shp) -> ComMonoid (c.Pos s)
-UMon (MkAddCont c @{MkI @{m}}) s = m s
+UMon (MkAddCont c @{MkI m}) s = m s
 
 public export
 (.Plus) : (c : AddCont) -> (s : c.Shp) -> (c.Pos s -> c.Pos s -> c.Pos s)
@@ -37,19 +37,3 @@ public export
 public export
 (.Zero) : (c : AddCont) -> (s : c.Shp) -> c.Pos s
 (.Zero) c s = neutral (UMon c s)
-
-||| Convenience datatype storing the property that
-||| an additive container `c` has an interface `i` on its positions
-public export
-data InterfaceOnPositions : (c : AddCont) -> (i : Type -> Type) -> Type where
-  ||| For every shape s the set of positions c.Pos s has that interface
-  MkI : (p : (s : c.Shp) -> i (c.Pos s)) =>
-    InterfaceOnPositions c i
-
-
-namespace Flat
-  public export
-  data IsFlat : AddCont -> Type where
-    MkIsFlat : (p : Type) -> (mon : ComMonoid p) => IsFlat (MkAddCont (Const p))
-
-  --flatEq : IsFlat c => c = MkAddCont (Const c.Shp)

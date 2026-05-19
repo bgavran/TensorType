@@ -14,19 +14,28 @@ import public Data.Container.Base.Object.Instances as Cont
 import public Data.Num
 
 import public Data.Layout
-import public Data.Tensor.Axis
+import public Data.Tensor.Shape.Axis
+import public Data.Tensor.Shape.Shape
+
 import public Misc
+import Data.Container.Base.Display2D.CharacterMap
+import Data.List.Quantifiers
 
 %hide Syntax.WithProof.prefix.(@@) -- used here for indexing
 
 {-------------------------------------------------------------------------------
 {-------------------------------------------------------------------------------
-This file defines the main datatype of this repository: `Tensor`, and
-utilities and instances for working with it. `Tensor` implements and generalies
+This file defines the main datatype of this repository: `Tensor`, and utilities
+for working with it.
+
+`Tensor` implements and generalies
 1) `np.array` from NumPy 
 2) `torch.Tensor` from PyTorch
 3) `tf.Tensor` from TensorFlow
-to name a few.  In this file `Tensor` is simply a wrapper around the extension of an eponymous container: `Cont.Tensor` which itself is simply a composition of containers.
+to name a few.  
+
+In this file `Tensor` is a wrapper around the extension of an eponymous container (`Cont.Tensor`) which also provides functionality for working with
+axis names.
 
 Provided instances for `Tensor` include:
 Functor, Applicative, Foldable, Naperian, Algebra, Eq, Show, Num, Neg, Abs,
@@ -72,6 +81,39 @@ public export
   (0 t : Tensor shape a) -> Vect rank Cont
 (.sizes) _ = axisSizes shape
 
+public export
+(.indexAxis) : {shape : TensorShape rank} ->
+  (0 t : Tensor shape a) ->
+  (axisName : AxisName) ->
+  (isElem : Elem axisName shape) =>
+  Cont
+(.indexAxis) _ axisName = index shape axisName
+
+public export
+(.renameAxis) : {shape : TensorShape rank} ->
+  (t : Tensor shape a) ->
+  (axisName : AxisName) ->
+  (newAxisName : AxisName) ->
+  Elem axisName shape =>
+  Tensor (rename shape axisName newAxisName) a
+(.renameAxis) (MkT t) axisName newAxisName
+  = MkT $ replace
+      {p = \cs => Ext (Cont.Tensor cs) a}
+      (sym $ renamePreservesConts shape axisName newAxisName)
+      t
+
+namespace RenameByIndex
+  public export
+  (.rename) : {shape : TensorShape rank} ->
+    (t : Tensor shape a) ->
+    (axisIndex : Fin rank) ->
+    (newAxisName : AxisName) ->
+    Tensor (Data.Tensor.Shape.Shape.RenameByIndex.rename shape axisIndex newAxisName) a
+  (.rename) (MkT t) axisIndex newAxisName = MkT $ replace
+    {p = \cs => Ext (Cont.Tensor cs) a}
+    (sym $ RenameByIndex.renamePreservesConts shape axisIndex newAxisName)
+    t
+
 namespace SomeTesting
   public export
   BatchSize : Axis
@@ -112,11 +154,11 @@ Functor (Tensor shape) where
 namespace NestedTensorUtils
   public export
   extract : Tensor [] a -> a
-  extract (MkT t) = extract t
+  extract (MkT t) = #> t
 
   public export
   embed : a -> Tensor [] a
-  embed a = MkT (toScalar a)
+  embed a = MkT (># a)
 
   ||| With the added data of the wrapper around (Ext (Tensor shape) a), this
   ||| effectively states a list version of the following isomorphism
@@ -141,15 +183,15 @@ namespace NestedTensorUtils
   ||| but it requires non-erased `c` and `cs`
   public export
   extractTopExt : {0 cs : TensorShape rank} ->
-    NewAxisConsistent c cs =>
-    Tensor (c :: cs) a -> Ext (c.cont) (Tensor cs a)
+    ConsistentWith c cs =>
+    Tensor (c :: cs) a -> Ext c.cont (Tensor cs a)
   extractTopExt (MkT (sh <| ind))
     = shapeExt sh <| \p => MkT $ index sh p <| \p' => ind (p ** p')
   
   public export
   embedTopExt : {0 cs : TensorShape rank} ->
-    NewAxisConsistent c cs =>
-    Ext (c.cont) (Tensor cs a) -> Tensor (c :: cs)  a
+    ConsistentWith c cs =>
+    Ext c.cont (Tensor cs a) -> Tensor (c :: cs)  a
   embedTopExt e =
     let tp = GetT . index e
     in MkT $ (shapeExt e <| shapeExt . tp) <| \(p ** p') => index (tp p) p'
@@ -157,22 +199,22 @@ namespace NestedTensorUtils
   ||| This is useful because container composition adds non-trivial data to the
   ||| vector type (i.e. `c >@ Scalar` is not equal to `c`)
   public export
-  extToVector : Ext (c.cont) a -> Tensor [c] a
+  extToVector : Ext c.cont a -> Tensor [c] a
   extToVector e = MkT $ (shapeExt e <| \_ => ()) <| \(cp ** ()) => index e cp
 
   public export
-  vectorToExt : Tensor [c] a -> Ext (c.cont) a
+  vectorToExt : Tensor [c] a -> Ext c.cont a
   vectorToExt (MkT t) = shapeExt (shapeExt t) <| \cp => index t (cp ** ())
 
   public export
   toNestedTensor : {0 cs : TensorShape rank} ->
-    NewAxisConsistent c cs =>
+    ConsistentWith c cs =>
     Tensor (c :: cs) a -> Tensor [c] (Tensor cs a)
   toNestedTensor = extToVector . extractTopExt
 
   public export
   fromNestedTensor : {0 cs : TensorShape rank} ->
-    NewAxisConsistent c cs =>
+    ConsistentWith c cs =>
     Tensor [c] (Tensor cs a) -> Tensor (c :: cs) a
   fromNestedTensor = embedTopExt . vectorToExt 
 
@@ -180,7 +222,7 @@ namespace NestedTensorUtils
   public export
   tensorMapFirstAxis : {0 c : Axis} ->
     {0 cs : TensorShape k} -> {0 ds : TensorShape k'} ->
-    NewAxisConsistent c cs => NewAxisConsistent c ds =>
+    (ccs : c `ConsistentWith` cs) => (cds : c `ConsistentWith` ds) =>
     (f : Tensor cs a -> Tensor ds a) ->
     Tensor (c :: cs) a -> Tensor (c :: ds) a
   tensorMapFirstAxis f = fromNestedTensor . map f . toNestedTensor
@@ -191,7 +233,7 @@ namespace NestedTensorUtils
   public export
   (<-$>) : {c : Axis} ->
     {0 cs : TensorShape k} -> {0 ds : TensorShape k'} ->
-    NewAxisConsistent c cs => NewAxisConsistent c ds =>
+    ConsistentWith c cs => ConsistentWith c ds =>
     (f : Tensor cs a -> Tensor ds a) ->
     Tensor (c :: cs) a -> Tensor (c :: ds) a
   (<-$>) = tensorMapFirstAxis
@@ -200,52 +242,51 @@ namespace NestedTensorUtils
 namespace TensorFromConcrete
   public export
   concreteTypeTensor : (shape : TensorShape rank) ->
-    (allConcrete : AllConcrete (conts shape)) =>
+    AllC IsConcrete shape =>
     Type -> Type
-  concreteTypeTensor [] {allConcrete = []} = concreteType {cont=Scalar}
-  concreteTypeTensor (c :: cs) {allConcrete = Cons @{fc}}
-    = (concreteType @{fc}) . (concreteTypeTensor cs)
+  concreteTypeTensor [] @{[]} = concreteType {c=Scalar}
+  concreteTypeTensor (a :: as) @{ic :: _}
+    = concreteType @{ic} . (concreteTypeTensor as)
 
   public export
   concreteTypeFunctor : {shape : TensorShape rank} ->
-    (allConcrete : AllConcrete (conts shape)) =>
+    AllC IsConcrete shape =>
     Functor (concreteTypeTensor shape)
-  concreteTypeFunctor {shape = []} {allConcrete = []}
-    = concreteFunctor {cont=Scalar}
-  concreteTypeFunctor {shape = (c :: cs)} {allConcrete = Cons @{fc}}
-    = Functor.Compose @{concreteFunctor @{fc} } @{concreteTypeFunctor}
+  concreteTypeFunctor {shape = []} @{[]} = concreteFunctor {c=Scalar}
+  concreteTypeFunctor {shape = (c :: cs)} @{ic :: _}
+    = Functor.Compose @{concreteFunctor @{ic} } @{concreteTypeFunctor}
 
   public export
   concreteToExtensions : {shape : TensorShape rank} ->
-    (allConcrete : AllConcrete (conts shape)) =>
+    AllC IsConcrete shape =>
     concreteTypeTensor shape a -> composeExtensions (conts shape) a
-  concreteToExtensions {shape = []} {allConcrete = []} ct = fromConcreteTy ct
-  concreteToExtensions {shape = (_ :: _)} {allConcrete = Cons} ct =
-    concreteToExtensions <$> fromConcreteTy ct
+  concreteToExtensions {shape = []} @{[]} ct = fromConcreteTy ct
+  concreteToExtensions {shape = (_ :: _)} @{(ic :: _)} ct =
+    concreteToExtensions <$> (fromConcreteTy @{ic} ct)
 
   public export
   extensionsToConcreteType : {shape : TensorShape rank} ->
-    (allConcrete : AllConcrete (conts shape)) =>
+    AllC IsConcrete shape =>
     composeExtensions (conts shape) a -> concreteTypeTensor shape a
-  extensionsToConcreteType {shape = []} {allConcrete = []} ct = toConcreteTy ct
-  extensionsToConcreteType {shape = (_ :: _)} {allConcrete = Cons @{fc}} ct
-    = (map @{concreteFunctor @{fc}} extensionsToConcreteType) (toConcreteTy ct)
+  extensionsToConcreteType {shape = []} @{[]} ct = toConcreteTy ct
+  extensionsToConcreteType {shape = (_ :: _)} @{ic :: _} ct
+    = (map @{concreteFunctor @{ic}} extensionsToConcreteType) (toConcreteTy @{ic} ct)
 
   public export
   toTensor : {shape : TensorShape rank} ->
-    (allConcrete : AllConcrete (conts shape)) =>
+    AllC IsConcrete shape =>
     concreteTypeTensor shape a -> Tensor shape a
   toTensor = fromExtensionComposition . concreteToExtensions
 
   public export
   fromTensor : {shape : TensorShape rank} ->
-    (allConcrete : AllConcrete (conts shape)) =>
+    AllC IsConcrete shape =>
     Tensor shape a -> concreteTypeTensor shape a
   fromTensor = extensionsToConcreteType . toExtensionComposition
 
   ||| Many containers have a `FromConcrete` instance, allowing them to easily
   ||| be converted to and from a (usually familiar) Idris type
-  ||| This works with tensors defined as a fold over contianers, but it requires
+  ||| This works with tensors defined as a fold over containers, but it requires
   ||| burdensome shape annotations everywhere
   ||| The decision was made to wrap that fold in `Tensor` as above, and then
   ||| (as this isn't a container anymore) provide equally named functions like
@@ -253,13 +294,13 @@ namespace TensorFromConcrete
   ||| detect which one needs to be used at call sites
   public export
   fromConcreteTy : {shape : TensorShape rank} ->
-    (allConcrete : AllConcrete (conts shape)) =>
+    AllC IsConcrete shape =>
     concreteTypeTensor shape a -> Tensor shape a
   fromConcreteTy = toTensor
 
   public export
   toConcreteTy : {shape : TensorShape rank} ->
-    (allConcrete : AllConcrete (conts shape)) =>
+    AllC IsConcrete shape =>
     Tensor shape a -> concreteTypeTensor shape a
   toConcreteTy = fromTensor
 
@@ -269,7 +310,7 @@ namespace TensorFromConcrete
   ||| We read it as a map `>` going into the tensor `#`
   public export
   (>#) : {shape : TensorShape rank} ->
-    (allConcrete : AllConcrete (conts shape)) =>
+    AllC IsConcrete shape =>
     concreteTypeTensor shape a -> Tensor shape a
   (>#) = fromConcreteTy
 
@@ -277,7 +318,7 @@ namespace TensorFromConcrete
   ||| We read it as a map `>` going out of the tensor `#`
   public export
   (#>) : {shape : TensorShape rank} ->
-    (allConcrete : AllConcrete (conts shape)) =>
+    AllC IsConcrete shape =>
     Tensor shape a -> concreteTypeTensor shape a
   (#>) = toConcreteTy
 
@@ -287,8 +328,8 @@ namespace TensorFromConcrete
   (>#>) : {rankOld, rankNew : Nat} ->
     {shapeOld : TensorShape rankOld} ->
     {shapeNew : TensorShape rankNew} ->
-    (allConcreteOld : AllConcrete (conts shapeOld)) =>
-    (allConcreteNew : AllConcrete (conts shapeNew)) =>
+    AllC IsConcrete shapeOld =>
+    AllC IsConcrete shapeNew =>
     (Tensor shapeOld a -> Tensor shapeNew b) ->
     concreteTypeTensor shapeOld a -> concreteTypeTensor shapeNew b
   (>#>) f ct = #> (f (># ct))
@@ -297,8 +338,8 @@ namespace TensorFromConcrete
   (#>#) : {rankOld, rankNew : Nat} ->
     {shapeOld : TensorShape rankOld} ->
     {shapeNew : TensorShape rankNew} ->
-    (allConcreteOld : AllConcrete (conts shapeOld)) =>
-    (allConcreteNew : AllConcrete (conts shapeNew)) =>
+    AllC IsConcrete shapeOld =>
+    AllC IsConcrete shapeNew =>
     (concreteTypeTensor shapeOld a -> concreteTypeTensor shapeNew b) ->
     Tensor shapeOld a -> Tensor shapeNew b
   (#>#) f t = ># (f (#> t))
@@ -310,6 +351,7 @@ namespace Reshape
   public export
   restructure : {cs : TensorShape oldRank} -> {ds : TensorShape newRank} ->
     Cont.Tensor (conts cs) =%> Cont.Tensor (conts ds) ->
+    tensorShapesConsistent cs ds =>
     Tensor cs a -> Tensor ds a
   restructure f = MkT . extMap f . GetT
 
@@ -323,9 +365,10 @@ namespace Reshape
   public export
   reshape :
     {oldShape : TensorShape oldRank} -> {newShape : TensorShape newRank} ->
-    (oldCub : All IsCubical (conts oldShape)) => (newCub : All IsCubical (conts newShape)) =>
+    All IsCubical (conts oldShape) => All IsCubical (conts newShape) =>
     Tensor oldShape a ->
-    {auto prf : size (conts oldShape) = size (conts newShape)} ->
+    (size (conts oldShape) = size (conts newShape)) =>
+    tensorShapesConsistent oldShape newShape =>
     Tensor newShape a
   reshape t = restructure (reshape DefaultLayoutOrder) t
 
@@ -334,24 +377,20 @@ namespace Reshape
   -- treeExample1 = ># Node 60 (Node 7 (Leaf (-42)) (Leaf 46)) (Leaf 2)
 
   ||| Performs an in-order traversal of a binary tree tensor into a list tensor
-  public export
-  traversalExample : Tensor ["binTree" ~> BinTree] Double ->
-                     Tensor ["list" ~> List] Double
-  traversalExample = restructure (wrapIntoVector inorder)
-
-  -- ||| Down the line, we'll also want to adjust how we perform this 
-  -- ||| transformation depending on the device we perform the computation on.
-
+  -- public export
+  -- traversalExample2 : Tensor ["binTree" ~> BinTree] Double ->
+  --                    Tensor ["list" ~> List] Double
+  -- traversalExample2 = restructure (wrapIntoVector inorder)
 
 
 namespace TensorInstances
   namespace ApplicativeInstance
     public export
     tensorReplicate : {shape : TensorShape rank} ->
-      (allAppl : All TensorMonoid (conts shape)) =>
+      (allAppl : AllC TensorMonoid shape) =>
       (x : a) -> Tensor shape a
     tensorReplicate {shape = []} = embed
-    tensorReplicate {shape = (_ :: _), allAppl = (::) _ _}
+    tensorReplicate {shape = (_ :: _), allAppl = _ :: _}
       = fromExtensionComposition
       . pure
       . toExtensionComposition
@@ -359,17 +398,17 @@ namespace TensorInstances
 
     public export
     liftA2Tensor : {shape : TensorShape rank} ->
-      (allAppl : All TensorMonoid (conts shape)) =>
+      (allAppl : AllC TensorMonoid shape) =>
       Tensor shape a -> Tensor shape b -> Tensor shape (a, b)
     liftA2Tensor {shape = [], allAppl=[]} (MkT t) (MkT t')
       = embed (index t (), index t' ())
-    liftA2Tensor {shape = (s :: ss), allAppl = (::) _ _} t t'
+    liftA2Tensor {shape = (s :: ss), allAppl = _ :: _} t t'
       = embedTopExt $ uncurry liftA2Tensor <$>
           liftA2 (extractTopExt t) (extractTopExt t')
 
     public export
     {shape : TensorShape rank} ->
-    (allAppl : All TensorMonoid (conts shape)) =>
+    (allAppl : AllC TensorMonoid shape) =>
     Applicative (Tensor shape) where
       pure = tensorReplicate
       fs <*> xs = uncurry ($) <$> liftA2Tensor fs xs
@@ -381,7 +420,7 @@ namespace TensorInstances
       Nil : Eq a => AllEq [] a
       Cons : {c : Axis} -> {cs : TensorShape k} ->
         (eq : Eq (c.cont `fullOf` Tensor cs a)) => -- hmm, can be simplified? this would cause unification regarding AllConsistent to become much simpler?
-        (ne : NewAxisConsistent c cs) =>
+        (ne : c `ConsistentWith` cs) =>
         AllEq (c :: cs) a
 
     public export
@@ -401,7 +440,7 @@ namespace TensorInstances
     %hint
     public export
     interfacePosEq : {n : Nat} -> InterfaceOnPositions (Cont.Tensor [Vect n]) Eq
-    interfacePosEq = MkI -- follows from Data.DPair L57
+    interfacePosEq = MkI %search -- follows from Data.DPair L57
 
   -- public export
   -- vectInterfacePos : {n : Nat} -> InterfaceOnPositions (Vect n) DecEq
@@ -410,7 +449,7 @@ namespace TensorInstances
   namespace NumericInstances
     public export
     {shape : TensorShape rank} ->
-    Num a => All TensorMonoid (conts shape) =>
+    Num a => AllC TensorMonoid shape =>
     Num (Tensor shape a) where
         fromInteger = tensorReplicate . fromInteger
         t + t' = uncurry (+) <$> liftA2Tensor t t'
@@ -418,7 +457,7 @@ namespace TensorInstances
 
     public export
     {shape : TensorShape rank} ->
-    Neg a => All TensorMonoid (conts shape) =>
+    Neg a => AllC TensorMonoid shape =>
     Neg (Tensor shape a) where
       negate = (negate <$>)
       xs - ys = (uncurry (-)) <$> liftA2 xs ys
@@ -430,20 +469,20 @@ namespace TensorInstances
 
     public export
     {shape : TensorShape rank} ->
-    Abs a => All TensorMonoid (conts shape) =>
+    Abs a => AllC TensorMonoid shape =>
     Abs (Tensor shape a) where
       abs = (abs <$>)
 
     public export
     {shape : TensorShape rank} ->
-    Fractional a => All TensorMonoid (conts shape) =>
+    Fractional a => AllC TensorMonoid shape =>
     Fractional (Tensor shape a) where
       t / v = (uncurry (/)) <$> liftA2 t v
 
     public export
     {shape : TensorShape rank} ->
     Exp a =>
-    All TensorMonoid (conts shape) =>
+    AllC TensorMonoid shape =>
     Exp (Tensor shape a) where
       exp = (exp <$>)
       log = (log <$>)
@@ -452,23 +491,53 @@ namespace TensorInstances
     public export
     {shape : TensorShape rank} ->
     FromDouble a =>
-    All TensorMonoid (conts shape) =>
+    AllC TensorMonoid shape =>
       FromDouble (Tensor shape a) where
         fromDouble x = tensorReplicate (fromDouble x)
 
   namespace DiagonalAxis
+    ||| Captures both "diagonal" operation for vector (Naperian containers) and
+    ||| "concat"-like operation for lists 
     public export
-    diagonal : {i : Axis} ->
+    join : {i : Axis} -> SeqMonoid i.cont =>
       (t : Tensor [i, i] a) ->
-      IsNaperian i.cont => TensorMonoid (i.cont) =>
       Tensor [i] a
-    diagonal t = restructure diagonal t
+    join = restructure join
+
+    ||| Alias for `join` for Naperian containers
+    public export
+    diagonal : {i : Axis} -> IsNaperian i.cont =>
+      (t : Tensor [i, i] a) ->
+      Tensor [i] a
+    diagonal = join
+  
+    -- public export
+    -- diagonalise : {toDiagonalise : AxisName} -> {shape : TensorShape rank} ->
+    --   (t : Tensor shape a) ->
+    --   All IsNaperian shape =>
+    --   (inShape : InShape toDiagonalise shape) =>
+    --   Tensor (snd $ removeDuplicates shape toDiagonalise {inShape=inShape}) a
+    -- diagonalise t = ?diagonalise_rhs
+      
+  
+      
+  
+    -- for codiagonal we need zeros
+    public export
+    codiagonal : Num a => {i : Axis} ->
+      Tensor [i] a -> Tensor [i, i] a
+    codiagonal t = ?codiagonal_rhs
+  
+    public export
+    tDiagVect : Tensor ["i" ~~> 2, "j" ~~> 2] Double
+    tDiagVect = ># [ [1, 2]
+                   , [3, 4] ] 
 
     public export
-    tDiag : Tensor ["i" ~~> 2, "i" ~~> 2] Double
-    tDiag = ># [ [100, 0]
-               , [0, 47] ] 
-
+    tDiagList : Tensor ["i" ~> List, "j" ~> List] Double
+    tDiagList = ># [ [10, 20, 30]
+                   , [3, 4] ] 
+  
     --public export
     --diagonal : {k : Nat} -> {shape : TensorShape rank} ->
     --  (t : Tensor shape a) ->
@@ -500,7 +569,7 @@ namespace TensorInstances
       Cons : {c : Axis} -> {cs : TensorShape k} ->
         (alg : Algebra (Ext c.cont) (Tensor cs a)) =>
         (rest : AllAlgebra cs a) =>
-        NewAxisConsistent c cs =>
+        ConsistentWith c cs =>
         AllAlgebra (c :: cs) a
 
     {-
@@ -526,6 +595,13 @@ namespace TensorInstances
     reduceTensor {allAlg = []} = extract
     reduceTensor {allAlg = Cons} = reduceTensor . reduce . extractTopExt
 
+    public export
+    reduceFirstAxis : {shape : TensorShape rank} ->
+      (alg : Algebra (Ext s.cont) (Tensor shape a)) =>
+      ConsistentWith s shape =>
+      Tensor (s :: shape) a -> Tensor shape a
+    reduceFirstAxis = reduce . extractTopExt
+
 
     public export
     {shape : TensorShape rank} ->
@@ -542,23 +618,46 @@ namespace TensorInstances
     -- ||| Since we have non-unique axis labels, this likely needs to be 
     -- ||| implemented after `dot`
     namespace ReduceAxis
-      ||| Takes in a tensor `t` and an axis name which we want to reduce along.
-      ||| Returns a new tensor with all occurences of this axis summed over, 
-      ||| correctly zipping if this axis appears multiple times.
-      ||| We also ensure that this function can only be called if the axis truly
-      ||| appears in the tensor, and if its underlying container is finite.
-      ||| From finite we can get algebra
-      public export
-      reduceAxis : {shape : TensorShape rank} ->
+
+      ||| Reduces a tensor along an axis appearing only once in the shape
+      ||| In the presence of multiple axes (at least in the Naperian case) we
+      ||| first have to transpose them to the front, and then diagonalise.
+      ||| Using `IsFinite` instead of `Algebra` because `IsFinite` allows us to
+      ||| refer to only the container, instead of the underlying type `a`
+      public export 
+      reduceSingleAxis : {rank : Nat} ->
+        {shape : TensorShape (S rank)} ->
+        (toReduce : AxisName) ->
+        (uElem : UniqueElem toReduce shape) =>
         (t : Tensor shape a) ->
-        (atm : All TensorMonoid (conts shape)) =>
-        (nap : All IsNaperian (conts shape)) =>
-        {k : Nat} ->
-        (toReduce : AxisName) -> (inShape : InShape toReduce shape k) =>
-        IsSucc k =>
+        AllC TensorMonoid shape =>
         Num a =>
-        (isFinite : IsFinite (shape.getByName toReduce inShape).cont) =>
-        Tensor (snd $ removeAllOccurrences shape toReduce {inShape=inShape}) a
+        (isFinite : IsFinite (index shape toReduce)) =>
+        Tensor (Unique.removeAxis toReduce shape) a
+      reduceSingleAxis {shape = (ax :: as)} toReduce t @{Here} @{_ :: tms}
+        = let tAlg = algebraFinite ax.cont @{isFinite} (Tensor as a)
+          in reduce (extractTopExt t)
+      reduceSingleAxis {shape = (ax :: as)} toReduce t @{There @{ItIsSucc}} @{_ :: _} {isFinite=isFinite}
+        = tensorMapFirstAxis {cds=consistentAfterRemoving ax as toReduce}
+            (\t' => reduceSingleAxis toReduce t' {isFinite=isFinite}) t
+
+
+      -- ||| Takes in a tensor `t` and an axis name which we want to reduce along.
+      -- ||| Returns a new tensor with all occurences of this axis summed over, 
+      -- ||| correctly zipping if this axis appears multiple times.
+      -- ||| We also ensure that this function can only be called if the axis truly
+      -- ||| appears in the tensor, and if its underlying container is finite.
+      -- ||| From finite we can get algebra
+      -- ||| Todo what is the best way to think about this, via algebra or finite?
+      -- public export
+      -- reduceAxis : {shape : TensorShape rank} ->
+      --   (t : Tensor shape a) ->
+      --   (atm : All TensorMonoid (conts shape)) =>
+      --   (nap : All IsNaperian (conts shape)) =>
+      --   (toReduce : AxisName) -> (inShape : Elem toReduce shape) =>
+      --   Num a =>
+      --   (isFinite : IsFinite (index shape toReduce)) =>
+      --   Tensor (removeAxis toReduce shape) a
       -- reduceAxis {shape = ((toReduce ~> c) :: as)} {atm=(tm :: tms)} t toReduce {inShape = Here} {k=S k'} {nap} with (k')
       --   _ | 0 = reduce @{algebraFinite c {isFinite=isFinite} (Tensor as a)} (extractTopExt t) -- this is the last axis to reduce
       --   reduceAxis {shape = ((toReduce ~> (Nap pos)) :: as)} {atm=(tm :: tms)} t toReduce {inShape = Here} {k=S k'} {nap = (MkIsNaperian pos)} | (S k'') = ?redddd_2_S_0 -- there is at least one more axis after this
@@ -705,49 +804,44 @@ namespace TensorInstances
     -- {shape : List Cont} ->
     -- Algebra (CTensor shape) a => Algebra (CTensor shape) (CTensor [] a) where
     --   reduce t = embed $ reduce $ extract <$> t
-
-t1 : Tensor [4] ["features"] Double
-t1 = reduce t0 "batch"
-
 -}
 
   namespace FoldableInstance
     public export
-    data AllFoldable : (shape : TensorShape rank) -> Type where
-        Nil : AllFoldable []
-        Cons : {0 cs : TensorShape k} ->
-          Foldable (Ext c.cont) =>
-          AllFoldable cs =>
-          NewAxisConsistent c cs =>
-          AllFoldable (c :: cs)
-  
-    public export
     tensorFoldr : {0 shape : TensorShape rank} ->
-      (allFoldable : AllFoldable shape) =>
+      (allFoldable : AllC IsFoldable shape) =>
       (a -> acc -> acc) -> acc -> Tensor shape a -> acc
     tensorFoldr {allFoldable = []} f val t = f (extract t) val
-    tensorFoldr {allFoldable = Cons} f val t = foldr
+    tensorFoldr {allFoldable = _ :: _} f val t = foldr
       (\ct, acc => tensorFoldr f acc ct) val (extractTopExt t)
-  
+
     public export
     {shape : TensorShape rank} ->
-    (allFoldable : AllFoldable shape) =>
+    (allFoldable : AllC IsFoldable shape) =>
     Foldable (Tensor shape) where
       foldr = tensorFoldr
+
+    -- We need this hint for the example `thisNowWorks` to work
+    %hint
+    public export
+    allFoldableFromAllCubical : {shape : TensorShape k} ->
+      All IsCubical shape -> AllC IsFoldable shape
+    allFoldableFromAllCubical {shape=[]} [] = []
+    allFoldableFromAllCubical {shape = (_ ~~> n) :: _} (MkIsCubical _ n :: ics)
+      = %search :: allFoldableFromAllCubical ics
+
+    concreteWorks : Tensor ["a" ~~> 7, "b" ~~> 2] Integer -> Integer
+    concreteWorks t = foldr (+) 0 t
   
-    -- concreteWorks : Tensor [7, 2] ["a", "b"] Integer -> Integer
-    -- concreteWorks t = foldr (+) 0 t
+    parametricCTensorWorks : {shape : TensorShape rank} ->
+      AllC IsFoldable shape =>
+      Tensor shape Integer -> Integer
+    parametricCTensorWorks t = foldr (+) 0 t
   
-    -- parametricCTensorWorks : {shape : Vect rank Cont} ->
-    --   {names : Vect rank String} ->
-    --   (ac : AllConsistent names shape) =>
-    --   AllFoldable shape =>
-    --   CTensor shape names Integer -> Integer
-    -- parametricCTensorWorks t = foldr (+) 0 t
-  
-    -- parametricDoesNotWork : {shape : List Nat} ->
-    --   Tensor shape Integer -> Integer
-    -- parametricDoesNotWork t = foldr (+) 0 t
+    thisNowWorks : {shape : TensorShape rank} ->
+      All IsCubical shape =>
+      Tensor shape Integer -> Integer
+    thisNowWorks t = foldr (+) 0 t
 
   namespace TraversableInstance
     public export
@@ -756,7 +850,7 @@ t1 = reduce t0 "batch"
         Cons : {0 cs : TensorShape k} ->
           Traversable (Ext c.cont) =>
           AllTraversable cs =>
-          NewAxisConsistent c cs =>
+          c `ConsistentWith` cs =>
           AllTraversable (c :: cs)
 
     public export
@@ -771,19 +865,19 @@ t1 = reduce t0 "batch"
     public export
     {shape : TensorShape rank} ->
     (allTraversable : AllTraversable shape) =>
-    (allFoldable : AllFoldable shape) =>
+    (allFoldable : AllC IsFoldable shape) =>
     Traversable (Tensor shape) where
       traverse = tensorTraverse
 
   namespace NaperianInstance
     public export
-    transposeMatrix : {i, j : Axis} ->
-      NewAxisConsistent i [j] => NewAxisConsistent j [i] =>
+    transposeMatrix : {0 i, j : Axis} ->
+      i `ConsistentWith` [j] => j `ConsistentWith` [i] =>
       (ni : IsNaperian i) => (nj : IsNaperian j) =>
       Tensor [i, j] a -> Tensor [j, i] a
-    transposeMatrix {ni=(MkIsNaperian _ _)} {nj=(MkIsNaperian _ _)}
+    transposeMatrix {ni=(MkIsNaperian _ _), nj=(MkIsNaperian _ _)}
       = restructure transpose
-
+   
     transposeTest : Tensor ["i" ~~> 2, "j" ~~> 3] a ->
                     Tensor ["j" ~~> 3, "i" ~~> 2] a
     transposeTest = transposeMatrix
@@ -795,60 +889,153 @@ t1 = reduce t0 "batch"
       {sh : c.cont.Shp} -> Tensor [c] (c.cont.Pos sh)
     positions = extToVector (positionsCont {sh=sh})
 
-namespace ShowInstance
-  public export
-  data AllShow : (shape : TensorShape rank) ->
-    (a : Type) -> Type where
-    Nil : Show a => AllShow [] a
-    -- for type below, we should be able to define what shExt is without referencing CTensor cs a? 
-    Cons : {0 cs : TensorShape k} ->
-      Show (c.cont `fullOf` Tensor cs a) =>
-      NewAxisConsistent c cs =>
-      AllShow (c :: cs) a
+  namespace ShowInstance
+    ||| Tensor-context rendering of container extensions.
+    ||| A separate interface from `Display2D (Ext c a)` because layered
+    ||| containers need to make separate choices (vertical bracket stacking for
+    ||| List/Vect, structural tree layout for trees)
+    public export
+    interface DisplayNestedCont (0 c : Cont) where
+      ||| Action a parent of `c` needs to apply to `c`
+      ||| For instance, trees get boxed if they're multi-line, cubical
+      ||| containers do not apply any action. Defaults to boxing
+      boxedForSiblings : Grid Char -> Grid Char
+      boxedForSiblings = wrapNonEmpty @{DoubleLineBox}
 
-  public export
-  show' : {0 rank : Nat} ->
+      ||| Given the content of `c` rendered as grids individually, render
+      ||| the layout given information of how many axes are below, and
+      ||| information on whether to box children, to keep visual separation
+      ||| Container can in principle decide whether to use `childBox` or not
+      displayNestedCont : (axesBelow : Nat) ->
+        (childBox : Grid Char -> Grid Char) ->
+        Ext c (Grid Char) -> Grid Char
+    
+    public export
+    DisplayNestedCont List where
+      boxedForSiblings = id
+      displayNestedCont 0 _ t = display2D t
+      displayNestedCont (S k) childBox (_ <| content) =
+        wrapListBrackets @{AsciiListSyntax} k (childBox <$> toList content)
+    
+    public export
+    {n : Nat} -> DisplayNestedCont (Vect n) where
+      boxedForSiblings = id
+      displayNestedCont axesBelow childBox (() <| content) =
+        displayNestedCont {c = List} axesBelow childBox (n <| content)
+    
+    public export
+    DisplayNestedCont BinTree where
+      displayNestedCont _ _ t = display2D t
+    
+    public export
+    DisplayNestedCont BinTreeLeaf where
+      displayNestedCont _ _ t = display2D t
+    
+    public export
+    DisplayNestedCont BinTreeNode where
+      displayNestedCont _ _ t = display2D t
+    
+    public export
+    DisplayNestedCont Scalar where
+      displayNestedCont _ _ t = display2D t
+    
+    public export
+    DisplayNestedCont Pair where
+      boxedForSiblings = id
+      displayNestedCont _ _ t = display2D t
+    
+    public export
+    data AllDisplay2D : (shape : TensorShape rank) -> (a : Type) -> Type where
+      Nil  : Display2D a => AllDisplay2D [] a
+      (::) : {k : Nat} -> {0 cs : TensorShape k} ->
+        DisplayNestedCont c.cont -> -- should this be `Display2D`?
+        (adTail : AllDisplay2D cs a) ->
+        ConsistentWith c cs =>
+        (ce : TensorCubEvidence cs) =>
+        AllDisplay2D (c :: cs) a
+    
+    ||| Recover the scalar-element `Display2D a` instance from a shape
+    public export
+    scalarDisplay : AllDisplay2D shape a => Display2D a
+    scalarDisplay @{Nil}           = %search
+    scalarDisplay @{(_ :: adTail)} = scalarDisplay @{adTail}
+
+    ||| Fold through the content of the tensor, and return the maximum
+    ||| width of the displayed scalar element
+    public export
+    maxWidthCubical : {shape : TensorShape rank} ->
+      (allD : AllDisplay2D shape a) =>
+      AllC IsFoldable shape =>
+      Tensor shape a -> Nat
+    maxWidthCubical = foldr
+      (max . gridWidth . display2D @{scalarDisplay @{allD}}) 0
+
+    ||| Render a cubical tensor given
+    ||| 1) a specific width of content for each cell
+    ||| 2) the number of outer bracket levels that need to surround the tensor
+    public export
+    renderCubicalWithWidth : {shape : TensorShape rank} ->
+      (allD : AllDisplay2D shape a) => (allCub : All IsCubical shape) =>
+      (outerWrap, cellWidth : Nat) ->
+      Tensor shape a ->
+      Grid Char
+    renderCubicalWithWidth {allD = Nil} _ cellWidth t =
+      padGridLeft cellWidth (display2D (extract t))
+    renderCubicalWithWidth {allD = (::) {c = _ ~~> n} {cs} _ adTail}
+                           {allCub = MkIsCubical _ _ :: ics} outerWrap cellWidth t =
+      case extractTopExt t of
+        (_ <| content) =>
+          let children : List (Grid Char)
+              children = toList content <&>
+                renderCubicalWithWidth (S outerWrap) cellWidth
+          in case cs of
+            [] => wrappedInnerRow @{AsciiListSyntax}
+                    (defaultLineWidth `minus` 2 * outerWrap) 1 children
+            _ :: _ => wrapListBrackets @{AsciiListSyntax} 0
+                        [aboveAllSep padCharacter (pred (length (toList cs))) children]
+
+    ||| Render a tensor we know is cubical: first compute the maximum width of 
+    ||| a scalar element that appears, then render.
+    public export
+    display2DTensorCubical : {shape : TensorShape rank} ->
+      AllDisplay2D shape a => AllC IsFoldable shape => All IsCubical shape =>
+      Tensor shape a -> Grid Char
+    display2DTensorCubical t = renderCubicalWithWidth 0 (maxWidthCubical t) t
+
+    ||| Dispatch between cubical and non-cubical rendering.
+    ||| Is there a better way than with `TensorCubEvidence`?
+    public export
+    dispatchTensorDisplay : {shape : TensorShape rank} ->
+      AllDisplay2D shape a =>
+      (ce : TensorCubEvidence shape) =>
+      Tensor shape a -> Grid Char
+    dispatchTensorDisplay @{Nil} t = display2D (extract t)
+    dispatchTensorDisplay @{allD@(_ :: _)} @{Left prf} t =
+      display2DTensorCubical @{allD} @{allFoldableFromAllCubical prf} t
+    dispatchTensorDisplay @{(::) {k} tcd adTail {ce = ceTail}} @{Right _} t =
+      displayNestedCont k (siblingBox ceTail adTail)
+        (dispatchTensorDisplay {ce = ceTail} <$> extractTopExt t)
+      where
+        ||| Action to apply to a child grid before layering it
+        siblingBox : TensorCubEvidence ds -> AllDisplay2D ds a ->
+          (Grid Char -> Grid Char)
+        siblingBox _         Nil         = id
+        siblingBox (Left _)  _           = id
+        siblingBox (Right _) (tcd :: _)  = boxedForSiblings @{tcd}
+
+    public export
     {shape : TensorShape rank} ->
-    (allShow : AllShow shape a) =>
-    Tensor shape a -> String
-  show' {allShow = Nil} t = show (extract t)
-  show' {allShow = Cons @{sh}} t = show (extractTopExt t)
+    AllDisplay2D shape a =>
+    (ce : TensorCubEvidence shape) =>
+    Display2D (Tensor shape a) where
+      display2D = dispatchTensorDisplay {ce=ce}
 
-  public export
-  {shape : TensorShape rank} ->
-  (allShow : AllShow shape a) =>
-  Show (Tensor shape a) where
-      show t = show' {allShow = allShow} t
-
-  -- %hint
-  -- public export
-  -- allShowCubical : {shape : Vect rank Axis} ->
-  --   (ac : AxesConsistent shape) =>
-  --   Show a =>
-  --   AllShow shape a
-  -- allShowCubical {shape=[], ac = []} = Nil
-  -- allShowCubical {shape=(c :: cs), ac = a::as}
-  --   = ?allShowCubical_rhs -- Cons @{?oibim}
-
-  -- public export
-  -- {shape : Vect rank Axis} ->
-  -- (ac : AllConsistent names (Vect <$> shape)) =>
-  -- Show a =>
-  -- Show (Tensor shape names a) where
-  --   show t = show' {allShow=allShowCubical} t
-  --   -- show {shape=(c :: cs)} t = show' {allShow = Cons @{?oiim}} t
-
-  -- showCubical : {shape : List Nat} -> Show a => Tensor shape a -> String
-  -- showCubical {shape=[]} t = show' {allShow = Nil} t
-  -- showCubical {shape=(c :: cs)} t = show' {allShow = Cons @{?oiim}} t
-
-
-  sst : {shape : TensorShape rank} ->
-    AllShow shape a => Tensor shape a -> String
-  sst t = show t
-
-  -- sstc : {shape : List Nat} -> Show a => Tensor shape a -> String
-  -- sstc t = show t
+    public export
+    {shape : TensorShape rank} ->
+    AllDisplay2D shape a =>
+    (ce : TensorCubEvidence shape) =>
+    Show (Tensor shape a) where
+      show t = assert_total $ showGrid (dispatchTensorDisplay {ce=ce} t)
 
 tEx0 : Tensor ["batch" ~~> 3, "features" ~~> 4] Double
 tEx0 = ># [ [0, 1, 2, 3]
@@ -860,10 +1047,11 @@ tEx1 : Tensor ["i" ~~> 2, "j" ~~> 3, "i" ~~> 2] Double
 tEx1 = ># [ [[0, 1], [2, 3], [4, 5]]
           , [[6, 7], [8, 9], [10, 11]] ]
 
+
 namespace TensorContractions
   public export
   dotWith : {shape : TensorShape rank} ->
-    Algebra (Tensor shape) c => All TensorMonoid (conts shape) =>
+    Algebra (Tensor shape) c => AllC TensorMonoid shape =>
     (a -> b -> c) ->
     Tensor shape a -> Tensor shape b -> Tensor [] c
   dotWith f xs ys = embed $ reduce $ uncurry f <$> liftA2Tensor xs ys
@@ -871,7 +1059,7 @@ namespace TensorContractions
   public export
   dot : {shape : TensorShape rank} ->
     Num a =>
-    Algebra (Tensor shape) a => All TensorMonoid (conts shape) =>
+    Algebra (Tensor shape) a => AllC TensorMonoid shape =>
     Tensor shape a -> Tensor shape a -> Tensor [] a
   dot xs ys = dotWith (*) xs ys
 
@@ -996,7 +1184,7 @@ namespace TensorContractions
     public export
     outerWith : {i, j : Axis} ->
       TensorMonoid i.cont => TensorMonoid j.cont =>
-      (ac : NewAxisConsistent i [j]) =>
+      (ac : i `ConsistentWith` [j]) =>
       (a -> b -> c) ->
       Tensor [i] a -> Tensor [j] b -> Tensor [i, j] c
     outerWith f t t' =
@@ -1006,7 +1194,7 @@ namespace TensorContractions
     public export
     outer : {i, j : Axis} ->
       TensorMonoid i.cont => TensorMonoid j.cont =>
-      (ac : NewAxisConsistent i [j]) =>
+      (ac : i `ConsistentWith` [j]) =>
       Num a => 
       Tensor [i] a -> Tensor [j] a -> Tensor [i, j] a
     outer = outerWith (*)
@@ -1015,14 +1203,14 @@ namespace TensorContractions
     matrixVectorProduct : Num a => {i, j : Axis} ->
       TensorMonoid j.cont =>
       AllAlgebra [j] a =>
-      (ac : NewAxisConsistent i [j]) =>
+      (ac : i `ConsistentWith` [j]) =>
       Tensor [i, j] a -> Tensor [j] a -> Tensor [i] a
     matrixVectorProduct m v = dot v <-$> m
 
     public export
     vectorMatrixProduct : Num a => {i, j : Axis} ->
       TensorMonoid i.cont => 
-      (ac : NewAxisConsistent i [j]) =>
+      (ac : i `ConsistentWith` [j]) =>
       Algebra (Ext i.cont) (Tensor [j] a) =>
       Tensor [i] a -> Tensor [i, j] a -> Tensor [j] a
     vectorMatrixProduct v m =
@@ -1035,9 +1223,9 @@ namespace TensorContractions
     public export
     matMul : Num a => {i, j, k : Axis} ->
       TensorMonoid j.cont =>
-      (ac1 : NewAxisConsistent i [j]) =>
-      (ac2 : NewAxisConsistent j [k]) =>
-      (ac3 : NewAxisConsistent i [k]) =>
+      (ac1 : i `ConsistentWith` [j]) =>
+      (ac2 : j `ConsistentWith` [k]) =>
+      (ac3 : i `ConsistentWith` [k]) =>
       Algebra (Ext j.cont) (Tensor [k] a) =>
       Tensor [i, j] a -> Tensor [j, k] a -> Tensor [i, k] a
     matMul m1 m2 = fromNestedTensor $ 
@@ -1046,45 +1234,14 @@ namespace TensorContractions
     -- "ij,kj->ki"
     public export
     matrixMatrixProduct : {i, j, k : Axis} ->
-      (ac1 : NewAxisConsistent i [j]) =>
-      (ac2 : NewAxisConsistent k [j]) =>
-      (ac3 : NewAxisConsistent k [i]) =>
+      (ac1 : i `ConsistentWith` [j]) =>
+      (ac2 : k `ConsistentWith` [j]) =>
+      (ac3 : k `ConsistentWith` [i]) =>
       Num a =>
       TensorMonoid j.cont =>
       (allAlg : AllAlgebra [j] a) =>
       Tensor [i, j] a -> Tensor [k, j] a -> Tensor [k, i] a
     matrixMatrixProduct m1 = tensorMapFirstAxis (matrixVectorProduct m1)
-
--- tt0 : CTensor [] [] Integer
--- tt0 = pure 13
--- 
--- fg : CTensor [Vect 7] ["i"] Integer
--- fg = pure 5
--- 
--- fgh : CTensor [Vect 7, Vect 7] ["i", "j"] Integer
--- fgh = pure 13
--- 
--- sht0 : String
--- sht0 = show tt0
--- 
--- fsh0 : Show (Vect 8 `fullOf` (CTensor [] [] Integer))
--- fsh0 = %search
--- 
--- fsh : String
--- fsh = show fg
--- 
--- fshh : String
--- fshh = show fgh
--- 
--- ll : List' Integer
--- ll = fromConcreteTy [1,2,3,4,5]
--- 
--- bt : BinTree' Integer
--- bt = fromConcreteTy $ Node 1 (Node 2 (Leaf 3) (Leaf 4)) (Leaf 5)
--- 
--- rt : RoseTree' Char
--- rt = fromConcreteTy (Node 'c' [Leaf 'c', Leaf 'd'])
-
 
 public export
 tEx : Tensor ["i" ~~> 3, "j" ~~> 4] Integer
@@ -1100,39 +1257,59 @@ public export
 Ex3 : Tensor ["i" ~~> 2, "j" ~~> 6] Integer
 Ex3 = reshape Ex2
 
+||| At the moment, only works when the axis name apperas uniquely in the shape
 namespace IndexingByAxisNames
-  --public export
-  --posTypeOfAxisName : {shape : TensorShape rank} ->
-  --  (indexAxis : AxisName) ->
-  --  (InShape : indexAxis `InShape` shape) =>
-  --  Type
-
   public export
-  indexName : {shape : TensorShape rank} ->
+  data IndexTo : {shape : TensorShape rank} ->
     (t : Tensor shape a) ->
     (indexAxis : AxisName) ->
-    IsSucc k =>
-    (InShape : InShape indexAxis shape k) =>
-    Type
-    
+    (inShape : UniqueElem indexAxis shape) => Type where
+    Nil : {ax : Axis} -> {as : TensorShape rank} ->
+      ax `ConsistentWith` as =>
+      NotElem ax.name as =>
+      {t : Tensor (ax :: as) a} ->
+      IndexTo t ax.name
+    (::) : IsSucc rank => {as : TensorShape rank} ->
+      {ax : Axis} ->
+      ax `ConsistentWith` as =>
+      UniqueElem indexAxis as =>
+      IsNo (decEq indexAxis ax.name) =>
+      {t : Tensor (ax :: as) a} ->
+      (p : ax.cont.Pos (shapeExt (extractTopExt t))) ->
+      IndexTo {shape=as} (index (extractTopExt t) p) indexAxis ->
+      IndexTo {shape=ax :: as} t indexAxis
+
+  %name IndexTo ind
+
+  ||| Here "axis shape" here meant in the container sense
+  public export
+  indexShapeFw : {shape : TensorShape rank} ->
+    (t : Tensor shape a) ->
+    (indexAxis : AxisName) ->
+    (inShape : UniqueElem indexAxis shape) =>
+    IndexTo t indexAxis ->
+    (index shape indexAxis).Shp
+  indexShapeFw t (ax .name) @{Here} Nil = shapeExt (extractTopExt t)
+  indexShapeFw t indexAxis @{There} (p :: ind)
+    = indexShapeFw (index (extractTopExt t) p) indexAxis ind
+
 
 namespace SetterGetter
-  ||| Machinery for indexing into a Tensor based on absolute positions
-  ||| It depends on shape, but also on the tensor t itself
-  ||| Provides a compile-time guarantee that we won't be out of bounds
-  ||| This dependency is not needed for cubical tensors
-  ||| Technically, to index we only need the shapes, not the entire tensor
+  ||| Datatype containing information needed to index into a Tensor
+  ||| Unlike with cubical tensors, where the underlying tensor is not 
+  ||| necessary, here we require the data of `t : Tensor shape a` too.
+  ||| Based on absolute positions
   public export
   data Index :
     (shape : TensorShape rank) ->
     (t : Tensor shape a) -> Type where
     Nil : {t : Tensor [] a} -> Index [] t
-    (::) : {cs : TensorShape k} ->
-      NewAxisConsistent c cs =>
-      {t : Tensor (c :: cs) a} ->
-      (p : c.cont.Pos (shapeExt (extractTopExt t))) ->
-      Index cs (index (extractTopExt t) p) ->
-      Index (c :: cs) t
+    (::) : {as : TensorShape k} ->
+      ConsistentWith ax as =>
+      {t : Tensor (ax :: as) a} ->
+      (p : ax.cont.Pos (shapeExt (extractTopExt t))) ->
+      Index as (index (extractTopExt t) p) ->
+      Index (ax :: as) t
   
   %name Index is, js
 
@@ -1166,32 +1343,6 @@ namespace SetterGetter
   --   let tNested : Tensor [s] (Tensor ss a) := toNestedTensor t
   --       ts : Tensor ss a := setC (indexC tNested [i]) is x
   --   in fromNestedTensor $ MkT $ set (GetT tNested) (i ** ()) ts
-
-  -- public export
-  -- t00 : CTensor [Maybe, List] ["m", "l"] Integer
-  -- t00 = ># Just [10, 20, 30, 40, 50, 60, 70]
-
-  -- public export
-  -- t11 : Tensor [2, 3] ["i", "j"] Integer
-  -- t11 = ># [[1,2,3], [4,5,6]]
-
-  -- public export
-  -- t22 : CTensor [BinTree, List] ["b", "l"] Integer
-  -- t22 = ># Node [1,2] (Leaf [3,4]) (Leaf [5,6])
-
-  -- t33 : CTensor [BinTree] ["b"] Integer
-  -- t33 = ># Node 1 (Leaf 2) (Leaf 3)
-
-  -- t333 : CTensor [Vect 2] ["v"] Integer
-  -- t333 = ># [1, 2]
-  
-  -- t44 : CTensor [] [] Integer
-  -- t44 = ># 13
-
-  -- public export
-  -- jj : Integer
-  -- jj = index t11 [1, 1]
-
 
 namespace CubicalSetterGetter
   public export
@@ -1269,7 +1420,7 @@ namespace Slice
     --       (rest : All IsNaperian (conts as)) =>
     --       (nap : IsNaperian a) =>
     --       Log a ->
-    --       NewAxisConsistent a as =>
+    --       ConsistentWith a as =>
     --       IndexNaperian as {allNap=rest} ->
     --       IndexNaperian (a :: as) {allNap=(toContNaperian nap :: rest)}
 
@@ -1298,3 +1449,10 @@ namespace Slice
     --   Log = IndexNaperian shape
     --   lookup = tensorLookup
     --   tabulate = tensorTabulate
+
+
+
+
+public export
+treeExample1Test : Tensor ["myTree" ~> BinTree] Double
+treeExample1Test = ># Node 60 (Node 7 (Leaf (-42)) (Leaf 46)) (Leaf 2)

@@ -8,9 +8,9 @@ import NN.Architectures.Softargmax
 public export
 crossAttention : {a : Type} -> Num a =>
   {inputStructure, crossStructure, features : Axis} ->
-  (acif : NewAxisConsistent inputStructure [features]) =>
-  (accf : NewAxisConsistent crossStructure [features]) =>
-  (acci : NewAxisConsistent crossStructure [inputStructure]) =>
+  (acif : inputStructure `ConsistentWith` [features]) =>
+  (accf : crossStructure `ConsistentWith` [features]) =>
+  (acci : crossStructure `ConsistentWith` [inputStructure]) =>
   TensorMonoid inputStructure.cont => TensorMonoid features.cont =>
   (allAlg : AllAlgebra [inputStructure, features] a) =>
   {default id causalMask : Tensor [crossStructure, inputStructure] a ->
@@ -29,9 +29,9 @@ crossAttention {allAlg=Cons {rest=xx}, causalMask} softargmax q v k =
 public export
 selfAttention : {a : Type} -> Num a =>
   {inputStructure, features : Axis} ->
-  NewAxisConsistent inputStructure [features] =>
-  (TensorMonoid inputStructure.cont) =>
-  (TensorMonoid features.cont) =>
+  inputStructure `ConsistentWith` [features] =>
+  TensorMonoid inputStructure.cont =>
+  TensorMonoid features.cont =>
   (allAlg : AllAlgebra [inputStructure, features] a) =>
   {default id causalMask : Tensor [inputStructure, inputStructure] a ->
                            Tensor [inputStructure, inputStructure] a} ->
@@ -52,9 +52,9 @@ record SelfAttentionParams (features : Axis) (a : Type) where
 public export
 SAImpl : {a : Type} -> Num a =>
   {inputStructure, features : Axis} ->
-  (ac : NewAxisConsistent inputStructure [features]) =>
-  (TensorMonoid inputStructure.cont) =>
-  (TensorMonoid features.cont) =>
+  (ac : inputStructure `ConsistentWith` [features]) =>
+  TensorMonoid inputStructure.cont =>
+  TensorMonoid features.cont =>
   (allAlg : AllAlgebra [inputStructure, features] a) =>
   {default id causalMask : Tensor [inputStructure, inputStructure] a ->
                            Tensor [inputStructure, inputStructure] a} ->
@@ -72,8 +72,8 @@ SAImpl {allAlg = Cons} {causalMask} softargmax (input ** (MkSAParams queryMat va
 public export
 SelfAttention : {a : Type} -> Num a =>
   {inputStructure, features : Axis} ->
-  NewAxisConsistent inputStructure [features] =>
-  (TensorMonoid inputStructure.cont) => (TensorMonoid features.cont) =>
+  inputStructure `ConsistentWith` [features] =>
+  TensorMonoid inputStructure.cont => TensorMonoid features.cont =>
   (allAlg : AllAlgebra [inputStructure, features] a) =>
   {default id causalMask : Tensor [inputStructure, inputStructure] a ->
                            Tensor [inputStructure, inputStructure] a} ->

@@ -4,7 +4,7 @@ module Data.Container.Base.Instances
 import public Data.Container.Base.Object.Instances
 import public Data.Container.Base.Extension.Instances
 import public Data.Container.Base.Morphism.Instances
-import public Data.Container.Base.Concrete.Instances
+import public Data.Container.Base.Properties.Instances
 
 import public Data.Container.Base.InstanceInterfaces
 import public Data.Container.Base.Product.Interfaces

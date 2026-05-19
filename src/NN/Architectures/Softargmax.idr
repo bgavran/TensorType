@@ -34,7 +34,7 @@ logSoftargmax t = case logSumExp t of
 ||| When `temperature=0` it reduces to `argmax`
 public export
 softargmaxImpl : {i : Axis} -> Fractional a => Exp a => Ord a => Neg a =>
-  Foldable (Tensor [i]) =>
+  IsFoldable i .cont =>
   (allAlg : AllAlgebra [i] a) =>
   {default 1 temperature : a} ->
   Tensor [i] a -> Tensor [i] a
@@ -42,12 +42,13 @@ softargmaxImpl {temperature} t
   = exp <$> logSoftargmax (t <&> (/ temperature))
 
 ||| Softargmax as a parametric map, with temperature as a parameter
-||| TODO the output type should be a distribution tensor, since distributions
-||| are applicative? https://glaive-research.org/2025/02/11/Generalized-Transformers-from-Applicative-Functors.html
+||| TODO since distribution is an applicative functor (https://glaive-research.org/2025/02/11/Generalized-Transformers-from-Applicative-Functors.html)
+||| is there a meaningful notion of the "distribution container"?
+||| Is there a sense in which `Dist` is a functor on containers?
 public export
 softargmax : {i : Axis} ->
   {a : Type} -> Fractional a => Exp a => Ord a => Neg a =>
-  Foldable (Tensor [i]) =>
+  IsFoldable i.cont =>
   (allAlg : AllAlgebra [i] a) =>
   Tensor [i] a -\-> Tensor [i] a
 softargmax = MkPara 
@@ -56,20 +57,12 @@ softargmax = MkPara
 
 
 -- `Control.Monad.Distribution` and softargmax should probably be merged?
+-- todo this is missing beause of a show instance for tensors
+-- needs an assert total because it goes through tensors
 public export
 {i : Nat} -> Show (Dist i) where
-  show (MkDist xs) = show (softargmaxImpl {i="softmaxTemp" ~~> i} (># xs))
+  show (MkDist xs) = assert_total $ 
+    show @{(?todoTensorShow)} (softargmaxImpl {i="softmaxTemp" ~~> i} (># xs))
 
 inpp : Tensor ["ieva" ~~> 3] Double
 inpp = ># [1000, 999, 998]
-
--- TODO namedSoftargmax
--- namedSoftmax : {axis : Type -> Type}
---   -> {shape : Vect n ApplF} -> {a : Type}
---   -> Functor axis
---   => Elem axis shape
---   -> TensorA shape a
---   -> TensorA shape a
--- namedSoftmax {shape = []} axis t impossible -- can't be in vector if vector empty
--- namedSoftmax {shape = (axis :: ss)} Here (GTS x) = GTS (?sm <$> x)
--- namedSoftmax {shape = (s :: ss)} (There later) (GTS x) = GTS ?namedSoftmax_rhs_4

@@ -34,7 +34,7 @@ namespace Cont
   public export
   DPairCont : DepAct DLens (FamDLens {c=DLens})
   DPairCont = MkDepAct $ \c => MkFunctor
-    (DepHancockProduct c)
+    (DPairTensor c)
     (\r => !% \(x ** p) => ((x ** (r x).fwd p) **
               \(x', p') => (x', (r x).bwd p p')))
 
@@ -49,6 +49,6 @@ namespace AddCont
   public export
   DPairAddCont : DepAct AddDLens (FamAddDLens {c=AddDLens})
   DPairAddCont = MkDepAct $ \c => MkFunctor
-    (DepHancockProduct c)
+    (DPair c)
     (\r => !%+ \(x ** p) => ((x ** (r x).fwd p) **
                \(x', p') => (x', (r x).bwd p p')))

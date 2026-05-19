@@ -71,7 +71,7 @@ namespace DependentLenses
   lensInputs : {c, d : AddCont} -> c =%> d -> AddCont
   lensInputs lens = MkAddCont
     (lensInputs (ULens lens))
-    {mon=(MkI @{\s => ?lensInputsMon_rhs})}
+    {mon=(MkI $ \s => ?lensInputsMon_rhs)}
 
 
 namespace DependentCharts

@@ -8,12 +8,12 @@ import Data.Finite
 
 import Data.Container.Base.Object.Definition
 import Data.Container.Base.Extension.Definition
-import Data.Container.Base.Concrete.Definition
+import Data.Container.Base.Properties.Definitions
 import Data.Container.Base.Object.Instances
 import Data.Container.Base.Extension.Instances
-import Data.Container.Base.Concrete.Instances
+import Data.Container.Base.Properties.Instances
 
-import Data.Tree
+import Data.Trees
 import Data.Container.Base.TreeUtils
 import Data.Functor.Algebra
 import Misc
@@ -21,29 +21,30 @@ import Misc
 %hide Prelude.toList
 
 
+-- the idea is that this file will slowly be made obsolete as more and more
+-- things are implemented in terms of containers
+
+
 ||| Any finite container (i.e. whose each set of positions is finite) can be
 ||| given an algebra instance simply by summing up all the concrete values
 public export
 algebraFinite : 
-  (c : Cont) -> (isFinite : IsFinite c) =>
+  (0 c : Cont) -> (isFinite : IsFinite c) =>
   (0 a : Type) -> Num a =>
   Algebra (Ext c) a
-algebraFinite c {isFinite = MkI @{p}} _
+algebraFinite c {isFinite = MkI p} _
   = MkAlgebra $ \(shp <| content) => reduce $ values @{p shp} <&> content
+
 
 namespace VectInstances
   public export
   {n : Nat} -> Eq x => Eq (Vect' n x) where
     v == v' = (toVect v) == (toVect v')
  
-  public export
-  {n : Nat} -> Show x => Show (Vect' n x) where
-    show v = show (toVect v)
+  -- public export
+  -- {n : Nat} -> Show x => Show (Vect' n x) where
+  --   show v = show (toVect v)
 
-  public export
-  {n : Nat} -> Foldable (Vect' n) where
-    foldr f z v = foldr f z (toVect v)
-  
   public export
   {n : Nat} -> Num a => Algebra (Vect' n) a where
     reduce v = reduce (toVect v)
@@ -77,14 +78,10 @@ namespace ListInstances
   Eq a => Eq (List' a) where
     l == l' = assert_total ((toList l) == (toList l'))
 
-  ||| Is there a different way to convince Idris' totality checker?
-  public export
-  Show a => Show (List' a) where
-    show x = assert_total (show (toList x))
-
-  public export
-  Foldable List' where
-    foldr f z v = foldr f z (toList v)
+  -- ||| Is there a different way to convince Idris' totality checker?
+  -- public export
+  -- Show a => Show (List' a) where
+  --   show x = assert_total (show (toList x))
 
   public export
   Num a => Algebra List' a where
@@ -111,10 +108,10 @@ namespace BinTreeInstances
   Eq a => Eq (BinTree' a) where
     t == t' = assert_total (toBinTreeSame t == toBinTreeSame t')
 
-  ||| Is there a different way to convince Idris' totality checker?
-  public export
-  Show a => Show (BinTree' a) where
-    show = assert_total (show . toBinTreeSame)
+  -- ||| Is there a different way to convince Idris' totality checker?
+  -- public export
+  -- Show a => Show (BinTree' a) where
+  --   show = assert_total (show . toBinTreeSame)
 
   ||| Summing up nodes and leaves of the tree given by the Num a structure
   public export
@@ -132,20 +129,15 @@ namespace BinTreeLeafInstances
   Eq a => Eq (BinTreeLeaf' a) where
     t == t' = assert_total (toBinTreeLeaf t == toBinTreeLeaf t')
 
-  ||| Is there a different way to convince Idris' totality checker?
-  public export
-  Show a => Show (BinTreeLeaf' a) where
-    show = assert_total (show . toBinTreeLeaf)
+  -- ||| Is there a different way to convince Idris' totality checker?
+  -- public export
+  -- Show a => Show (BinTreeLeaf' a) where
+  --   show = assert_total (show . toBinTreeLeaf)
 
   ||| Summing up leaves of the tree given by the Num a structure
   public export
   Num a => Algebra BinTreeLeaf' a where
     reduce = reduce {f=BinTreeLeaf} . toBinTreeLeaf
-
-  ||| Requires making a choice on which subtree to process first
-  public export
-  Foldable BinTreeLeaf' where
-    foldr f z t = foldr {t=BinTreeLeaf} f z (toBinTreeLeaf t)
 
 
 namespace BinTreeNodeInstances
@@ -154,13 +146,12 @@ namespace BinTreeNodeInstances
   Eq a => Eq (BinTreeNode' a) where
     t == t' = assert_total (toBinTreeNode t == toBinTreeNode t')
 
-  ||| Is there a different way to convince Idris' totality checker?
-  public export
-  Show a => Show (BinTreeNode' a) where
-    show = assert_total (show . toBinTreeNode)
+  -- ||| Is there a different way to convince Idris' totality checker?
+  -- public export
+  -- Show a => Show (BinTreeNode' a) where
+  --   show = assert_total (show . toBinTreeNode)
 
   ||| Summing up nodes of the tree given by the Num a structure
   public export
   Num a => Algebra BinTreeNode' a where
     reduce = reduce {f=BinTreeNode} . toBinTreeNode
-

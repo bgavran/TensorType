@@ -138,6 +138,7 @@ namespace Cartesian
   (:&) : c1 =:> c2 -> c1 =&> c2
   (:&) (!: f) = !& \x => let (y ** ky) = f x in (y ** forward ky)
 
+
 ||| Similar to the extension of a container. Following some ideas in
 ||| Diegetic open games (https://arxiv.org/abs/2206.12338)
 ||| Is this recovered via container composition when `r` is a some container?

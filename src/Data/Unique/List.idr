@@ -48,7 +48,7 @@ namespace UniqueList
   decElemNotInUniqueList x [] = Yes $ NotInEmptyList x
   decElemNotInUniqueList x (y :: xs) = case decEq x y of
     Yes Refl => No $ \(NotInNonEmptyList  _ _ {neq})
-      => uninhabited @{uniqueUninhabited} neq
+      => uninhabited @{UninhabitedIsNoRefl} neq
     No neq => case decElemNotInUniqueList x xs of
       Yes prf => Yes $ NotInNonEmptyList _ prf {neq=(proofIneqIsNo neq)}
       No nprf => No $ \(NotInNonEmptyList _ prf') => nprf prf'

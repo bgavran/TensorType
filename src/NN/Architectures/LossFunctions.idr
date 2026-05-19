@@ -101,10 +101,11 @@ public export
 SquaredError : {a : Type} -> Num a => Neg a => Loss (Const a) {l=Const a}
 SquaredError = Additive.Morphism.Instances.SquaredDifference
 
+
 public export
 Sum : {n : Axis} -> IsCubical n => Num a =>
-  TensorMonoid n.cont => 
-  (Const (Tensor [n] a)) =%> (Const (Tensor [] a))
+  TensorMonoid n.cont =>
+  Const (Tensor [n] a) =%> Const (Tensor [] a)
 Sum @{MkIsCubical _ n} = !%+ \t => (># reduce t ** \a' => fill (#> a'))
 
 public export
@@ -114,7 +115,7 @@ Div : {a : Type} -> Num a => Fractional a =>
 Div divBy = !%+ \x => (x <&> (/ divBy) ** \x' => x' <&> (/ divBy))
 
 public export
-MeanSquaredError : {n : Axis} -> IsCubical n => TensorMonoid n.cont =>
+MeanSquaredError : IsCubical n => TensorMonoid n.cont =>
   {a : Type} -> Num a => Neg a => Fractional a => Cast Nat a =>
   Loss (Const (Tensor [n] a)) {l=Const (Tensor [] a)}
 MeanSquaredError @{MkIsCubical _ n} = SquaredError %>> Sum %>> Div (cast n)

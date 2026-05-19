@@ -8,6 +8,42 @@ import Data.Container.Base.Product.Definitions
 import Data.Container.Base.TreeUtils
 import Control.Monad.Distribution
 
+
+{-------------------------------------------------------------------------------
+This file defines a number of different containers
+Some of them are possible to express in terms of each other, but we opt to define all of them directly
+-------------------------------------------------------------------------------}
+
+||| Constant (non-dependent) container: positions do not depend on shapes
+||| As a polynomial functor: F(X) = aX^b
+public export
+Const2 : Type -> Type -> Cont
+Const2 a b = (_ : a) !> b
+
+||| Constant container whose shapes and positions coincide
+||| As a polynomial functor: F(X) = aX^a
+public export 
+Const : Type -> Cont
+Const a = Const2 a a
+
+||| Naperian container: a constant container with a single shape
+||| As a polynomial functor: F(X) = X^b
+public export
+Nap : Type -> Cont
+Nap b = Const2 Unit b
+
+||| Flat container: a constant container with a single position
+||| As a polynomial functor: F(X) = aX
+public export
+Flat : Type -> Cont
+Flat a = Const2 a Unit
+
+||| Sharp container: a constant container without any positions
+||| As a polynomial functor: F(X) = a
+public export
+Sharp : Type -> Cont
+Sharp a = Const2 a Void
+
 ||| Empty container, isomorphic to Void
 ||| As a polynomial functor: F(X) = 0
 ||| Initial container
@@ -70,6 +106,12 @@ public export
 Vect : List .Shp -> Cont
 Vect n = (_ : Unit) !> Fin n
 
+||| Grid, container of things arranged along two axes
+||| As a polynomial functor: F(X) = X^(hw)
+public export
+Grid : (List .Shp, List .Shp) -> Cont
+Grid (h, w) = (Vect h) >< (Vect w)
+
 ||| Container of an infinite number of things
 ||| As a polynomial functor: F(X) = X^Nat
 public export
@@ -112,8 +154,14 @@ public export
 CoproductTensor : List Cont -> Cont
 CoproductTensor = foldr (>+<) Empty
 
+||| Ignoring universe levels here
+||| This should be the analogue of `Type : Type`
+public export
+ContUniverse : Cont
+ContUniverse = (_ : (s : Type ** s -> Type)) !> Void
 
-||| Can't believe this works?
+||| Given a natural number `n`, this is a container whose shape represents a 
+||| distribution over `n` choices, and its position represents the choice made.
 public export
 Sample : Nat -> Cont
 Sample n = Const2 (Dist n) (Fin n)

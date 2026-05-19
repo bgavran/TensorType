@@ -4,6 +4,7 @@ import Data.Vect
 
 %hide Data.Vect.transpose
 
+-- todo this isn't necessary anymore?
 -- Needed to define transposition, and diagonal elements
 {-
 Lists -> not Naperian! Their shape isn't uniform (they can be of different lengths)

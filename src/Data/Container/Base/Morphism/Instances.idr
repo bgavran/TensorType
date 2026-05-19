@@ -3,12 +3,15 @@ module Data.Container.Base.Morphism.Instances
 import Data.Fin
 import Data.Fin.Split
 import Data.Vect
+import Data.List.Elem
 import Data.List.Quantifiers
 
 import Data.Container.Base.Object.Definition
 import Data.Container.Base.Morphism.Definition
 import Data.Container.Base.Extension.Definition
+import Data.Container.Base.Properties.Definitions
 import Data.Container.Base.Product.Definitions
+
 import Data.Container.Base.Object.Instances
 
 import Data.Container.Base.Quantifiers
@@ -21,46 +24,46 @@ import Data.Num
 import Data.Layout
 import Misc
 
-||| "State" as defined in https://arxiv.org/abs/2403.13001 and open games 
-||| Given a shape of any container, state can be defined
-public export
-State : Cont -> Type
-State c = Scalar =%> c
+namespace State
+  ||| "State" as defined in https://arxiv.org/abs/2403.13001 and open games 
+  ||| Given a shape of any container, state can be defined
+  public export
+  State : Cont -> Type
+  State c = Scalar =%> c
+
+  public export
+  toState : {0 c : Cont} -> (x : c.Shp) -> State c
+  toState x = !% \() => (x ** \_ => ())
+
+  public export
+  fromState : {0 c : Cont} ->
+    State c ->
+    c.Shp
+  fromState f = f.fwd ()
+
+namespace Costate
+  public export
+  Costate : Cont -> Type
+  Costate c = c =%> Scalar
+
+  public export
+  fromCostate : {0 c : Cont} ->
+    Costate c ->
+    (x : c.Shp) -> c.Pos x
+  fromCostate f x = f.bwd x ()
+  
+  public export
+  toCostate : {0 c : Cont} ->
+    ((x : c.Shp) -> c.Pos x) ->
+    Costate c
+  toCostate s = !% \x => (() ** \() => s x)
 
 public export
-Costate : Cont -> Type
-Costate c = c =%> Scalar
-
-public export
-toState : {0 c : Cont} -> (x : c.Shp) -> State c
-toState x = !% \() => (x ** \_ => ())
-
-public export
-fromState : {0 c : Cont} ->
-  State c ->
-  c.Shp
-fromState f = f.fwd ()
-
-public export
-fromCostate : {0 c : Cont} ->
-  Costate c ->
-  (x : c.Shp) -> c.Pos x
-fromCostate f x = f.bwd x ()
-
-public export
-toCostate : {0 c : Cont} ->
-  ((x : c.Shp) -> c.Pos x) ->
-  Costate c
-toCostate s = !% \x => (() ** \() => s x)
-
-public export
-fromNapCostateToState : {0 c : Cont} ->
-  Costate (Nap c.Shp) -> State c
+fromNapCostateToState : Costate (Nap c.Shp) -> State c
 fromNapCostateToState f = toState (f.bwd () ())
 
 public export
-fromStateToNapCostate : {0 c : Cont} ->
-  State c -> Costate (Nap c.Shp)
+fromStateToNapCostate : State c -> Costate (Nap c.Shp)
 fromStateToNapCostate f = toCostate f.fwd
 
 public export
@@ -68,115 +71,157 @@ pushDown : Cont -> Cont
 pushDown c = Const2 Unit c.Shp
 
 public export
-pushIntoContinuation : {d, p, l : Cont} ->
+pushIntoContinuation : {0 d, p, l : Cont} ->
   (d >< p =%> l) ->
   (p =%> (pushDown d) >@ l)
 pushIntoContinuation f = !% \p => (() <| \d => f.fwd (d, p) **
   \(d ** l') => snd $ f.bwd (d, p) l')
 
 
+namespace CategoricalProduct
+  public export
+  terminal : c =%> UnitCont
+  terminal = !% \_ => (() ** absurd)
+
+
 namespace HancockTensorProduct
   public export
-  leftUnit : (Scalar >< c) =%> c
+  leftUnit : Scalar >< c =%> c
   leftUnit = !% \((), s) => (s ** \p => ((), p))
   
   public export
-  rightUnit : (c >< Scalar) =%> c
+  rightUnit : c >< Scalar =%> c
   rightUnit = !% \(x, ()) => (x ** \x' => (x', ()))
 
   public export
-  leftUnitInv : c =%> (Scalar >< c)
+  leftUnitInv : c =%> Scalar >< c
   leftUnitInv = !% \x => (((), x) ** \((), x') => x')
 
   public export
-  rightUnitInv : c =%> (c >< Scalar)
+  rightUnitInv : c =%> c >< Scalar
   rightUnitInv = !% \x => ((x, ()) ** \(x', ()) => x')
 
   public export
-  assocL : ((a >< b) >< c) =%> (a >< (b >< c))
+  assocL : (a >< b) >< c =%> a >< (b >< c)
   assocL = !% \((a, b), c) => ((a, (b, c)) ** \(a', (b', c')) => ((a', b'), c'))
 
   public export
-  assocR : (a >< (b >< c)) =%> ((a >< b) >< c)
+  assocR : a >< (b >< c) =%> (a >< b) >< c
   assocR = !% \(a, (b, c)) => (((a, b), c) ** \((a', b'), c') => (a', (b', c')))
 
   public export
-  swap : (a >< b) =%> (b >< a)
+  swap : a >< b =%> b >< a
   swap = !% \(a, b) => ((b, a) ** \(b', a') => (a', b'))
 
 namespace CompositionProduct
   public export
-  leftUnit : (Scalar >@ c) =%> c
+  leftUnit : Scalar >@ c =%> c
   leftUnit = !% \(() <| cShp) => (cShp () ** \c' => (() ** c'))
 
   public export
-  rightUnit : (c >@ Scalar) =%> c
+  rightUnit : c >@ Scalar =%> c
   rightUnit = !% \(s <| _) => (s ** \cp => (cp ** ()))
 
   public export
-  leftUnitInv : c =%> (Scalar >@ c)
+  leftUnitInv : c =%> Scalar >@ c
   leftUnitInv = !% \x => (() <| (\_ => x) ** \(() ** c') => c')
   
   public export
-  rightUnitInv : c =%> (c >@ Scalar)
+  rightUnitInv : c =%> c >@ Scalar
   rightUnitInv = !% \s => (s <| const () ** fst)
 
 namespace Coproduct
   public export
-  elim : {c : Cont} ->
-    (c >+< c) =%> c
+  elim : c >+< c =%> c
   elim = !% \case
-    (Left x) => (x ** id)
-    (Right y) => (y ** id)
+    Left x => (x ** id)
+    Right y => (y ** id)
+
+  public export
+  initial : Empty =%> c
+  initial = !% absurd
 
 
-||| Interaction between composition and tensor product
-public export
-duoidal : ((c >@ d) >< (e >@ f)) =%> ((c >< e) >@ (d >< f))
-duoidal = !% \((sc <| idxC), (se <| idxE)) =>
-  ((sc, se) <| \(cp, ep) => (idxC cp, idxE ep) **
-    \((cp, ep) ** (dp, fp)) => ((cp ** dp), (ep ** fp)))
 
-||| Specific distributive law we need
-public export
-distribute : ((c >< e) =%> s) ->
-  ((c >< (e >@ g)) =%> (s >@ g))
-distribute f = (rightUnitInv >< id {a=e >@ g})
-             %>> duoidal {d = Scalar}
-             %>> (f >@ leftUnit)
+namespace CartesianClosure
+  ||| The following is the proof that for any container `c` there is an
+  ||| isomorphism in `Cont` between `c` and `CartesianClosure UnitCont c`
+  ||| This holds in any monoidal closed category: `X ≅ [I, X]`
+  namespace StateIsomorphismProof
+    stateToCartClosureFw : c =%> (CartesianClosure UnitCont c)
+    stateToCartClosureFw = !% \cShp => (!% \() => (cShp ** \_ => Nothing)
+                                       ** \(() ** cPos ** ItIsNothing) => cPos)
 
-||| Ext is a functor of type Cont -> [Type, Type]
-||| On objects it maps a container to a polynomial functor
-||| On morphisms it maps a dependent lens to a natural transformation
-||| This is the action on morphisms
-public export
-extMap : {0 c, d : Cont} ->
-  c =%> d ->
-  Ext c a -> Ext d a
-extMap f (sh <| index) = let (y ** ky) = (%!) f sh
-                         in y <| (index . ky)
+    stateToCartClosureBw : CartesianClosure UnitCont c =%> c
+    stateToCartClosureBw = !% \l => (l.fwd () ** \cPos =>
+      (() ** cPos ** maybeVoidIsNothing (l.bwd () cPos)))
+
+
+||| For a overview of this interaction from the categorical perspective, see
+||| the Poly book (https://arxiv.org/abs/2312.00990) (Section 6.3.4)
+namespace CompositionTensorInteraction
+  ||| Interaction between composition and tensor product
+  ||| Swaps the operations, and middle two containers
+  ||| Not an isomorphism!
+  public export
+  duoidal : (c >@ d) >< (e >@ f) =%> (c >< e) >@ (d >< f)
+  duoidal = !% \((sc <| idxC), (se <| idxE)) =>
+    ((sc, se) <| \(cp, ep) => (idxC cp, idxE ep) **
+      \((cp, ep) ** (dp, fp)) => ((cp ** dp), (ep ** fp)))
+  
+  ||| Tensor product embeds into composition
+  ||| A special case of `duoidal`
+  public export
+  tensorToComp : c >< f =%> c >@ f
+  tensorToComp =   (rightUnitInv >< leftUnitInv)
+               %>> duoidal {d=Scalar,e=Scalar}
+               %>> (rightUnit >@ leftUnit)
+
+  ||| Going the other way is impossible without any constraints 
+  ||| Two possibilities on constraints (this, and `compToTensor2`)
+  public export 
+  compToTensor : IsNaperian d =>
+    (c >@ d) =%> (c >< d)
+  compToTensor @{(MkIsNaperian dPos)} = !% \(cShp <| content) =>
+    ((cShp,()) ** \(cPos, dPos) => (cPos ** dPos))
+  
+  public export
+  compToTensor2 : IsFlat c =>
+    (c >@ d) =%> (c >< d)
+  compToTensor2 @{(ItIsFlat cShp)} = !% \(cShp <| dShp) =>
+    ((cShp, dShp ()) ** \((), dPos') => (() ** dPos'))
+  
+  ||| Specific distributive law we need
+  public export
+  distribute : (c >< e) =%> s ->
+    c >< (e >@ g) =%> s >@ g
+  distribute f = (rightUnitInv >< id {a=e >@ g})
+               %>> duoidal {d = Scalar}
+               %>> (f >@ leftUnit)
 
 
 ||| Wraps a dependent lens `c =%> d`
 ||| into one of type `c >@ Scalar =%> d >@ Scalar`
 ||| Needed because `c >@ Scalar` isn't automatically reduced to `c`
 public export
-wrapIntoVector : {c, d : Cont} ->
-  c =%> d ->
+wrapIntoVector : c =%> d ->
   Tensor [c] =%> Tensor [d]
-wrapIntoVector (!% f) =
-  !% \e => let (y ** ky) = f (shapeExt e)
-           in (y <| \_ => () ** \(cp ** ()) => (ky cp ** ()))
+wrapIntoVector f = rightUnit %>> f %>> rightUnitInv
+
+public export
+wrapIntoMatrix : (c >@ c') =%> (d >@ d') ->
+  Tensor [c, c'] =%> Tensor [d, d']
+wrapIntoMatrix f =   (id >@ rightUnit)
+                 %>> f
+                 %>> (id >@ rightUnitInv)
 
 ||| Wraps a dependent lens `c =%> d`
 ||| into one of type `c >< Scalar =%> d >< Scalar`
 ||| Needed because `c >< Scalar` isn't automatically reduced to `c`
 public export
-wrapIntoVectorHancock : {c, d : Cont} ->
-  c =%> d ->
+wrapIntoVectorHancock : c =%> d ->
   HancockTensor [c] =%> HancockTensor [d]
-wrapIntoVectorHancock f = !% \(x, ()) =>
-  ((f.fwd x, ()) ** \(y', ()) => (f.bwd x y', ())) 
+wrapIntoVectorHancock f = rightUnit %>> f %>> rightUnitInv
 
 namespace CubicalHelpers
   ||| Helper function allowing `shape` in `cubicalShape` to have zero annotation
@@ -246,18 +291,31 @@ reshape lo = flattenCubical lo
 
 namespace Transpose
   public export
-  transposeLens : IsNaperian c => IsNaperian d => (c >@ d) =%> (d >@ c)
+  transposeLens : IsNaperian c => IsNaperian d => c >@ d =%> d >@ c
   transposeLens @{MkIsNaperian _} @{MkIsNaperian _} = !% \(() <| _) =>
     (() <| (\_ => ()) ** \(dInd ** cInd) => (cInd ** dInd))
 
-  ||| This and the above function should be one and the same, up to rebracketing
   public export
   transpose : IsNaperian c => IsNaperian d =>
     Tensor [c, d] =%> Tensor [d, c]
-  transpose @{MkIsNaperian _} @{MkIsNaperian _} = !% \(() <| _) =>
-    (() <| (\_ => () <| (\_ => ())) ** \(dInd ** cInd ** ()) =>
-      (cInd ** (dInd ** ())))
+  transpose @{MkIsNaperian _} @{MkIsNaperian _} = wrapIntoMatrix transposeLens
 
+  -- ||| experiment, does this work?
+  -- public export
+  -- transposeMiddle : IsNaperian c => IsNaperian e =>
+  --   Tensor [c, e, d] =%> 
+  
+
+  --||| Transpose a given element to the front of the shape
+  --public export
+  --transposeToFront : (shape : List Cont) ->
+  --  (c : Cont) ->
+  --  (elem : Elem c shape) =>
+  --  All IsNaperian (dropAfterElem shape elem) =>
+  --  Tensor shape =%> Tensor (c :: dropElem shape elem)
+  --transposeToFront (_ :: xs) c @{Here} @{allNap} = ?transposeToFront_rhs_0
+  --transposeToFront (y :: xs) c @{(There x)} @{allNap} = ?transposeToFront_rhs_1
+  
 ||| Functionality for transforming a tensor into a hancock tensor
 namespace TransformIntoHancockTensor
   public export
@@ -303,10 +361,15 @@ namespace TransformIntoHancockTensor
          let (_ ** recBack) = (%!) transformToHancock (content p)
          in (p ** recBack $ replace {p = id} hancockTensorPosEq restPos))
 
-
-public export
-EmptyExtEq : {0 c : Cont} -> IsNaperian c => Ext c Unit = Unit
-EmptyExtEq @{(MkIsNaperian pos)} = believe_me () -- what does wrong if we do this
+  public export
+  transformFromHancock : {shape : List Cont} ->
+    All IsNaperian shape =>
+    HancockTensor shape =%> Tensor shape
+  transformFromHancock {shape = []} = id
+  transformFromHancock {shape = (Nap s :: ss)} @{((MkIsNaperian s) :: _)}
+    = !% \((), hShp) =>
+        let (tShp ** recBack) = (%!) transformFromHancock hShp
+        in (() <| (\_ => tShp) ** \(p ** restPos) => (p, recBack restPos))
 
     
 
@@ -401,12 +464,30 @@ namespace BinTreeNode
   --  _ | Right FZ = ?whn
   --  _ | Right (FS g) = ?whr
 
+namespace BinTreeLeaf
+  public export
+  inorderBackward : (b : BinTreeShape) ->
+    Fin (numLeaves b) ->
+    BinTreePosLeaf b
+  inorderBackward LeafS 0 = AtLeaf
+  inorderBackward (NodeS lt rt) i with (strengthenN {m=numLeaves lt} i)
+    _ | (Left indLeft) = GoLeft (inorderBackward lt indLeft)
+    _ | (Right indRight) = GoRight (inorderBackward rt indRight)
+
+  public export
+  inorder : BinTreeLeaf =%> List
+  inorder = !% \b => (numLeaves b ** inorderBackward b)
+
 -- public export
 -- traverseLeaf : (x : BinTreeShape) -> FinBinTreeLeaf x -> Fin (numLeaves x)
 -- traverseLeaf LeafS Done = FZ
 -- traverseLeaf (NodeS lt rt) (GoLeft x) = weakenN (numLeaves rt) (traverseLeaf lt x)
 -- traverseLeaf (NodeS lt rt) (GoRight x) = shift (numLeaves lt) (traverseLeaf rt x)
 -- 
+
+public export
+vectToList : {n : Nat} -> Vect n =%> List
+vectToList = !% \() => (n ** id)
 
 public export
 maybeToList : Maybe =%> List

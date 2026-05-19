@@ -2,6 +2,7 @@ module Data.Container.Base.Product.Definitions
 
 import Data.DPair
 import Decidable.Equality
+import Data.Either
 import Data.Vect
 import Data.List.Quantifiers
 import Data.Vect.Quantifiers
@@ -9,6 +10,9 @@ import Data.Vect.Quantifiers
 import Data.Container.Base.Object.Definition
 import Data.Container.Base.Morphism.Definition
 import Data.Container.Base.Extension.Definition
+import Data.Container.Base.Properties.Definitions
+
+
 import Data.Container.Base.Quantifiers
 
 import Control.Monad.Distribution
@@ -24,6 +28,8 @@ public export infixr 3 <%>
 
 ||| Categorical product of containers
 ||| Monoid with UnitCont
+||| It holds that `Ext (c1 >*< c2) a = (Ext c1) × (Ext c2)` where
+||| `×` is the pointwise product of functors.
 namespace CategoricalProduct
   ||| Binary version of product
   public export
@@ -42,10 +48,22 @@ namespace CategoricalProduct
     AllAny : Vect n Cont -> Cont
     AllAny xs = (shapes : All Shp xs) !> AnyPos shapes
 
+  ||| "Dependent categorical product": 
+  ||| Dependent pair type for the categorical product of containers
+  ||| Given a container `s` and a family `p : s.Shp -> Cont`,
+  ||| form the container whose shapes are dependent pairs of shapes
+  ||| and a position is either a position of s or a position of p.
+  public export
+  DPairCart : (s : Cont) -> (p : s.Shp -> Cont) -> Cont
+  DPairCart s p = ((sShp ** pShp) : DPair s.Shp (Shp . p))
+    !> Either (s.Pos sShp) ((p sShp).Pos pShp)
+
 
 ||| Non-categorical product of containers, often also called
 ||| 'Hancock' (Scotland), 'Dirichlet' (Spivak), or 'Tensor product' (various)
 ||| Monoid with CUnit
+||| It holds that `Ext (c1 >< c2) a = (Ext c1) ⊗ (Ext c2)` where
+||| `⊗` is the day convolution product of functors.
 namespace HancockTensorProduct
   public export
   (><) : Cont -> Cont -> Cont
@@ -70,19 +88,22 @@ namespace HancockTensorProduct
     (><) f g = !% \(c, d) => ((f.fwd c, g.fwd d) **
       \(c', d') => (f.bwd c c', g.bwd d d'))
 
-  ||| Dependent Hancock (tensor) product of containers.
-  ||| This is the analogue of DPair for containers:
-  ||| Given a container `pc` and a family `qc : pc.Shp -> Cont`,
+  ||| "Dependent tensor product": 
+  ||| Dependent pair type for the tensor product of containers
+  ||| Given a container `s` and a family `p : s.Shp -> Cont`,
   ||| form the container whose shapes are dependent pairs of shapes
   ||| and positions are pairs of positions.
   public export
-  DepHancockProduct : (pc : Cont) -> (qc : pc.Shp -> Cont) -> Cont
-  DepHancockProduct pc qc = 
-    ((p ** q) : DPair pc.Shp (Shp . qc)) !> (pc.Pos p, (qc p).Pos q)
+  DPairTensor : (s : Cont) -> (p : s.Shp -> Cont) -> Cont
+  DPairTensor s p = 
+    ((sShp ** pShp) : DPair s.Shp (Shp . p)) !> (s.Pos sShp, (p sShp).Pos pShp)
 
+||| Coproduct of containers
+||| Monoid with Empty
+||| It holds that `Ext (c1 >+< c2) a = (Ext c1) + (Ext c2)` where
+||| `+` is the pointwise product of functors.
 namespace CategoricalCoproduct
-  ||| Coproduct of containers
-  ||| Monoid with Empty
+  ||| Binary version of coproduct
   public export
   (>+<) : Cont -> Cont -> Cont
   c1 >+< c2 = (es : Either c1.Shp c2.Shp) !> either c1.Pos c2.Pos es
@@ -106,13 +127,15 @@ namespace CompositionProduct
   public export
   (>@) : Cont -> Cont -> Cont
   c >@ d = (ex : Ext c d.Shp) !>
-           (cp : c.Pos (shapeExt ex) ** d.Pos (index ex cp))
+           (DPair (c.Pos (shapeExt ex)) (d.Pos . index ex))
+           -- (cp : c.Pos (shapeExt ex) ** d.Pos (index ex cp))
 
   ||| Diagrammatic composition of containers, i.e. swapped order of composition
   public export
   (@>) : Cont -> Cont -> Cont
   c @> d = (ex : Ext d c.Shp) !>
-           (dp : d.Pos (shapeExt ex) ** c.Pos (index ex dp))
+           (DPair (d.Pos (shapeExt ex)) (c.Pos . index ex))
+           -- (dp : d.Pos (shapeExt ex) ** c.Pos (index ex dp))
 
   namespace Morphism
     ||| Action on morphisms
@@ -162,14 +185,55 @@ namespace MonoidalClosure
   uncurry f = !% \(x, y) => ((f.fwd x).fwd y **
     \e' => (f.bwd x (y ** e'), (f.fwd x).bwd y e'))
 
+||| If `f` is a monad, then `f <!> -` is a comonad, and vice versa
+public export
+(<!>) : (f : Type -> Type) -> Cont -> Cont
+(<!>) f c = (s : c.Shp) !> (f (c.Pos s))
+
+public export infixr 9 <!>
+
+namespace Morphism
+  public export
+  (<!>) : (f : Type -> Type) -> Functor f =>
+    (c =%> d) ->
+    ((f <!> c) =%> (f <!> d))
+  (<!>) f l = !% \x => (l.fwd x ** ((l.bwd x) <$>) )
+
+  public export infixr 9 <!>
+
+
 ||| Closure with respect to the Cartesian product
 namespace CartesianClosure
   ||| From https://www.cs.ox.ac.uk/people/samuel.staton/papers/cie10.pdf
   public export
   CartesianClosure : Cont -> Cont -> Cont
   CartesianClosure c d
-    = (f : ((x : c.Shp) -> (y : d.Shp ** d.Pos y -> Maybe (c.Pos x))))
-      !> (xx : c.Shp ** yy' : d.Pos (fst (f xx)) ** ?cartesianClosureImpl)
+    = (f : (Maybe <!> c) =%> d)
+      !> (x : c.Shp ** y' : d.Pos (f.fwd x) ** IsNothing (f.bwd x y'))
+  
+
+  public export
+  curry : c >*< d =%> e -> c =%> (CartesianClosure d e)
+  curry f = !% \x => (!% \y => (f.fwd (x, y) ** \z' => eitherToMaybe
+    (f.bwd (x, y) z')) ** bwPart) where
+      bwPart : {x : c.Shp} ->
+        (y : d.Shp ** z' : e.Pos (f.fwd (x, y)) ** IsNothing (eitherToMaybe (f.bwd (x, y) z'))) -> c.Pos x
+      bwPart (y ** z' ** isNothing) with (f.bwd (x, y) z')
+        bwPart (y ** z' ** ItIsNothing) | Left l = l
+        bwPart (y ** z' ** v)           | Right r = absurd v
+
+  public export
+  uncurry : c =%> (CartesianClosure d e) -> (c >*< d) =%> e
+  uncurry f = !% \(x, y) => ((f.fwd x).fwd y ** bwPart) where
+    bwPart : {x : c.Shp} -> {y : d.Shp} ->
+      e.Pos ((f.fwd x).fwd y) -> Either (c.Pos x) (d.Pos y)
+    bwPart z' with ((f.fwd x).bwd y z') proof p
+      bwPart z' | Nothing = Left $ f.bwd x (y ** z' ** rewrite p in ItIsNothing)
+      bwPart z' | Just r = Right r
+
+  public export
+  apply : (CartesianClosure x y) >*< x =%> y
+  apply = uncurry {d=x} id
 
 
 -- Not exactly a product
@@ -190,21 +254,6 @@ namespace Morphism
 
 
 
-||| If `f` is a monad, then `f <!> -` is a comonad, and vice versa
-public export
-(<!>) : (f : Type -> Type) -> Cont -> Cont
-(<!>) f c = (s : c.Shp) !> (f (c.Pos s))
-
-public export infixr 9 <!>
-
-namespace Morphism
-  public export
-  (<!>) : (f : Type -> Type) -> Functor f =>
-    (c =%> d) ->
-    ((f <!> c) =%> (f <!> d))
-  (<!>) f l = !% \x => (l.fwd x ** ((l.bwd x) <$>) )
-
-  public export infixr 9 <!>
 
 ||| BANG. List on positions, always has a monoid structure
 public export
@@ -241,5 +290,5 @@ public export
 Deriv : (c : Cont) ->
   InterfaceOnPositions c DecEq =>
   Cont
-Deriv (shp !> pos) @{MkI}
+Deriv (shp !> pos) @{MkI _}
   = ((s ** p) : DPair shp pos) !> (p' : pos s ** IsNo (decEq p p'))

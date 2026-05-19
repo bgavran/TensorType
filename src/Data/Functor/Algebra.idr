@@ -2,7 +2,7 @@ module Data.Functor.Algebra
 
 import Data.Vect
 
-import Data.Tree
+import Data.Trees
 import Misc
 
 {-------------------------------------------------------------------------------

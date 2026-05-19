@@ -3,6 +3,7 @@ module Data.CT.Category.Instances
 import Data.CT.Category.Definition
 import Data.CT.Functor.Definition
 
+import Data.ComMonoid
 import Data.Container.Base
 import Data.Container.Additive
 
@@ -35,3 +36,8 @@ AddDLens = MkCat AddCont (=%>)
 public export
 AddDChart : Cat
 AddDChart = MkCat AddCont (=&>)
+
+||| Category of commutative monoids and commutative monoid homomorphisms
+public export
+ComMon : Cat
+ComMon = MkCat ComMonoid ComMonoidHomo

@@ -14,18 +14,20 @@ authors = "Bruno Gavranovic"
 
 -- packages to add to search path
 depends = tensortype
+        , hedgehog
 
 -- modules to install
-modules = Tensor.Basic,
-          Tensor.Interfaces
+modules = Display2D.Instances
+        , Display2D.Expected
+        , Main
 
 -- main file (i.e. file to load at REPL)
--- main =
+main = Main
 
 -- name of executable
--- executable =
+executable = "tensortype-tests"
 -- opts =
--- sourcedir = "src
+sourcedir = "src"
 -- builddir =
 -- outputdir =
 

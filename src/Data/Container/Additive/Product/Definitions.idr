@@ -9,7 +9,6 @@ import Data.Num
 import Data.Container.Additive.Object.Definition
 import Data.Container.Additive.Morphism.Definition
 import Data.Container.Additive.Extension.Definition
-import Data.Container.Additive.Object.Instances
 
 import Data.Container.Base.Quantifiers
 import Data.Container.Additive.Quantifiers
@@ -40,13 +39,15 @@ Compared to ordinary containers, for additive containers:
 -------------------------------------------------------------------------------}
 
 ||| Hancock tensor product here becomes the categorical product
+||| Monoid with Scalar
 namespace Product
+  ||| Binary version of product
   public export
   (><) : AddCont -> AddCont -> AddCont
   c >< d = MkAddCont (UC c >< UC d)
-    @{MkI @{\sh => MkComMonoid (\l, r =>
+    @{MkI $ \sh => MkComMonoid (\l, r =>
       (c.Plus (fst sh) (fst l) (fst r), d.Plus (snd sh) (snd l) (snd r)))
-      (c.Zero (fst sh), d.Zero (snd sh))}}
+      (c.Zero (fst sh), d.Zero (snd sh))}
 
   ||| Can also use the product operator
   public export
@@ -59,7 +60,7 @@ namespace Product
     AllAll : List AddCont -> AddCont
     AllAll xs = MkAddCont
       ((shapes : All (.Shp) xs) !> AllPos shapes)
-      @{MkI @{allPosComMonoid}}
+      @{MkI allPosComMonoid}
 
   namespace Vect
     ||| N-ary version of hancock product
@@ -67,7 +68,7 @@ namespace Product
     AllAll : Vect n AddCont -> AddCont
     AllAll xs = MkAddCont
       ((shapes : All (.Shp) xs) !> AllPos shapes)
-      @{MkI @{allPosComMonoid}}
+      @{MkI allPosComMonoid}
 
   namespace Morphism
     public export
@@ -76,30 +77,31 @@ namespace Product
     (><) f g = !%+ \(c, d) => ((f.fwd c, g.fwd d) **
       \(c', d') => (f.bwd c c', g.bwd d d'))
 
-  ||| Dependent Hancock (tensor) product of additive containers.
-  ||| This is the analogue of DPair for containers:
-  ||| Given a container `pc` and a family `qc : pc.Shp -> AddCont`,
+  ||| Dependent pair type for additive containers
+  ||| Can be thought of as the dependent tensor product of containers
+  ||| Given a container `s` and a family `p : s.Shp -> Cont`,
   ||| form the container whose shapes are dependent pairs of shapes
   ||| and positions are pairs of positions.
   public export
-  DepHancockProduct : (pc : AddCont) -> (qc : pc.Shp -> AddCont) -> AddCont
-  DepHancockProduct pc qc = MkAddCont
-    (DepHancockProduct (UC pc) (UC . qc))
-    @{MkI @{\(ps ** qs) => MkComMonoid
+  DPair : (pc : AddCont) -> (qc : pc.Shp -> AddCont) -> AddCont
+  DPair pc qc = MkAddCont
+    (DPairTensor (UC pc) (UC . qc))
+    @{MkI $ \(ps ** qs) => MkComMonoid
       (\(pcPos1, qcPos1), (pcPos2, qcPos2) =>
         (plus (UMon pc ps) pcPos1 pcPos2, plus (UMon (qc ps) qs) qcPos1 qcPos2))
-      (neutral (UMon pc ps), neutral (UMon (qc ps) qs))}}
+      (neutral (UMon pc ps), neutral (UMon (qc ps) qs))}
 
 
 ||| Same as in ordinary containers
+||| Monoid with Empty
 namespace Coproduct
   ||| Coproduct
   public export
   (>+<) : AddCont -> AddCont -> AddCont
   c >+< d = MkAddCont (UC c >+< UC d)
-    @{MkI @{\case
+    @{MkI $ \case
       Left cs => MkComMonoid (plus (UMon c cs)) (neutral (UMon c cs))
-      Right ds => MkComMonoid (plus (UMon d ds)) (neutral (UMon d ds))}}
+      Right ds => MkComMonoid (plus (UMon d ds)) (neutral (UMon d ds))}
 
   namespace Morphism
     public export
@@ -115,7 +117,7 @@ namespace Coproduct
     Any : List AddCont -> AddCont
     Any xs = MkAddCont
       ((shapes : Any (.Shp) xs) !> AnyShpPos shapes)
-      @{MkI @{anyShpPosComMonoid}}
+      @{MkI anyShpPosComMonoid}
 
   namespace Vect
     ||| N-ary version of coproduct
@@ -123,7 +125,7 @@ namespace Coproduct
     Any : Vect n AddCont -> AddCont
     Any xs = MkAddCont
       ((shapes : Any (.Shp) xs) !> AnyShpPos shapes)
-      @{MkI @{anyShpPosComMonoid}}
+      @{MkI anyShpPosComMonoid}
 
 ||| With an ordinary container `c`, the Pi and Sigma type simple are the 
 ||| dependent function ((s : c.Shp) -> c.Pos s) and the dependent pair
@@ -166,7 +168,7 @@ public export
 (!!) : Cont -> AddCont
 (!!) c = MkAddCont
   (List <!> c)
-  @{MkI @{\_ => listIsMonoid}}
+  @{MkI $ \_ => listIsMonoid}
 
 export prefix 9 !!
 
@@ -222,7 +224,7 @@ namespace MonoidalClosure
   InternalLensAdditive : AddCont -> AddCont -> AddCont
   InternalLensAdditive c d = MkAddCont
     ((l : c =%> d) !> List (Path (lensInputs l)))
-    @{MkI @{\_ => listIsMonoid}}
+    @{MkI $ \_ => listIsMonoid}
 
   public export
   curry : {c : AddCont} -> (c >< d) =%> e -> c =%> (InternalLensAdditive d e)
@@ -260,7 +262,7 @@ public export
 List : AddCont -> AddCont
 List c = MkAddCont
   (List (UC c))
-  @{MkI @{allIsComonoid}}
+  @{MkI allIsComonoid}
 
 
 namespace Morphism

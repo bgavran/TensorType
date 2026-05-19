@@ -4,5 +4,5 @@ module Data.Container.Base.Definitions
 import public Data.Container.Base.Object.Definition
 import public Data.Container.Base.Extension.Definition
 import public Data.Container.Base.Morphism.Definition
-import public Data.Container.Base.Concrete.Definition
+import public Data.Container.Base.Properties.Definitions
 import public Data.Container.Base.Product.Definitions

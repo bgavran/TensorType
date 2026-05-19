@@ -9,11 +9,12 @@ import public Data.Container.Base.Definitions
 import public Data.Container.Base.Instances
 
 -- for manipulating concrete tree instances
-import public Data.Tree
+import public Data.Trees
 import public Data.Functor.Algebra
 -- import public Data.Functor.Naperian
 import public Data.Container.Base.TreeUtils
 
+import public Data.Container.Base.Display2D.Display2D -- where to put
 
 -- temp/misc
 import public Data.Container.SubTerm
