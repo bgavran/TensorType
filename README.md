@@ -44,14 +44,14 @@ This is a vector of size `5`, with its axis named "i".
 ```idris
 myMatrix : Tensor ["j" ~~> 3, "k" ~~> 4] Double
 myMatrix = ># [ [0, 1, 2, 3]
-        , [4, 5, 6, 7]
-        , [8, 9, 10, 11]]
+              , [4, 5, 6, 7]
+              , [8, 9, 10, 11]]
 ```
 
 This is a matrix with dimensions `3 x 4` with its axes named "j" and "k". In both examples them `>#` is used to populate the tensor with concrete values.
 
 If you load these up in the REPL (`pack repl examples/BasicExamples.idr`), you can print them:
-```
+```idris
 BasicExamples> :exec printLn myVector
 [1.0 2.0 3.0 4.0 5.0]
 BasicExamples> :exec printLn myMatrix
@@ -93,7 +93,7 @@ failing
 
 They will also fail if you inconsistently bind axis names, for instance if you bind the same name to two different sizes:
 
-```
+```idris
 failing
   failBinding : Tensor ["j" ~~> 3, "j" ~~> 4] Double
   failBinding = ># [ [0, 1, 2, 3]
@@ -153,11 +153,11 @@ indexExample = myMatrix @@ [1, 2]
 
 ||| Sets the value of `myMatrix` at location [1, 3] to 99 
 setExample : Tensor ["j" ~~> 3, "k" ~~> 4] Double
-setExample = set `myMatrix` [1, 3] 99
+setExample = set myMatrix [1, 3] 99
 
 ||| Takes the first two rows, and 1st column of t0
 sliceExample : Tensor ["j" ~~> 2, "k" ~~> 1] Double
-sliceExample = take [2, 1] `myMatrix`
+sliceExample = take [2, 1] myMatrix
 ```
 
 which will all fail if you go out of bounds:
@@ -177,8 +177,8 @@ We have been using it all along.
 Let's see `myMatrix` in this new form:
 
 ```idris
-t0Again : Tensor ["j" ~> Vect 3, "k" ~> Vect 4] Double
-t0Again = myMatrix
+myMatrixAgain : Tensor ["j" ~> Vect 3, "k" ~> Vect 4] Double
+myMatrixAgain = myMatrix
 ```
 
 Here `Vect` does not refer to `Vect` from `Data.Vect`, but rather the `Vect` container implemented [here](https://github.com/bgavran/TensorType/blob/main/src/Data/Container/Base/Object/Instances.idr#L68).
