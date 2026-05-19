@@ -17,6 +17,7 @@ depends = contrib
         , elab-util
         , hashmap
         , finite
+        , timeit
 
 -- modules to install
 modules = Data.Container.Base
@@ -26,11 +27,13 @@ modules = Data.Container.Base
         , Data.Container.Base.Extension.Instances
         , Data.Container.Base.Morphism.Definition
         , Data.Container.Base.Morphism.Instances
-        , Data.Container.Base.Concrete.Definition
-        , Data.Container.Base.Concrete.Instances
+        , Data.Container.Base.Properties.Definitions
+        , Data.Container.Base.Properties.Instances
         , Data.Container.Base.Product.Definitions
         , Data.Container.Base.Product.Interfaces
         , Data.Container.Base.Product.InterfaceImplementations
+        , Data.Container.Base.Display2D.CharacterMap
+        , Data.Container.Base.Display2D.Display2D
         , Data.Container.Base.Definitions
         , Data.Container.Base.Instances
         , Data.Container.Base.InstanceInterfaces
@@ -43,20 +46,22 @@ modules = Data.Container.Base
         , Data.Container.Additive.Morphism.Definition
         , Data.Container.Additive.Morphism.Instances
         , Data.Container.Additive.Extension.Definition
+        , Data.Container.Additive.Properties.Definitions
         , Data.Container.Additive.Product.Definitions
         , Data.Container.Additive.Quantifiers
 
         , Data.Container.Applicative
         , Data.Container.Applicative.Object.Instances
         , Data.Container.Applicative.Extension.Instances
-        , Data.Container.Applicative.Concrete.Instances
+        , Data.Container.Applicative.Properties.Instances
         , Data.Container.Applicative.Product.Interfaces
         , Data.Container.Applicative.TreeUtils
 
         , Data.Container.SubTerm
 
         , Data.Tensor
-        , Data.Tensor.Axis
+        , Data.Tensor.Shape.Axis
+        , Data.Tensor.Shape.Shape
         , Data.Tensor.Tensor
         , Data.Tensor.Utils
 
@@ -72,12 +77,14 @@ modules = Data.Container.Base
 
         , Data.Para
         , Data.Functor.Naperian
+        , Data.Functor.Products
         , Data.Layout
-        , Data.Tree
+        , Data.Trees
         , Data.Unique.Vect
         , Data.Functor.Algebra
         , Data.Num
         , Data.ComMonoid
+        , Data.ScientificNotation
 
         , Data.Autodiff.Ops
 

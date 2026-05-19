@@ -1,6 +1,7 @@
 module Misc
 
 import Data.Nat
+import Data.List.Elem
 import Data.Vect
 import Data.Vect.Elem
 import System.Random
@@ -16,36 +17,99 @@ import Data.List
 %hide Builtin.infixr.(#)
 %hide Data.Vect.Quantifiers.All.index
 
+{-------------------------------------------------------------------------------
+{-------------------------------------------------------------------------------
+Various utilities necessary for TensorType, but that don't fit anywhere else
+Does not depend on any other file within this project
+
+Some of these feel like they should be in the Idris standard library
+
+-------------------------------------------------------------------------------}
+-------------------------------------------------------------------------------}
+
 namespace IsNo
-  ||| IsNo is a type Idris can automatically synthesise, in contrast to
-  ||| in contrast to `Not (x = y)`
+  ||| The proof that a decidable property leads to a contradiction
+  ||| `IsNo` is a type Idris can automatically synthesise, unlike `Not`
+  ||| See example below
   public export
   data IsNo : Dec a -> Type where
-    ItIsNo : {prop : Type} -> {contra : Not prop} -> IsNo (No {prop=prop} contra)
+    ItIsNo : {prop : Type} -> 
+      {contra : Not prop} ->
+      IsNo (No {prop=prop} contra)
 
-  ||| Can this be simplified?
+  failing 
+    thisOneFails : Not ("i" = "j")
+    thisOneFails = %search
+  
+  thisOneDoesnt : IsNo (decEq "i" "j")
+  thisOneDoesnt = %search
+
+  public export
+  [UninhabitedIsNoRefl] {x : a} -> DecEq a =>
+    Uninhabited (IsNo (decEq x x)) where
+    uninhabited y with (decEq x x)
+      _ | (Yes _) with (y)
+        _ | ItIsNo impossible
+      _ | (No contra) = contra Refl
+  
   public export 
   isNoSym : DecEq a => {x, y : a} -> IsNo (decEq x y) -> IsNo (decEq y x)
   isNoSym z with (decEq x y) | (decEq y x)
     _ | (No contra1) | (Yes prf) = absurd (contra1 (sym prf))
     _ | _           | (No contra) = ItIsNo 
   
-  public export
-  [uniqueUninhabited] {0 a : Type} -> {x : a} -> (de : DecEq a) =>
-  Uninhabited (IsNo (Equality.decEq x x)) where
-    uninhabited y with (decEq x x)
-      _ | (Yes _) with (y)
-        _ | ItIsNo impossible
-      _ | (No contra) = contra Refl
-  
-  
   ||| Proof of inequality yields IsNo
   public export
   proofIneqIsNo : {x, y : a} -> DecEq a =>
-    Not (x = y) -> (IsNo (Equality.decEq x y))
+    Not (x = y) -> IsNo (decEq x y)
   proofIneqIsNo f with (decEq x y)
     _ | (Yes prf) = absurd (f prf)
     _ | (No contra) = ItIsNo
+
+namespace Maybe
+  public export
+  data IsNothing : Maybe a -> Type where
+    ItIsNothing : IsNothing Nothing
+
+  public export
+  maybeVoidIsNothing : (x : Maybe Void) -> IsNothing x
+  maybeVoidIsNothing Nothing = ItIsNothing
+  maybeVoidIsNothing (Just v) = absurd v
+
+  public export
+  Uninhabited (IsNothing (Just x)) where
+    uninhabited ItIsNothing impossible
+
+
+namespace NotElem
+  public export
+  data NotElem : DecEq a => (x : a) -> (xs : Vect n a) -> Type where
+    NotInEmptyVect : DecEq a => {0 x : a} -> NotElem x []
+    NotInNonEmptyVect : DecEq a => {0 x, y : a} ->
+      (xs : Vect n a) ->
+      IsNo (decEq x y) ->
+      (ne : NotElem x xs) =>
+      NotElem x (y :: xs)
+  
+  public export
+  notEqualNotElem : DecEq a =>
+    {0 x, y : a} ->
+    (neq : IsNo (decEq x y)) ->
+    NotElem x [y]
+  notEqualNotElem neq = NotInNonEmptyVect [] neq
+  
+  ||| If an element `i` is not in the singleton list `[j]`, then `j` is not in
+  ||| the singleton list `[i]`
+  public export
+  notElemSym : DecEq a => {i, j : a} -> NotElem i [j] -> NotElem j [i]
+  notElemSym (NotInNonEmptyVect [] isNo) = notEqualNotElem (isNoSym isNo)
+  
+  ||| If an element `i` is in the singleton list `[j]`, then `j` is in the 
+  ||| singleton list `[i]`
+  public export
+  elemSym : DecEq a => {i, j : a} -> Vect.Elem.Elem i [j] ->
+    Vect.Elem.Elem j [i]
+  elemSym Here = Here
 
 
 namespace Applicative
@@ -67,7 +131,6 @@ namespace Applicative
     fromInteger = pure . fromInteger
 
 
-
 namespace VectFoldable
   ||| Implementation of Foldable for Vect that is denotationally equivalent to
   ||| one in Data.Vect, but which does not use `foldrImpl` and therefore
@@ -82,76 +145,161 @@ namespace VectFoldable
   toList' : Vect n a -> List a
   toList' = foldr @{straightforward} (::) []
 
-||| Drop the first i elements of a vector
-||| Analogous to Data.Vect.drop, except the index is Fin n instead of Nat
-public export
-drop : (i : Fin (S n)) -> Vect n a -> Vect (minus n (finToNat i)) a
-drop FZ xs = rewrite minusZeroRight n in xs
-drop (FS i) (x :: xs) = drop i xs
-
-namespace DropElem
-  ||| Drop all the elements up and until the element `x` from a vector
   public export
-  drop : DecEq a =>
-    (xs : Vect n a) ->
-    (elem : Elem x xs) ->
-    Vect (n `minus` (finToNat (FS (elemToFin elem)))) a
-  drop {n=S k} (_ :: xs) Here = rewrite minusZeroRight k in xs
-  drop (_ :: xs) (There later) = drop xs later
-
-
-public export
-data NotElem : DecEq a => (x : a) -> (xs : Vect n a) -> Type where
-  NotInEmptyVect : DecEq a => {0 x : a} -> NotElem x []
-  NotInNonEmptyVect : DecEq a => {0 x, y : a} ->
-    (xs : Vect n a) ->
-    IsNo (decEq x y) ->
-    (ne : NotElem x xs) =>
-    NotElem x (y :: xs)
-
-public export
-notEqualNotElem : DecEq a =>
-  {0 x, y : a} ->
-  (neq : IsNo (decEq x y)) ->
-  NotElem x [y]
-notEqualNotElem neq = NotInNonEmptyVect [] neq
-
-
-||| If an element `i` is not in the singleton list `[j]`, then `j` is not in
-||| the singleton list `[i]`
-public export
-notElemSym : DecEq a => {i, j : a} -> NotElem i [j] -> NotElem j [i]
-notElemSym (NotInNonEmptyVect [] isNo) = notEqualNotElem (isNoSym isNo)
-
-||| If an element `i` is in the singleton list `[j]`, then `j` is in the 
-||| singleton list `[i]`
-public export
-elemSym : DecEq a => {i, j : a} -> Elem i [j] -> Elem j [i]
-elemSym Here = Here
-
-||| This already exists in Data.Vect.Elem, but it is not marked with %hint
-emptyIsUninhabited : NotElem "i" []
-emptyIsUninhabited = NotInEmptyVect
-
-fe' : Not ("i" = "j")
-fe' = ?fe'_rhs
-
-
-fe : IsNo (decEq "i" "j")
-fe = ItIsNo
-
-ne : NotElem "i" ["j"]
-ne = NotInNonEmptyVect [] ItIsNo
-
-
-||| Pointwise Num structure for Applicative functors
-public export
-[applicativeNum] Num a => Applicative f => Num (f a) where
-  xs + ys = uncurry (+) <$> liftA2 xs ys
-  xs * ys = uncurry (*) <$> liftA2 xs ys
-  fromInteger = pure . fromInteger
+  fromList' : (xs : List a) -> Vect (length xs) a
+  fromList' [] = []
+  fromList' (x :: xs) = x :: fromList' xs
 
 ||| Duplicate of utilities for Data.Vect in their Naperian form
+namespace Vect
+  public export
+  sum : Num a => Vect n a -> a
+  sum xs = foldr @{straightforward} (+) (fromInteger 0) xs
+  
+  -- Because of the way foldr for Vect is implemented in Idris 
+  -- we have to use this approach below, otherwise allSuccThenProdSucc breaks
+  public export 
+  prod : Num a => Vect n a -> a
+  prod xs = foldr @{straightforward} (*) (fromInteger 1) xs
+  -- prod [] = fromInteger 1
+  -- prod (x :: xs) = x * prod xs
+
+  public export
+  max : Ord a => Vect n a -> Maybe a
+  max [] = Nothing
+  max (x :: xs) = case max xs of
+    Nothing => Just x
+    Just y => Just (max x y)
+
+  public export
+  argmax : Ord a => IsSucc n => Vect n a -> Fin n 
+  argmax [x] = FZ
+  argmax (x :: x' :: xs) =
+    let maxRest = argmax (x' :: xs)
+    in case x > index maxRest (x' :: xs) of 
+      True => FZ
+      False => FS maxRest
+  
+  public export
+  argmin : Ord a => IsSucc n => Vect n a -> Fin n
+  argmin = argmax @{Reverse} 
+  
+  ||| Dual to concat from Data.Vect
+  public export
+  unConcat : {n, m : Nat} -> Vect (n * m) a -> Vect n (Vect m a)
+  unConcat {n = 0} _ = []
+  unConcat {n = (S k)} xs = let (f, s) = splitAt m xs
+                            in f :: unConcat s
+
+  ||| Trim a specified trailing value
+  public export
+  dropFromEnd : Eq a => a -> Vect n a -> List a
+  dropFromEnd c row = reverse (dropWhile (== c) (reverse (toList row)))
+  
+  ||| Combination of `cons` and `snoc`: adds an element in front, and at the end
+  public export
+  consSnoc : Vect n a -> a -> a -> Vect (2 + n) a
+  consSnoc xs a b = a :: snoc xs b
+  
+  ||| Pad a vector with a specified element to exactly `targetSize`
+  public export
+  padToSize : Vect size a -> (targetSize : Nat) -> a ->
+    LTE size targetSize => 
+    Vect targetSize a
+  padToSize [] Z c = []
+  padToSize [] (S k) c = c :: padToSize [] k c
+  padToSize (x :: xs) (S k) c = x :: padToSize xs k c @{fromLteSucc %search}
+
+  ||| Drop the first i elements of a vector
+  ||| Analogous to Data.Vect.drop, except the index is Fin n instead of Nat
+  public export
+  drop : (i : Fin (S n)) -> Vect n a -> Vect (minus n (finToNat i)) a
+  drop FZ xs = rewrite minusZeroRight n in xs
+  drop (FS i) (x :: xs) = drop i xs
+  
+  namespace DropElem
+    ||| Drop all the elements up and until the element `x` from a vector
+    public export
+    drop : DecEq a =>
+      (xs : Vect n a) ->
+      (elem : Elem x xs) ->
+      Vect (n `minus` (finToNat (FS (elemToFin elem)))) a
+    drop {n=S k} (_ :: xs) Here = rewrite minusZeroRight k in xs
+    drop (_ :: xs) (There later) = drop xs later
+
+
+namespace List
+  public export
+  sum : Num a => List a -> a
+  sum = foldr (+) (fromInteger 0) 
+
+  public export
+  prod : Num a => List a -> a
+  prod = foldr (*) (fromInteger 1)
+
+  public export
+  listZip : List a -> List b -> List (a, b)
+  listZip (x :: xs) (y :: ys) = (x, y) :: listZip xs ys
+  listZip _ _ = []
+
+  ||| Map each element along with its zero-based position in the list.
+  public export
+  mapWithIndex : (Nat -> a -> b) -> List a -> List b
+  mapWithIndex f = go 0
+    where
+      go : Nat -> List a -> List b
+      go _ []        = []
+      go i (x :: xs) = f i x :: go (S i) xs
+
+  ||| Split a list into consecutive chunks of size `n` (clamped to at least 1).
+  ||| The final chunk may be shorter than `n`, this is why the length of the
+  ||| list is needed as upper bound.
+  public export
+  chunksOf : (n : Nat) -> List a -> List (List a)
+  chunksOf n xs = go (max 1 n) xs (length xs)
+    where
+      go : Nat -> List a -> (len : Nat) -> List (List a)
+      go _  []          _     = []
+      go _  ys@(_ :: _) Z     = [ys]
+      go sz ys@(_ :: _) (S f) = case splitAt sz ys of
+                                  (h, t) => h :: go sz t f
+  
+  public export
+  max : Ord a => List a -> Maybe a
+  max [] = Nothing
+  max (x :: xs) = case max xs of
+    Nothing => Just x
+    Just y => Just (max x y)
+
+  namespace NonEmpty
+    public export
+    max : Ord a => (xs : List a) -> (ne : NonEmpty xs) => a
+    max [x] {ne=IsNonEmpty} = x
+    max (x :: y :: xs) {ne=IsNonEmpty} = max x (max (y :: xs))
+
+  ||| Trim a specified trailing value
+  public export
+  dropFromEnd : Eq a => a -> List a -> List a
+  dropFromEnd c row = reverse (dropWhile (== c) (reverse row))
+
+  ||| Combination of `cons` and `snoc`: adds an element in front, and at the end
+  public export
+  consSnoc : List a -> a -> a -> List a
+  consSnoc xs x y = x :: snoc xs y
+
+  ||| Pad a list with a specified element to at least `targetSize`
+  public export
+  padToSize : Nat -> a -> List a -> List a
+  padToSize targetSize padValue xs =
+    xs ++ replicate (minus targetSize (length xs)) padValue
+
+
+  ||| Drop all the elements after the element `x` from a list
+  public export
+  dropAfterElem : (xs : List a) -> (elem : Elem x xs) -> List a
+  dropAfterElem (x :: _) Here = [x]
+  dropAfterElem (y :: xs) (There p) = y :: dropAfterElem xs p
+
 namespace VectNaperianUtils
   ||| Analogue of `(::)`
   public export
@@ -180,62 +328,27 @@ namespace VectNaperianUtils
   takeFin FZ _ = []
   takeFin (FS s) (x :: xs) = x :: takeFin s xs
 
-namespace Vect
   public export
-  sum : Num a => Vect n a -> a
-  sum xs = foldr (+) (fromInteger 0) xs
-  
-  -- Because of the way foldr for Vect is implemented in Idris 
-  -- we have to use this approach below, otherwise allSuccThenProdSucc breaks
-  public export 
-  prod : Num a => Vect n a -> a
-  prod xs = foldr @{straightforward} (*) (fromInteger 1) xs
-  -- prod [] = fromInteger 1
-  -- prod (x :: xs) = x * prod xs
+  sum : Num a => {n : Nat} -> (Fin n -> a) -> a
+  sum {n = 0} _ = 0
+  sum {n = (S k)} content = content FZ + sum (content . FS)
 
   public export
-  argmax : Ord a => IsSucc n => Vect n a -> Fin n 
-  argmax [x] = FZ
-  argmax (x :: x' :: xs) = if x > index maxRest (x' :: xs) then FZ else FS maxRest
-    where maxRest = argmax (x' :: xs)
-  
-  public export
-  argmin : Ord a => IsSucc n => Vect n a -> Fin n
-  argmin = argmax @{Reverse} 
-  
-  ||| Dual to concat from Data.Vect
-  public export
-  unConcat : {n, m : Nat} -> Vect (n * m) a -> Vect n (Vect m a)
-  unConcat {n = 0} _ = []
-  unConcat {n = (S k)} xs = let (f, s) = splitAt m xs
-                            in f :: unConcat s
-
-
-
-namespace List
-  public export
-  sum : Num a => List a -> a
-  sum = foldr (+) (fromInteger 0) 
+  prod : Num a => {n : Nat} -> (Fin n -> a) -> a
+  prod = prod . tabulate
 
   public export
-  prod : Num a => List a -> a
-  prod = foldr (*) (fromInteger 1)
-
-  public export
-  listZip : List a -> List b -> List (a, b)
-  listZip (x :: xs) (y :: ys) = (x, y) :: listZip xs ys
-  listZip _ _ = []
-  
-  public export
-  maxInList : Ord a => List a -> Maybe a
-  maxInList [] = Nothing
-  maxInList [x] = Just x
-  maxInList (x :: xs) = do
-    mx <- maxInList xs
-    pure (max x mx)
-
+  toList : {n : Nat} -> (Fin n -> a) -> List a
+  toList = toList' . tabulate
 
 namespace FinArithmetic
+  public export
+  minusSuccLTE : {n, m : Nat} -> LTE n m ->
+    minus (S m) n = S (minus m n)
+  minusSuccLTE {m = 0, n = 0} LTEZero = Refl
+  minusSuccLTE {m = (S k), n = 0} LTEZero = Refl
+  minusSuccLTE {m = (S k), n = (S left)} (LTESucc x) = minusSuccLTE x
+
   ||| Like weakenN from Data.Fin, but where n is on the other side of +
   public export
   weakenN' : (0 n : Nat) -> Fin m -> Fin (n + m)
@@ -400,22 +513,6 @@ mkDepPairShow = \(x ** y) => "\{show x} ** \{show (y)}"
 public export
 Show a => ((x : a) -> Show (b x)) => Show (DPair a b) where
    show = mkDepPairShow
-
-||| Interface describing how a type can be displayed as a 2d grid of characters
-public export
-interface Display (a : Type) where
-  display : (x : a) -> (h : Nat ** w : Nat ** Vect h ((Vect w) Char))
-
--- ||| Any type that implements Display can be shown as a string
--- public export
--- {a : Type} -> Display a => Show a where
---   show x = let (h ** w ** xs) = display x
---                ss = toList (intersperse "\n" (pack . toList <$> xs)) -- add intercalate here, and newline
---            in fastUnlines ss
-
--- public export
--- Display Char where
---   display x = (1 ** 1 ** [[x]])
 
 -- public export
 -- Num Unit where
@@ -624,7 +721,6 @@ public export
 updateAt : Eq a => (a -> b) -> (a, b) -> (a -> b)
 updateAt f (i, val) i' = if i == i' then val else f i'
 
-
 ||| Graph of a dependent function
 public export
 graph : {t : a -> Type} ->
@@ -704,3 +800,31 @@ namespace Linearity
   ll2 : {0 n : Nat} -> Vect n a -> Nat
   ll2 [] = 0
   ll2 {n=S t} (x :: xs) = 1 + ll2 xs
+
+
+
+public export
+testFun : Nat -> (m : Nat ** Vect m Nat)
+
+testFun2 : Nat -> Vect m Nat
+
+consume : Vect m a -> Type
+
+composed : (p : a -> Bool) ->
+  (xs : Vect n a) ->
+  consume (snd (filter p xs))
+composed p xs = ?composed_rhs
+
+-- public export
+-- filter : (elem -> Bool) -> Vect len elem -> (p ** Vect p elem)
+-- filter p []      = ( _ ** [] )
+-- filter p (x::xs) =
+--   let (_ ** tail) = filter p xs
+--    in if p x then
+--         (_ ** x::tail)
+--       else
+--         (_ ** tail)
+
+public export
+filter2 : (a -> Bool) -> Vect len a -> Vect p a
+filter2 f xs = ?filter2_rhs

@@ -1,4 +1,8 @@
-module Data.Tree
+module Data.Trees
+
+-- TODO usual name convention is to name it in singular form
+-- but for testing purposes it clashes with hedgehog's `Data.Tree`
+-- not sure if there's a better solution...
 
 import Language.Reflection
 import Derive.Prelude
@@ -272,12 +276,12 @@ namespace RoseTrees
       fs <*> xs = map {f=RoseTreeSame} (uncurry ($)) $ liftA2RoseTreeSame fs xs
 
 
-    public export
-    {a : Type} -> Display a => Display (RoseTreeSame a) where
-      display (Leaf x) = display x
-      display (Node x rts)
-        = let (xh ** xw ** dx) = display x 
-          in ?whatt_1
+    -- public export
+    -- {a : Type} -> Display a => Display (RoseTreeSame a) where
+    --   display (Leaf x) = display x
+    --   display (Node x rts)
+    --     = let (xh ** xw ** dx) = display x 
+    --       in ?whatt_1
 
   -- TODO RoseTreeLeaf, RoseTreeNode?
 

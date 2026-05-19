@@ -11,6 +11,7 @@ import public Data.Container.Additive.Object.Definition
 import public Data.Container.Additive.Morphism.Definition
 import public Data.Container.Additive.Extension.Definition
 import public Data.Container.Additive.Product.Definitions
+import public Data.Container.Additive.Properties.Definitions
 
 import public Data.Container.Additive.Object.Instances
 import public Data.Container.Additive.Morphism.Instances

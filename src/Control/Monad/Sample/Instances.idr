@@ -27,9 +27,11 @@ public export
 ||| Computes the cumulative distribution, samples randomly, finds the right bin
 public export
 MonadSample IO where
-  sample @{ItIsSucc} (MkDist xs) = do
-    let dist : Tensor ["dist" ~~> i] Double := (softargmaxImpl {i="dist" ~~> i}) (># xs)
-        cumSum : Tensor ["dist" ~~> i] Double := cumulativeSum dist
+  sample {i = S j} (MkDist xs) = do
+    let dist : Tensor ["dist" ~~> S j] Double
+        dist = softargmaxImpl {i="dist" ~~> S j} (># xs)
+        cumSum : Tensor ["dist" ~~> S j] Double
+        cumSum = cumulativeSum dist
     r <- randomRIO (0.0, 1.0)
     case findBin (#> cumSum) r of
       Nothing => pure FZ -- should never happen!

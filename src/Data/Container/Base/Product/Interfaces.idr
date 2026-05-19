@@ -4,31 +4,45 @@ import public Data.List.Quantifiers
 
 import Data.Container.Base.Object.Definition
 import Data.Container.Base.Morphism.Definition
-import Data.Container.Base.Morphism.Instances
 import Data.Container.Base.Extension.Definition
 import Data.Container.Base.Product.Definitions
 import Data.Container.Base.Object.Instances
-import Data.Container.Base.Product.Definitions
+import Data.Container.Base.Morphism.Instances
 
+||| Its extension is an applicative functor
+||| All Naperian containers, BinTree, BinTreeLeaf, List, Maybe,...
 public export
 interface TensorMonoid (0 c : Cont) where
   tensorN : Scalar =%> c
-  tensorM : (c >< c) =%> c
+  tensorM : c >< c =%> c
 
 public export
-interface SeqMonoid (0 c : Cont) where
-  seqN : Scalar =%> c
-  seqM : (c >@ c) =%> c
+interface TensorComonoid (0 c : Cont) where
+  tensorCounit : c =%> Scalar
+  tensorComult : c =%> c >< c
+
+||| Its extension is a monad
+||| Just as Applicative => Monad, here TensorMonoid => SeqMonoid
+public export
+interface TensorMonoid c => SeqMonoid (0 c : Cont) where
+  seqM : c >@ c =%> c
+
+||| These are directed containers, a.k.a. categories
+||| Does this interface constraint follow analogously?
+public export
+interface TensorComonoid c => SeqComonoid (0 c : Cont) where
+  seqComult : c =%> c >@ c
 
 public export
 interface CoprodMonoid (0 c : Cont) where
   plusN : Empty =%> c
-  plusM : (c >+< c) =%> c
+  plusM : c >+< c =%> c
 
+||| Its extension is an Alternative?
 public export
 interface ProdMonoid (0 c : Cont) where
   prodN : UnitCont =%> c
-  prodM : (c >*< c) =%> c
+  prodM : c >*< c =%> c
 
 public export
 pairExtensions : Ext c a -> Ext d b -> Ext (c >< d) (a, b)
@@ -46,7 +60,7 @@ TensorMonoid c => Applicative (Ext c) where
 
 public export
 [FromSeq] SeqMonoid c => Applicative (Ext c) where
-  pure x = seqN.fwd () <| const x
+  pure x = tensorN.fwd () <| const x
   (f <| f') <*> (x <| x') = ?notAThing
 
 public export
@@ -59,19 +73,8 @@ public export
   pure x = prodN.fwd () <| const x
   (<*>) = ?notAThing2
 
-
 public export
 ProdMonoid c => Alternative (Ext c) using FromProd where
   empty = let (p1 ** p2) = (%! prodN) () in p1 <| absurd . p2
   (<|>) (a <| a') (b <| b') =
     let (m1 ** m2) = (%! prodM) (a, b) in m1 <| either a' b' . m2
-
-||| The products `><` and `>@` coincide for Naperian containers
-||| The lens below is one part of an isomorphism
-napProductIdentity : {p, q : Type} ->
-  (Nap p >< Nap q) =%> (Nap p >@ Nap q)
-napProductIdentity = !% \((), ()) => (() <| (\_ => ()) ** \(p ** q) => (p, q))
-
-
-compToTensor : {c, d : Cont} -> (c >@ d) =%> (c >< d)
-compToTensor = !% \(cShp <| content) => ((cShp, ?dShp) ** ?compToTensor_rhs)

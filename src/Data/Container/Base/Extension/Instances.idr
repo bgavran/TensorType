@@ -4,8 +4,10 @@ import Data.DPair
 import Data.Vect
 
 import Data.Container.Base.Object.Definition
-import Data.Container.Base.Object.Instances
 import Data.Container.Base.Extension.Definition
+import Data.Container.Base.Properties.Definitions
+
+import Data.Container.Base.Object.Instances
 
 -- import Data.Functor.Naperian
 import Misc
@@ -112,3 +114,12 @@ IsNaperian c => Applicative (Ext c) where
 public export
 positionsCont : {0 c : Cont} -> {sh : c.Shp} -> Ext c (c.Pos sh)
 positionsCont = sh <| id
+
+
+||| The `index` field of an extension defines a "getter" for a container
+||| This is the container setter
+public export
+set : {0 c : Cont} -> InterfaceOnPositions c Eq =>
+  (e : Ext c x) -> c.Pos (shapeExt e) -> x -> Ext c x
+set {c=(s !> p)} @{MkI _} (sh <| contentAt) i x
+  = sh <| updateAt contentAt (i, x)

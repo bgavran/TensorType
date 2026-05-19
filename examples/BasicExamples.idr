@@ -8,22 +8,27 @@ import Data.Tensor
 -- Examples of standard, cubical tensors
 ----------------------------------------
 
-||| Now you can construct Tensors directly:
-t0 : Tensor ["j" ~~> 3, "k" ~~> 4] Double
-t0 = ># [ [0, 1, 2, 3]
-        , [4, 5, 6, 7]
-        , [8, 9, 10, 11]]
+||| This is a vector of size `5`, with its axis named "i".
+myVector : Tensor ["i" ~~> 5] Double
+myVector = ># [1,2,3,4,5]
+
+||| This is a matrix of size `3x4`, with its axes named "j" and "k".
+myMatrix : Tensor ["j" ~~> 3, "k" ~~> 4] Double
+myMatrix = ># [ [0, 1, 2, 3]
+              , [4, 5, 6, 7]
+              , [8, 9, 10, 11]]
 
 {--------------------
 Here `>#` behaves like a constructor: it takes a concrete value and turns it into the tensor of the appropriate shape (It should be visually read as a 'map' (`>`) into 'tensor' (`#`)).
 
 You can also use functions analogous to numpy's, such as `np.arange` and `np.reshape`:
 --------------------}
-t1 : Tensor ["i" ~~> 6] Double
+t1 : Tensor ["l" ~~> 6] Double
 t1 = arange
 
 t2 : Tensor ["i" ~~> 2, "j" ~~> 3] Double
 t2 = reshape t1
+
 
 {-
 where the difference between numpy is that these operations are typechecked
@@ -49,20 +54,20 @@ failing
 
 ||| You can perform all sorts of familiar numeric operations:
 exampleSum : Tensor ["j" ~~> 3, "k" ~~> 4] Double
-exampleSum = t0 + t0
+exampleSum = myMatrix + myMatrix
 
 exampleOp : Tensor ["j" ~~> 3, "k" ~~> 4] Double
-exampleOp = abs (- (t0 * t0) <&> (+7))
+exampleOp = abs (- (myMatrix * myMatrix) <&> (+7))
 
 ||| including standard linear algebra
 dotExample : Tensor [] Double
 dotExample = dot t1 (t1 <&> (+5))
 
 matMulExample : Tensor ["i" ~~> 2, "k" ~~> 4] Double
-matMulExample = matMul t2 t0
+matMulExample = matMul t2 myMatrix
 
 transposeExample : Tensor ["k" ~~> 4, "j" ~~> 3] Double
-transposeExample = transposeMatrix t0
+transposeExample = transposeMatrix myMatrix
 
 {--------------------
 which all have their types checked at compile-time. For instance, you can't 
@@ -71,25 +76,25 @@ dimensions of matrices don't match.
 --------------------}
 failing
   sumFail : Tensor ["j" ~~> 3, "k" ~~> 4] Double
-  sumFail = t0 + t1
+  sumFail = myMatrix + t1
 
 failing
   matMulFail : Tensor ["i" ~~> 7] Double
-  matMulFail = matMul t0 t1
+  matMulFail = matMul myMatrix t1
 
 ||| Like in numpy, you can safely index into tensors, set values of tensors, and perform slicing:
 ||| This retrieves the value of t- at location [1,2]
 indexExample : Double
-indexExample = t0 @@ [1, 2]
+indexExample = myMatrix @@ [1, 2]
 
 -- TODO needs to be fixed
--- ||| Sets the value of t0 at location [1, 3] to 99 
+-- ||| Sets the value of `myMatrix` at location [1, 3] to 99 
 -- setExample : Tensor [3, 4]
--- setExample = set t0 [1, 3] 99
+-- setExample = set `myMatrix` [1, 3] 99
 
 -- ||| Takes the first two rows, and 1st column of t0
 -- sliceExample : Tensor ["j" ~~> 2, "k" ~~> 1] Double
--- sliceExample = take [2, 1] t0
+-- sliceExample = take [2, 1] `myMarix`
 
 -- Which will all fail if you go out of bounds
 failing
@@ -98,16 +103,16 @@ failing
 
 failing
   sliceFail : Tensor ["j" ~~> 10, "k" ~~> 2] Double
-  sliceFail = take [10, 2] t0
+  sliceFail = take [10, 2] myMatrix
 
 {---------------------------------------
 **And most importantly, you can do all of this with *non-cubical* tensors.** These describe tensors whose shape isn't rectangular/cubical, but can be branching/recursive/higher-order. 
 That is, instead of binding an axis name to a number, we bind it to something called a "container", by using `~>` instead of `~~>`.
 As a matter of fact, `~~>` behind the scenes desugars to `~>`, and we have been using this all along.
-Let's see `t0` in this new form:
+Let's see `myMatrix` in this new form:
 ---------------------------------------}
-t0Again : Tensor ["j" ~> Vect 3, "k" ~> Vect 4] Double
-t0Again = t0
+myMatrixAgain : Tensor ["j" ~> Vect 3, "k" ~> Vect 4] Double
+myMatrixAgain = myMatrix
 
 {--------------------
 Here `Vect` does not refer to `Vect` from `Data.Vect`, but rather the `Vect` container implemented [here](https://github.com/bgavran/TensorType/blob/main/src/Data/Container/Object/Instances.idr#L68).
@@ -138,6 +143,13 @@ Unlike `Vect`, this container allows us to store an arbitrary number of elements
 --------------------}
 treeExample2 : Tensor ["myTree" ~> BinTree] Double
 treeExample2 = ># Node 5 (Leaf 100) (Leaf 4)
+
+
+listEx : List' (Tensor ["myTree" ~> BinTree] Double)
+listEx = ># [ treeExample1, treeExample2 ]
+
+vectEx : Vect' 2 (Vect' 3 Double)
+vectEx = ># [ ># [1, 2, 3], ># [4, 5, 6.000290940000203] ]
 
 {--------------------
 Perhaps surpisingly, all linear algebra operations follow smoothly. The example below is the _dot product of trees_. The fact that these trees don't have the same number of elements is irrelevant; what matters is that the container defining them (`BinTree`) is the same.
@@ -183,6 +195,13 @@ treeExample4 = >#
     Leaf'
     (Node (Leaf [178, -43, 63]) Leaf' Leaf')
 
+
+treeExample5 : Tensor ["myTree" ~> BinTreeLeaf, "v" ~~> 2] Double
+treeExample5 = ># Node' (Node' (Leaf [1, -1])
+                               (Node' (Leaf [0.5, 1.2])
+                                      (Leaf [0.3, -0.2])))
+                        (Leaf [-0.3, 1.2])
+
 {--------------------
 For instance, we can index into `treeExample1`:
        60
@@ -218,5 +237,5 @@ Here is the in-order traversal of `treeExample1` from above.
 
 Can also use Utils.Traversals.inorder
 --------------------}
-traversalExample : Tensor ["myTree" ~> List] Double
+traversalExample : Tensor ["flattenedTree" ~> List] Double
 traversalExample = restructure (wrapIntoVector inorder) treeExample1

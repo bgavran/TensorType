@@ -1,6 +1,7 @@
 module Data.Container.Base.Extension.Definition
 
 import Data.Container.Base.Object.Definition
+import Data.Container.Base.Morphism.Definition
 
 import Misc
 
@@ -29,19 +30,21 @@ Functor (Ext c) where
 
 ||| Composition of extensions is a functor
 public export
-Functor ((Ext d) . (Ext c)) where
+Functor (Ext d . Ext c) where
   map f e = (map f) <$> e
 
-||| The `index` field of an extension defines a "getter" for a container
-||| This is the container setter
+||| Ext is a functor of type Cont -> [Type, Type]
+||| On objects it maps a container to a polynomial functor
+||| On morphisms it maps a dependent lens to a natural transformation
+||| This is the action on morphisms
 public export
-set : {0 c : Cont} -> InterfaceOnPositions c Eq =>
-  (e : Ext c x) -> c.Pos (shapeExt e) -> x -> Ext c x
-set {c=(s !> p)} @{MkI} (sh <| contentAt) i x
-  = sh <| updateAt contentAt (i, x)
+extMap : c =%> d -> Ext c a -> Ext d a
+extMap f (sh <| index) = let (y ** ky) = (%!) f sh
+                         in y <| (index . ky)
+
 
 namespace ExtProofs
-  ||| Map ing over an extension preserves its shape 
+  ||| Mapping over an extension preserves its shape 
   public export
   mapShapeExt : {0 c : Cont} ->
     {0 f : a -> b} ->

@@ -4,13 +4,13 @@ import Data.Container.Base.Object.Definition
 import Data.Container.Base.Extension.Definition
 import Data.Container.Base.Morphism.Definition
 import Data.Container.Base.Product.Definitions
-import Data.Container.Base.Concrete.Definition
+import Data.Container.Base.Properties.Definitions
 
 import Data.Container.Base.Object.Instances
 import Data.Container.Base.Extension.Instances
 import Data.Container.Base.Morphism.Instances
 import Data.Container.Base.Product.Interfaces
-import Data.Container.Base.Concrete.Instances
+import Data.Container.Base.Properties.Instances
 
 import Data.Container.Base.TreeUtils
 
@@ -18,6 +18,7 @@ import Data.Fin.Split
 import Data.Layout
 import Data.Functor.Algebra
 
+import Misc
 
 export
 TensorMonoid Maybe where
@@ -26,8 +27,12 @@ TensorMonoid Maybe where
     True => ((), if b2 then bb else absurd bb)
     False => absurd bb)
 
-
--- TODO Either Applicative?
+||| Chaining computation
+||| Different from ordinary `Either` in that both variables are of the same type
+export
+TensorMonoid Either where
+  tensorN = toState True
+  tensorM = !% \(b1, b2) => (b1 && b2 ** \() => ((), ()))
 
 ||| Corresponds to the Applicative instance in `Prelude.Types`
 ||| It behaves like a cartesian product, but compared to `Prelude.Types`
@@ -36,6 +41,10 @@ export
 TensorMonoid List where
   tensorN = toState 1
   tensorM = !% \(n, m) => (n * m ** splitFinProd DefaultLayoutOrder) 
+
+export
+SeqMonoid List where
+  seqM = !% \(n <| contentM) => (sum contentM ** splitFinProdDep contentM)
 
 {--
 It is usually said that List has two applicative structures: one defined above,
@@ -52,28 +61,51 @@ Applicative List where
 --}   
 
 
-||| Covers vectors, among others
-||| For vecotrs produces a `zip` operation
+||| Covers pairs, vectors, streams, grids, among others
+||| For vectors produces a `zip` operation
 export
 IsNaperian c => TensorMonoid c where
-  tensorN @{(MkIsNaperian pos)} = toState ()
-  tensorM @{(MkIsNaperian pos)} = !% \((), ()) => (() ** \i => (i, i))
+  tensorN @{(MkIsNaperian _)} = toState ()
+  tensorM @{(MkIsNaperian _)} = !% \((), ()) => (() ** \i => (i, i))
 
+||| When a container `c` is Naperian, then `c >< c` is isomorphic to `c >@ c`
+||| Meaning this interface follows directly
+||| Vectors also form a *graded* monad, which isn't implemented here
 export
-IsCubical c => SeqMonoid c where
-  seqN @{MkIsCubical n} = toState ()
-  seqM @{MkIsCubical n} = !% \(() <| _) => (() ** \i => (i ** i))
+IsNaperian c => SeqMonoid c where
+  seqM @{MkIsNaperian pos} = compToTensor {d=c} %>> tensorM
+
+
+||| experiment, does this work?
+diagonalAroundMiddle : IsNaperian c =>
+  (f : c >@ c =%> c) ->
+  c >@ d >@ c =%> c >@ d
+
 
 public export
-diagonal : {c : Cont} ->
-  TensorMonoid c => 
-  IsNaperian c =>
+join : SeqMonoid c =>
   Tensor [c, c] =%> Tensor [c]
-diagonal = transformToHancock {shape=[c, c]}
-         %>> (!% \(x, (y, ())) => let (z ** kz) = (%!) tensorM (x, y) 
-                                  in (z ** \z' => let (x', y') = kz z'
-                                                  in (x', y', ())))
-         %>> !% \x => (x <| (\_ => ()) ** fst)
+join =   (id >@ rightUnit)
+     %>> seqM
+     %>> rightUnitInv
+
+public export
+cojoin : SeqComonoid c =>
+  Tensor [c] =%> Tensor [c, c]
+cojoin = rightUnit
+       %>> seqComult
+       %>> (id >@ rightUnitInv)
+
+public export
+diagonal : IsNaperian c =>
+  Tensor [c, c] =%> Tensor [c]
+diagonal = join
+
+public export
+codiagonal : TensorMonoid c =>
+  Tensor [c] =%> Tensor [c, c]
+codiagonal = ?cojoinn
+
 
 namespace BinTreeUtils
   public export

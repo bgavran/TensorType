@@ -11,6 +11,7 @@ import Data.Container.Additive.Object.Definition
 import Data.Container.Additive.Object.Instances
 import Data.Container.Additive.Morphism.Definition
 import Data.Container.Additive.Product.Definitions
+import Data.Container.Additive.Properties.Definitions
 
 import Data.Container.Additive.Quantifiers
 
@@ -19,7 +20,7 @@ import Control.Monad.Sample.Definition
 
 import Misc
 
-%hide Data.Container.Base.Object.Definition.Const
+%hide Data.Container.Base.Object.Instances.Const
 %hide Data.Vect.Quantifiers.All.index
 
 public export
@@ -295,6 +296,6 @@ coAlgMorphism c d = c.carrier =%> d.carrier
 convert : FCoAlgCont List -> AddCont
 convert (MkFCoAlgCont carrier coalg) = MkAddCont
   carrier
-  {mon=(MkI @{\s => MkComMonoid
+  {mon=(MkI $ \s => MkComMonoid
     (\l, r => coalg s [l, r])
-    (coalg s [])})}
+    (coalg s []))}

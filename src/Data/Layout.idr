@@ -4,6 +4,7 @@ import Data.Fin.Split
 import Data.List.Quantifiers
 import Language.Reflection
 import Derive.Prelude
+import Misc
 
 %language ElabReflection
 
@@ -65,3 +66,12 @@ indexFinProd : {m, n : Nat} ->
 indexFinProd RowMajor row col = indexProd row col
 indexFinProd ColumnMajor row col = 
   replace {p = Fin} (sym $ multCommutative m n) (indexProd {m=n} {n=m} col row)
+
+||| Like `splitFinProd`, but here the order is fixed for us by dependency
+public export
+splitFinProdDep : {n : Nat} -> (content : Fin n -> Nat) ->
+  Fin (sum content) -> (i : Fin n ** Fin (content i))
+splitFinProdDep {n = 0} content x = ?shouldBeImpossibleToReach
+splitFinProdDep {n = (S k)} content x = case splitSum x of
+  Left y => (FZ ** y)
+  Right y => let (i ** j) = splitFinProdDep (content . FS) y in (FS i ** j)

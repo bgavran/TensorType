@@ -194,7 +194,7 @@ namespace DependentParametricDependentLenses
   public export
   composePara : a =\\=> b -> b =\\=> c -> a =\\=> c
   composePara (MkPara p f) (MkPara q g) = MkPara
-    (\x => DepHancockProduct (p x) (\ps => q (f.fwd (x ** ps))))
+    (\x => DPair (p x) (\ps => q (f.fwd (x ** ps))))
     (!%+ \(x ** (ps ** qs)) =>
       (g.fwd (f.fwd (x ** ps) ** qs) ** \cPos =>
         let (bPos, qPos) = g.bwd (f.fwd (x ** ps) ** qs) cPos
@@ -211,12 +211,12 @@ namespace DependentParametricDependentLenses
   ||| a non-dependent (constant) parameter.
   public export
   data IsNotDependent : DParaAddDLens a b -> Type where
-    MkNonDep : (p : AddCont) -> (f : DepHancockProduct a (const p) =%> b) ->
+    MkNonDep : (p : AddCont) -> (f : DPair a (const p) =%> b) ->
       IsNotDependent {a=a} {b=b} (MkPara (\_ => p) f)
   
   public export
   GetNonDep : (pf : DParaAddDLens a b) ->
-    IsNotDependent pf => (pc : AddCont ** DepHancockProduct a (const pc) =%> b)
+    IsNotDependent pf => (pc : AddCont ** DPair a (const pc) =%> b)
   GetNonDep _ @{MkNonDep pc f} = (pc ** f)
 
   public export
@@ -237,11 +237,11 @@ namespace DependentParametricDependentLenses
   composeNTimes 1 f = f -- to get rid of the annoying Unit parameter
   composeNTimes (S k) f = composePara f (composeNTimes k f)
 
-  ||| Convert a morphism from product container to one from DepHancockProduct
-  ||| This witnesses the isomorphism (a >< p) ≅ DepHancockProduct a (const p)
+  ||| Convert a morphism from product container to one from DPair
+  ||| This witnesses the isomorphism (a >< p) ≅ DPair a (const p)
   public export
   fromNonDepProduct : {0 a, p, b : AddCont} ->
-    (a >< p) =%> b -> DepHancockProduct a (const p) =%> b
+    (a >< p) =%> b -> DPair a (const p) =%> b
   fromNonDepProduct f = !%+ \(x ** p') => (%!) f (x, p')
 
   public export

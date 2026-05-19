@@ -11,3 +11,6 @@ Ext c x = Ext (UC c) x
 public export
 Path : AddCont -> Type
 Path c = (x : c.Shp ** c.Pos x)
+
+ghh : Ext UnitCont Double
+ghh = () <| ?rrr

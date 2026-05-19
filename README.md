@@ -3,7 +3,7 @@
 
 [![build](https://github.com/bgavran/TypeSafe_Tensors/actions/workflows/build.yml/badge.svg)](https://github.com/bgavran/TypeSafe_Tensors/actions/workflows/build.yml)
 
-> TLDR; numpy, but with types, first-class axes, and tensors over structured data
+> TLDR; NumPy reimagined with dependent types: native support for trees, braching and interaction
 
 TensorType is a framework for pure functional tensor processing, implemented in Idris 2. It
 * is **type-safe**: tensor shapes, indexing and contractions are checked at compile time
@@ -35,13 +35,30 @@ import Data.Tensor
 Now you can construct tensors directly:
 
 ```idris
-t0 : Tensor ["j" ~~> 3, "k" ~~> 4] Double
-t0 = ># [ [0, 1, 2, 3]
+myVector : Tensor ["i" ~~> 5] Double
+myVector = ># [1,2,3,4,5]
+```
+
+This is a vector of size `5`, with its axis named "i".
+
+```idris
+myMatrix : Tensor ["j" ~~> 3, "k" ~~> 4] Double
+myMatrix = ># [ [0, 1, 2, 3]
         , [4, 5, 6, 7]
         , [8, 9, 10, 11]]
 ```
 
-This declares the type of a `3 x 4` matrix with axes named "j" and "k", and uses `>#` to populate it with values. `>#` behaves like a constructor: it takes a concrete value and turns it into the tensor of the appropriate shape (it should be visually read as a 'map' (`>`) into a 'tensor' (`#`)).
+This is a matrix with dimensions `3 x 4` with its axes named "j" and "k". In both examples them `>#` is used to populate the tensor with concrete values.
+
+If you load these up in the REPL (`pack repl examples/BasicExamples.idr`), you can print them:
+```
+BasicExamples> :exec printLn myVector
+[1.0 2.0 3.0 4.0 5.0]
+BasicExamples> :exec printLn myMatrix
+[[ 0.0  1.0  2.0  3.0]
+ [ 4.0  5.0  6.0  7.0]
+ [ 8.0  9.0 10.0 11.0]]
+```
 
 You can use functions analogous to NumPy's, such as `np.arange` and `np.reshape`:
 
@@ -53,7 +70,16 @@ t2 : Tensor ["i" ~~> 2, "j" ~~> 3] Double
 t2 = reshape t1
 ```
 
-where the difference from NumPy is that these operations are typechecked - meaning they will fail _at compile-time_ if you supply an array with the wrong shape.
+These do what you might expect if you're familiar with NumPy:
+```idris
+BasicExamples> :exec printLn t1
+[0.0 1.0 2.0 3.0 4.0 5.0]
+BasicExamples> :exec printLn t2
+[[0.0 1.0 2.0]
+ [3.0 4.0 5.0]]
+```
+
+The difference from NumPy is that these operations are typechecked - meaning they will fail _at compile-time_ if you supply an array with the wrong shape.
 ```idris
 failing
   failConcrete : Tensor ["j" ~~> 3, "k" ~~> 4] Double
@@ -79,10 +105,10 @@ You can perform all sorts of familiar numeric operations:
 
 ```idris
 exampleSum : Tensor ["j" ~~> 3, "k" ~~> 4] Double
-exampleSum = t0 + t0
+exampleSum = myMatrix + myMatrix
 
 exampleOp : Tensor ["j" ~~> 3, "k" ~~> 4] Double
-exampleOp = abs (- (t0 * t0) <&> (+7))
+exampleOp = abs (- (myMatrix * myMatrix) <&> (+7))
 ```
 
 including standard linear algebra:
@@ -92,38 +118,46 @@ dotExample : Tensor [] Double
 dotExample = dot t1 (t1 <&> (+5))
 
 matMulExample : Tensor ["i" ~~> 2, "k" ~~> 4] Double
-matMulExample = matMul t2 t0
+matMulExample = matMul t2 myMatrix
 
 transposeExample : Tensor ["k" ~~> 4, "j" ~~> 3] Double
-transposeExample = transposeMatrix t0
+transposeExample = transposeMatrix myMatrix
 ```
 
-which all have their types checked at compile-time. For instance, you can't add tensors of different shapes, perform matrix multiplication if the dimensions of matrices don't match, or do any of these if you mislabel an axis.
+```idris
+BasicExamples> :exec printLn dotExample
+130.0
+BasicExamples> :exec printLn matMulExample
+[[20.0 23.0 26.0 29.0]
+ [56.0 68.0 80.0 92.0]]
+```
+
+All of these types are checked before you run your program. For instance, you can't add tensors of different shapes, perform matrix multiplication if the dimensions of matrices don't match, or do any of these if you mislabel an axis.
 
 ```idris
 failing
   sumFail : Tensor ["j" ~~> 3, "k" ~~> 4] Double
-  sumFail = t0 + t1
+  sumFail = myMatrix + t1
   
 failing
   matMulFail : Tensor ["i" ~~> 7] Double
-  matMulFail = matMul t0 t1
+  matMulFail = matMul myMatrix t1
 ```
 
 Like in NumPy, you can safely index into tensors, set values of tensors, and perform slicing:
 
 ```idris
-||| Retrieves the value of t0 at location [1, 2]
+||| Retrieves the value of `myMatrix` at location [1, 2]
 indexExample : Double
-indexExample = t0 @@ [1, 2]
+indexExample = myMatrix @@ [1, 2]
 
-||| Sets the value of t0 at location [1, 3] to 99 
+||| Sets the value of `myMatrix` at location [1, 3] to 99 
 setExample : Tensor ["j" ~~> 3, "k" ~~> 4] Double
-setExample = set t0 [1, 3] 99
+setExample = set `myMatrix` [1, 3] 99
 
 ||| Takes the first two rows, and 1st column of t0
 sliceExample : Tensor ["j" ~~> 2, "k" ~~> 1] Double
-sliceExample = take [2, 1] t0
+sliceExample = take [2, 1] `myMatrix`
 ```
 
 which will all fail if you go out of bounds:
@@ -134,17 +168,17 @@ failing
 
 failing
   sliceFail : Tensor ["j" ~~> 10, "k" ~~> 2] Double
-  sliceFail = take [10, 2] t0
+  sliceFail = take [10, 2] myMatrix
 ```
 
-**All of the above also works with non-rectangular tensors.** These are tensors whose shape is a tree, an inductive type, and even a continuation, rather than a rectangular grid.
-That is, instead of binding an axis name to a number, we bind it to something called a "container", by using `~>` instead of `~~>`.
-As a matter of fact, `~~>` behind the scenes desugars to `~>`, and we have been using this all along.
-Let's see `t0` in this new form:
+**All of the above also works with non-rectangular tensors.** These are tensors whose shape is not a list of numbers, but a list of *containers*. A container can model a tree, an inductive type, a continuation, and all sorts of different things.
+As a matter of fact, our previous syntax for defining axes (`~~>`) was behind the scenes desugaring to a container-based one (which is `~>`).
+We have been using it all along.
+Let's see `myMatrix` in this new form:
 
 ```idris
 t0Again : Tensor ["j" ~> Vect 3, "k" ~> Vect 4] Double
-t0Again = t0
+t0Again = myMatrix
 ```
 
 Here `Vect` does not refer to `Vect` from `Data.Vect`, but rather the `Vect` container implemented [here](https://github.com/bgavran/TensorType/blob/main/src/Data/Container/Base/Object/Instances.idr#L68).
@@ -159,28 +193,38 @@ t1again = arange
 The real power of container tensors comes from using other containers in the place of `Vect`. Here is a container `BinTree` of binary trees recast as a tree-tensor:
 
 ```idris
-{-
-       60
-      /  \
-     7    2 
-    / \
-(-42)  46 
--}
 treeExample1 : Tensor ["myTree" ~> BinTree] Double
 treeExample1 = ># Node 60 (Node 7 (Leaf (-42)) (Leaf 46)) (Leaf 2)
 ```
 
-Unlike `Vect`, this container has a branching shape rather than a linear one.
+We can print it out in the same way, and observe its branching shape:
+```idris
+BasicExamples> :exec printLn treeExample1
+60.0
+│
+├─ 7.0
+│  │
+│  ├─ -42.0
+│  │
+│  └─ 46.0
+│
+└─ 2.0
+```
+
 Here is another tree-tensor with a different shape:
 
 ```idris
-{-
-   5
-  / \
-100  4
--}
 treeExample2 : Tensor ["myTree" ~> BinTree] Double
 treeExample2 = ># Node 5 (Leaf 100) (Leaf 4)
+```
+
+```idris
+BasicExamples> :exec printLn treeExample2
+5.0
+│
+├─ 100.0
+│
+└─ 4.0
 ```
 
 Perhaps surprisingly, all linear algebra operations follow smoothly. The example below is the _dot product of trees_. The fact that these trees don't have the same number of elements is irrelevant; what matters is that the container defining them (`BinTree`) is the same.
@@ -190,35 +234,52 @@ dotProductTree : Tensor [] Double
 dotProductTree = dot treeExample1 treeExample2
 ```
 
+```idris
+BasicExamples> :exec printLn dotProductTree
+1408.0
+```
+
 We can do much more. Here's a tree-tensor with values only on its leaves:
 
 ```idris
-{-
-        *
-      /   \
-     *     2 
-    / \
-(-42)  46 
--}
 treeLeafExample : Tensor ["myTree" ~> BinTreeLeaf] Double
 treeLeafExample = ># Node' (Node' (Leaf (-42)) (Leaf 46)) (Leaf 2)
+```
+
+```idris
+BasicExamples> :exec printLn treeLeafExample
+·
+│
+├─ ·
+│  │
+│  ├─ -42.0
+│  │
+│  └─ 46.0
+│
+└─ 2.0
 ```
 
 and here's a tree-tensor with values only on its nodes:
 
 ```idris
-{-
-       60
-      /  \
-     7    *
-    / \
-   *   * 
--}
 treeNodeExample : Tensor ["myTree" ~> BinTreeNode] Double
 treeNodeExample = ># Node 60 (Node 7 Leaf' Leaf')  Leaf'
 ```
 
-This can get complex and nested, as `treeExample3` and `treeExample4` show. But it is still fully type-checked and works as you'd expect.
+```idris
+BasicExamples> :exec printLn treeNodeExample
+60.0
+│
+├─ 7.0
+│  │
+│  ├─ ·
+│  │
+│  └─ ·
+│
+└─ ·
+```
+
+This can get complex and nested, as `treeExample3` and `treeExample4` show.
 
 ```idris
 treeExample3 : Tensor ["myTree" ~> BinTreeNode, "j" ~> Vect 2] Double
@@ -235,15 +296,41 @@ treeExample4 = >#
     (Node (Leaf [178, -43, 63]) Leaf' Leaf')
 ```
 
+
+```idris
+BasicExamples> :exec printLn treeExample4
+╔════════════════╗
+║·               ║
+║│               ║
+║├─ [1.0 2.0 3.0]║
+║│               ║
+║└─ [4.0 5.0 6.0]║
+╚════════════════╝
+│
+├─ ·
+│
+└─ ╔═══════════════════╗
+   ║[178.0 -43.0  63.0]║
+   ╚═══════════════════╝
+   │
+   ├─ ·
+   │
+   └─ ·
+```
+
+But all of this is still fully type-checked and works as you'd expect.
 For instance, we can index into `treeExample1`:
 ```idris
 {- 
-We can index into any of these structures
-       60
-      /  \
-     7    2  <---- indexing here is okay
-    / \
-(-42)  46 
+60.0
+│
+├─ 7.0
+│  │
+│  ├─ -42.0
+│  │
+│  └─ 46.0
+│
+└─ 2.0     <---- indexing here is okay
 -}
 indexTreeExample1 : Double
 indexTreeExample1 = treeExample1 @@ [GoRight AtLeaf]
@@ -254,11 +341,17 @@ This will fail _at compile-time_ if you try to index outside of the tree structu
 ```idris
 failing
   {- 
-         60
-        /  \
-       7    2  
-      / \    \
-  (-42)  46   X   <---- indexing here throws an error
+  60.0
+  │
+  ├─ 7.0
+  │  │
+  │  ├─ -42.0
+  │  │
+  │  └─ 46.0
+  │
+  └─ 2.0
+      │
+      └─ X  <---- indexing here throws an error
   -}
   indexTreeExample1Fail : Double
   indexTreeExample1Fail = treeExample1 @@ [GoRight (GoRight AtLeaf)]
@@ -268,15 +361,13 @@ Likewise, you can perform reshapes, views, reversals, sorting and traversals of 
 Here is the in-order traversal of `treeExample1` from above.
 
 ```idris
-{-
-       60
-      /  \
-     7    2 
-    / \
-(-42)  46 
--}
 traversalExample : Tensor ["myList" ~> List] Double
 traversalExample = restructure (wrapIntoVector inorder) treeExample1
+```
+
+```idris
+BasicExamples> :exec printLn traversalExample
+[-42.0, 7.0, 46.0, 60.0, 2.0]
 ```
 
 All of these can be used to define novel network architectures, see [src/Architectures](https://github.com/bgavran/TensorType/tree/main/src/NN/Architectures) for examples.
@@ -291,14 +382,13 @@ It is recommended to manage the installation of this package (and generally, Idr
 3. That's it!
 
 **To use TensorType in your project:**
-1. Run `pack query tensortype` in the command-line to check whether your pack database is synced. If you don't see `tensortype` printed as output, you may need to run `pack update-db` first.
-2. Add `tensortype` to the `depends` argument in your project's `.ipkg` file. (See `examples/tensortype-examples.ipkg` for an example)
-3. Include `import Data.Tensor` at the top of your source files.
-4. That's it!
+1. Add `tensortype` to the `depends` argument in your project's `.ipkg` file. (See `examples/tensortype-examples.ipkg` for an example)
+2. Include `import Data.Tensor` at the top of your source files.
+3. That's it!
 
 ## Aim of TensorType
 
-Attempts to bring deep learning to statically typed languages have struggled with expressiveness and ergonomics, typically only replicating what exists without imagining what can be. TensorType aims to do both: provide a practical, type-safe tensor library, and enable fundamentally new capabilities. Specifically:
+Attempts to bring deep learning to statically typed languages have struggled with expressiveness and ergonomics, typically only replicating what exists without imagining what can be. TensorType aims to do both: provide a practical, type-safe tensor library, and enable fundamentally new capabilities. Specifically, the aim is to:
 
 > Enable type-driven development of structured neural network architectures.
 
@@ -314,7 +404,7 @@ This especially holds for non-rectangular tensors, which are at the moment only 
 
 TensorType's implementation hinges on three interdependent components:
 
-* **Containers** for **well-typed indexing of non-cubical tensors**: they allow us to validate that an index into a generalised tensor is not out of bounds at compile-time. Doing this with cubical containers is easy since they expose the size information at the type level (i.e. `Tensor ["i" ~> Vect 2] Double`), but once we move on to the world of applicative functors this is no longer the case. Checking that an index into a `Tensor ["b" ~> BinTreeNode] Double` is not out of bounds is only possible if the underlying functor additionally comes equipped with the data of the valid set of "shapes" and the valid "positions" for that shape. This is equivalent to asking that the functor is polynomial, or that the functor is an extension of a container.
+* **Containers** for **well-typed indexing of non-cubical tensors**: they allow us to validate that an index into a generalised tensor is not out of bounds at compile-time. Doing this with cubical containers is easy since they expose the size information at the type level (i.e. `Tensor ["i" ~> Vect 2] Double`), but once we move on to the world of applicative functors this is no longer the case. Checking that an index into a `Tensor ["b" ~> BinTreeNode] Double` is not out of bounds is only possible if the underlying functor additionally comes equipped with the data of the valid set of "shapes" and the valid "positions" for that shape. This is equivalent to asking that the functor is polynomial, or equivalently that the functor is the extension of some container.
 * **Applicative functors** for **generalised linear algebra**: they allow us to perform generalised linear algebra operations as described in the [Applicative Programming with Naperian Functors](https://www.cs.ox.ac.uk/people/jeremy.gibbons/publications/aplicative.pdf) paper.
 * **Dependent lenses** for **reshaping and traversing operations**: they allow us to define morphisms of containers, and therefore generalised tensor reshaping operations that do not operate on the content of the data, only the shape. These include views, reshapes, and traversals, and many other operations that appear in libraries like NumPy.
 

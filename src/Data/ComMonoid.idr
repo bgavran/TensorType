@@ -51,10 +51,15 @@ namespace NotExposingType
   ComMonoid : Type
   ComMonoid = (t : Type ** ComMonoid t)
 
+  ||| Not encoding the rules for now
   public export
-  record ComMonoidHomo (c, d : ComMonoid) where
-    constructor MkComMonoidHomo
-    underlyingMap : c.fst -> d.fst
-    plusPreserve : (x, y : c.fst) ->
-      underlyingMap (c.snd.plus x y) = d.snd.plus (underlyingMap x) (underlyingMap y)
-    neutralPreserve : underlyingMap c.snd.neutral = d.snd.neutral
+  ComMonoidHomo : ComMonoid -> ComMonoid -> Type
+  ComMonoidHomo (t ** _) (t' ** _) = t -> t'
+
+  -- public export
+  -- record ComMonoidHomo (c, d : ComMonoid) where
+  --   constructor MkComMonoidHomo
+  --   underlyingMap : c.fst -> d.fst
+  --   plusPreserve : (x, y : c.fst) ->
+  --     underlyingMap (c.snd.plus x y) = d.snd.plus (underlyingMap x) (underlyingMap y)
+  --   neutralPreserve : underlyingMap c.snd.neutral = d.snd.neutral

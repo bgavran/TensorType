@@ -1,6 +1,7 @@
 module Data.Tensor.Utils
 
 import Data.Nat -- Add import for Cast
+import Data.List
 import System.Random
 
 import Data.Tensor.Tensor
@@ -35,25 +36,26 @@ namespace CommonNames
   Vector c a = Tensor [c] a
   
   public export
-  Matrix : (row, col : Axis) -> NewAxisConsistent row [col] => (a : Type) -> Type
+  Matrix : (row, col : Axis) -> ConsistentWith row [col] =>
+    (a : Type) -> Type
   Matrix row col a = Tensor [row, col] a
 
 namespace FillZerosOnes
   public export
   fill : Num a => {shape : TensorShape rank} ->
-    All TensorMonoid (conts shape) =>
+    AllC TensorMonoid shape =>
     a -> Tensor shape a
   fill x = tensorReplicate x
 
   public export
   zeros : Num a => {shape : TensorShape rank} ->
-    All TensorMonoid (conts shape) => 
+    AllC TensorMonoid shape => 
     Tensor shape a
   zeros = fill (fromInteger 0)
 
   public export
   ones : Num a => {shape : TensorShape rank} ->
-    All TensorMonoid (conts shape) => 
+    AllC TensorMonoid shape => 
     Tensor shape a
   ones = fill (fromInteger 1)
 
@@ -113,9 +115,9 @@ namespace Concatenate
   public export
   concat : {shape : TensorShape rank} -> {l : AxisName} ->
     {x, y : Axis} -> IsCubical x => IsCubical y =>
-    NewAxisConsistent (l ~~> dim x + dim y) shape =>
-    NewAxisConsistent x shape =>
-    NewAxisConsistent y shape =>
+    ConsistentWith (l ~~> dim x + dim y) shape =>
+    ConsistentWith x shape =>
+    ConsistentWith y shape =>
     Tensor (x :: shape) a ->
     Tensor (y :: shape) a ->
     Tensor ((l ~~> dim x + dim y) :: shape) a
@@ -166,7 +168,7 @@ namespace Max
   max : {0 shape : TensorShape rank} ->
     Foldable (Tensor shape) => Ord a =>
     Tensor shape a -> Maybe a
-  max = maxInList . flatten
+  max = max . flatten
 
 namespace OneHot
   public export
@@ -182,7 +184,7 @@ namespace Triangular
     (ip : InterfaceOnPositions c.cont MOrd) =>
     TensorMonoid c.cont =>
     (sh : c.cont.Shp) -> Tensor [c, c] Bool
-  cTriBool {ip = MkI {p}} sh
+  cTriBool {ip = MkI p} sh
     = let cPositions = positions {sh=sh}
           pp : MOrd (c.cont.Pos sh) := p sh
       in outerWith (flip isSubTerm) cPositions cPositions
@@ -217,7 +219,7 @@ namespace Triangular
   ||| Fill the elements of a tensor `t` with `fill` where `mask` is True
   public export
   maskedFill : {shape : TensorShape rank} ->
-    Num a => All TensorMonoid (conts shape) =>
+    Num a => AllC TensorMonoid shape =>
     (t : Tensor shape a) ->
     (mask : Tensor shape Bool) ->
     (fill : a) ->
@@ -253,10 +255,12 @@ namespace Misc
   cumulativeSum : {c : Axis} -> Num a =>
     (isCubical : IsCubical c) =>
     Tensor [c] a -> Tensor [c] a
-  -- cumulativeSum {isCubical=(MkIsCubical _ n)} t
-  --   = let tt = map {f=Vect n} (scanl1 (+)) (#> t)
-  --         
-  --     in ?qqwer -- #> ((scanl1 (+)) (#> t))  --(#>#) 
+  cumulativeSum {isCubical=(MkIsCubical _ n)} t
+    = (#>#) (scanl1 (+)) t
+    
+    -- let tt = n -- map {f=Vect n} (scanl1 (+)) (#> t)
+    --       
+    --   in ?qwerrr -- #> ((scanl1 (+)) (#> t))  --(#>#) 
 
 
 
@@ -305,11 +309,11 @@ ttt = %search
 tttt : Traversable (Tensor ["i" ~~> 2])
 tttt = %search
 
-testRand : IO (Tensor ["i" ~~> 2, "j" ~~> 3] Double)
-testRand = do 
-  t <- random ["i" ~~> 2, "j" ~~> 3]
-  printLn $ show t
-  pure t
+-- testRand : IO (Tensor ["i" ~~> 2, "j" ~~> 3] Double)
+-- testRand = do 
+--   t <- random ["i" ~~> 2, "j" ~~> 3]
+--   printLn $ show t
+--   pure t
 
 testRand2 : IO (Tensor ["i" ~~> 5] Double)
 testRand2 = random ["i" ~~> 5]
@@ -362,14 +366,4 @@ t1 : Tensor ["i" ~~> 6] Double
 t1 = arange
 
 exMatrix2 : Tensor ["v" ~~> 3, "v" ~~> 3] Double
-exMatrix2 = reshape $ arange {stop="v" ~~> 9}
-
-
-
-public export
-tTest : Tensor ["i" ~~> 800] Double
-tTest = arange
-
-public export
-tRes : Tensor ["i" ~~> 2, "j" ~~> 400] Double
-tRes = reshape tTest
+exMatrix2 = reshape $ arange {stop="l" ~~> 9}
