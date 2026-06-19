@@ -2,14 +2,9 @@
 type = "local"
 path = ""
 ipkg = "tensortype.ipkg"
+test = "tests/tensortype-tests.ipkg"
 
 [custom.all.tensortype-examples]
 type = "local"
 path = "examples"
 ipkg = "tensortype-examples.ipkg"
-
-# [custom.all.tensortype-tests]
-# type = "local"
-# path = "tests"
-# ipkg = "tensortype-tests.ipkg"
-
