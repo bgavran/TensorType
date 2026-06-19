@@ -23,15 +23,15 @@ import Misc
 
 public export
 IsConcrete Scalar where
-  concreteType = id
-  concreteFunctor = MkFunctor id
+  func = id
+  functorInstance = MkFunctor id
   fromConcreteTy = pure
   toConcreteTy (() <| f) = f ()
 
 public export
 IsConcrete Maybe where
-  concreteType = Maybe
-  concreteFunctor = %search
+  func = Maybe
+  functorInstance = %search
 
   fromConcreteTy Nothing = False <| absurd
   fromConcreteTy (Just x) = True <| \() => x
@@ -41,22 +41,34 @@ IsConcrete Maybe where
 
 public export
 IsConcrete Pair where
-  concreteType = \a => Pair a a
-  concreteFunctor = MkFunctor $ \f, (x, y) => (f x, f y)
+  func = \a => Pair a a
+  functorInstance = MkFunctor $ \f, (x, y) => (f x, f y)
   fromConcreteTy (x, y) = () <| \case False => x; True => y
   toConcreteTy (() <| f) = (f False, f True)
 
+||| This is a concrete instance for Naperian containers
+||| It applies also to `s=Fin n` which is covered by Vect
+||| We therefore want this to only be applied if Vect isn't
+%defaulthint
+public export
+lambdaNap : {s : Type} -> IsConcrete (Nap s)
+lambdaNap = MkIsConcrete
+  (\a => s -> a)
+  (MkFunctor (.))
+  (\content => () <| content)
+  (\(() <| content) => content)
+
 public export
 (icc : IsConcrete c) => (icd : IsConcrete d) => IsConcrete (c >< d) where
-  concreteType = concreteType @{icc} >< concreteType @{icd}
-  concreteFunctor = ?concreteFunctorHancockProduct
+  func = func @{icc} >< func @{icd}
+  functorInstance = ?functorInstanceHancockProduct
   fromConcreteTy = ?fromConcreteTyHancockProduct
   toConcreteTy = ?toConcreteTyHancockProduct
 
 public export
 (icc : IsConcrete c) => (icd : IsConcrete d) => IsConcrete (c >@ d) where
-  concreteType = concreteType @{icc} . concreteType @{icd}
-  concreteFunctor = MkFunctor $ \f => ?concreteFunctorCompositionProduct
+  func = func @{icc} . func @{icd}
+  functorInstance = MkFunctor $ \f => ?functorInstanceCompositionProduct
   fromConcreteTy = ?fromConcreteTyCompositionProduct
   toConcreteTy = ?toConcreteTyCompositionProduct
 
@@ -72,12 +84,13 @@ namespace List
   public export
   toList : List' a -> List a
   toList (0 <| _) = []
-  toList ((S k) <| ind) = head ind :: toList (k <| tail ind)
+  toList l@((S k) <| ind) = head ind :: toList
+    (assert_smaller l (k <| tail ind))
 
   public export
   IsConcrete List where
-    concreteType = List
-    concreteFunctor = %search
+    func = List
+    functorInstance = %search
     fromConcreteTy = fromList
     toConcreteTy = toList
 
@@ -90,12 +103,38 @@ namespace Vect
   toVect : {n : Nat} -> Vect' n a -> Vect n a
   toVect (_ <| index) = Vect.Fin.tabulate index
 
+  public export prefix 0 >##, ##>
+
+  public export
+  (>##) : Vect n a -> Vect' n a
+  (>##) = fromVect
+
+  public export
+  (##>) : {n : Nat} -> Vect' n a -> Vect n a
+  (##>) = toVect
+
+  -- public export
+  -- test : {n : Nat} -> IsConcrete (Vect n)
+  -- test = MkIsConcrete
+  --   (Vect n)
+  --   (%search)
+  --   (fromVect)
+  --   (toVect)
+
   public export
   {n : Nat} -> IsConcrete (Vect n) where
-    concreteType = Vect n
-    concreteFunctor = %search
+    func = Vect n
+    functorInstance = %search
     fromConcreteTy = fromVect
     toConcreteTy = toVect
+
+namespace Grid
+  public export
+  {h, w : Nat} -> IsConcrete (Grid (h, w)) where
+    func a = (Fin h, Fin w) -> a
+    functorInstance = MkFunctor (.)
+    fromConcreteTy content = ((), ()) <| content
+    toConcreteTy (((), ()) <| content) = content
 
 namespace BinTreeSame
   public export
@@ -111,15 +150,15 @@ namespace BinTreeSame
   public export
   toBinTreeSame : BinTree' a -> BinTreeSame a
   toBinTreeSame (LeafS <| index) = Leaf (index AtLeaf)
-  toBinTreeSame (NodeS lt rt <| index) =
+  toBinTreeSame n@(NodeS lt rt <| index) =
     Node (index AtNode)
-         (toBinTreeSame (lt <| index . GoLeft))
-         (toBinTreeSame (rt <| index . GoRight))
+         (toBinTreeSame $ assert_smaller n (lt <| index . GoLeft))
+         (toBinTreeSame $ assert_smaller n (rt <| index . GoRight))
 
   public export
   IsConcrete BinTree where
-    concreteType = BinTreeSame
-    concreteFunctor = %search
+    func = BinTreeSame
+    functorInstance = %search
     fromConcreteTy = fromBinTreeSame
     toConcreteTy = toBinTreeSame
 
@@ -143,15 +182,15 @@ namespace BinTreeNode
   public export
   toBinTreeNode : BinTreeNode' a -> BinTreeNode a
   toBinTreeNode (LeafS <| index) = Leaf ()
-  toBinTreeNode (NodeS lt rt <| index) = 
+  toBinTreeNode n@(NodeS lt rt <| index) = 
     Node (index AtNode)
-         (toBinTreeNode (lt <| index . GoLeft))
-         (toBinTreeNode (rt <| index . GoRight))
+         (toBinTreeNode $ assert_smaller n (lt <| index . GoLeft))
+         (toBinTreeNode $ assert_smaller n (rt <| index . GoRight))
 
   public export
   IsConcrete BinTreeNode where
-    concreteType = BinTreeNode
-    concreteFunctor = %search
+    func = BinTreeNode
+    functorInstance = %search
     fromConcreteTy = fromBinTreeNode
     toConcreteTy = toBinTreeNode
 
@@ -168,14 +207,14 @@ namespace BinTreeLeaf
   public export
   toBinTreeLeaf : BinTreeLeaf' a -> BinTreeLeaf a
   toBinTreeLeaf (LeafS <| content) = Leaf (content AtLeaf)
-  toBinTreeLeaf (NodeS l r <| content) =
-    Node' (toBinTreeLeaf (l <| content . GoLeft))
-          (toBinTreeLeaf (r <| content . GoRight))
+  toBinTreeLeaf n@(NodeS l r <| content) =
+    Node' (toBinTreeLeaf $ assert_smaller n (l <| content . GoLeft))
+          (toBinTreeLeaf $ assert_smaller n (r <| content . GoRight))
 
   public export
   IsConcrete BinTreeLeaf where
-    concreteType = BinTreeLeaf
-    concreteFunctor = %search
+    func = BinTreeLeaf
+    functorInstance = %search
     fromConcreteTy = fromBinTreeLeaf
     toConcreteTy = toBinTreeLeaf
 
@@ -183,8 +222,9 @@ namespace BinTreeLeaf
 public export
 foldList : (a -> b -> b) -> b -> List' a -> b
 foldList f z (0 <| _) = z
-foldList f z ((S k) <| content)
-  = f (head content) $ foldList f z (k <| tail content)
+foldList f z l@((S k) <| content)
+  = f (head content) $ foldList f z
+    (assert_smaller l (k <| tail content))
 
 public export
 IsFoldable c => Foldable (Ext c) where

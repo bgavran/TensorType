@@ -26,38 +26,57 @@ import Misc
 
 namespace State
   ||| "State" as defined in https://arxiv.org/abs/2403.13001 and open games 
-  ||| Given a shape of any container, state can be defined
+  |||
+  |||       ┌─────────────┐
+  |||       │             ├──► (x : c.Shp)
+  |||       │    State    │
+  |||       │             ├◄── c.Pos x
+  |||       └─────────────┘
   public export
   State : Cont -> Type
   State c = Scalar =%> c
 
+  ||| Given a shape of any container, state can be defined
   public export
-  toState : {0 c : Cont} -> (x : c.Shp) -> State c
+  toState : (x : c.Shp) -> State c
   toState x = !% \() => (x ** \_ => ())
 
   public export
-  fromState : {0 c : Cont} ->
-    State c ->
-    c.Shp
+  fromState : State c -> c.Shp
   fromState f = f.fwd ()
 
+  public export
+  mapState : State c ->
+    c =%> d ->
+    State d
+  mapState s f = s %>> f
+
 namespace Costate
+  ||| "Costate" as defined in https://arxiv.org/abs/2403.13001 and open games 
+  |||
+  |||                  ┌─────────────┐
+  |||  (x : c.Shp)  ──►┤             │
+  |||                  │   Costate   │
+  |||     c.Pos x   ◄──┤             │
+  |||                  └─────────────┘
   public export
   Costate : Cont -> Type
   Costate c = c =%> Scalar
 
   public export
-  fromCostate : {0 c : Cont} ->
-    Costate c ->
-    (x : c.Shp) -> c.Pos x
-  fromCostate f x = f.bwd x ()
-  
-  public export
-  toCostate : {0 c : Cont} ->
-    ((x : c.Shp) -> c.Pos x) ->
-    Costate c
+  toCostate : ((x : c.Shp) -> c.Pos x) -> Costate c
   toCostate s = !% \x => (() ** \() => s x)
 
+  public export
+  fromCostate : Costate c -> (x : c.Shp) -> c.Pos x
+  fromCostate f x = f.bwd x ()
+
+  public export
+  mapCostate : Costate d ->
+    c =%> d ->
+    Costate c
+  mapCostate s f = f %>> s
+  
 public export
 fromNapCostateToState : Costate (Nap c.Shp) -> State c
 fromNapCostateToState f = toState (f.bwd () ())
@@ -66,14 +85,29 @@ public export
 fromStateToNapCostate : State c -> Costate (Nap c.Shp)
 fromStateToNapCostate f = toCostate f.fwd
 
+||| If we model the idea of a container (S !> P) as a box
+|||  ┌──────┐
+|||  │ s:S  │
+|||  ├──────┤
+|||  │  Ps  │
+|||  └──────┘
+||| then `pushDown` is interpreted as pushing down the container,
+||| pruning anything that goes out of the box, and using `Unit` for
+||| anything new that appears:
+|||  ┌──────┐
+|||  │ Unit │
+|||  ├──────┤
+|||  │ s:S  │
+|||  └──────┘
+|||     Ps
 public export
 pushDown : Cont -> Cont
 pushDown c = Const2 Unit c.Shp
 
 public export
 pushIntoContinuation : {0 d, p, l : Cont} ->
-  (d >< p =%> l) ->
-  (p =%> (pushDown d) >@ l)
+  d >< p =%> l ->
+  p =%> (pushDown d) >@ l
 pushIntoContinuation f = !% \p => (() <| \d => f.fwd (d, p) **
   \(d ** l') => snd $ f.bwd (d, p) l')
 
@@ -113,6 +147,14 @@ namespace HancockTensorProduct
   swap : a >< b =%> b >< a
   swap = !% \(a, b) => ((b, a) ** \(b', a') => (a', b'))
 
+  public export
+  swapMiddle : (c1 >< c2) >< (c3 >< c4) =%> (c1 >< c3) >< (c2 >< c4)
+  swapMiddle = assocL {c=_ >< _}
+           %>> (id >< assocR)
+           %>> (id >< swap >< id)
+           %>> (id >< assocL)
+           %>> assocR {c=_ >< _}
+
 namespace CompositionProduct
   public export
   leftUnit : Scalar >@ c =%> c
@@ -124,7 +166,7 @@ namespace CompositionProduct
 
   public export
   leftUnitInv : c =%> Scalar >@ c
-  leftUnitInv = !% \x => (() <| (\_ => x) ** \(() ** c') => c')
+  leftUnitInv = !% \s => (() <| (\_ => s) ** \(() ** c') => c')
   
   public export
   rightUnitInv : c =%> c >@ Scalar
@@ -140,6 +182,19 @@ namespace Coproduct
   public export
   initial : Empty =%> c
   initial = !% absurd
+
+  public export
+  cojoin : c =%> z ->
+    d =%> z ->
+    c >+< d =%> z
+  cojoin f g = (f >+< g) %>> elim
+
+  public export
+  direct : (a.Shp -> Bool) ->
+    a =%> a >+< a
+  direct p = !% \x => case p x of
+    False => (Left x ** id)
+    True => (Right x ** id)
 
 
 
@@ -181,21 +236,21 @@ namespace CompositionTensorInteraction
   ||| Two possibilities on constraints (this, and `compToTensor2`)
   public export 
   compToTensor : IsNaperian d =>
-    (c >@ d) =%> (c >< d)
+    c >@ d =%> c >< d
   compToTensor @{(MkIsNaperian dPos)} = !% \(cShp <| content) =>
     ((cShp,()) ** \(cPos, dPos) => (cPos ** dPos))
   
   public export
   compToTensor2 : IsFlat c =>
-    (c >@ d) =%> (c >< d)
+    c >@ d =%> c >< d
   compToTensor2 @{(ItIsFlat cShp)} = !% \(cShp <| dShp) =>
     ((cShp, dShp ()) ** \((), dPos') => (() ** dPos'))
   
   ||| Specific distributive law we need
   public export
-  distribute : (c >< e) =%> s ->
+  distribute : c >< e =%> s ->
     c >< (e >@ g) =%> s >@ g
-  distribute f = (rightUnitInv >< id {a=e >@ g})
+  distribute f = (rightUnitInv >< id {c=e >@ g})
                %>> duoidal {d = Scalar}
                %>> (f >@ leftUnit)
 
@@ -209,7 +264,7 @@ wrapIntoVector : c =%> d ->
 wrapIntoVector f = rightUnit %>> f %>> rightUnitInv
 
 public export
-wrapIntoMatrix : (c >@ c') =%> (d >@ d') ->
+wrapIntoMatrix : c >@ c' =%> d >@ d' ->
   Tensor [c, c'] =%> Tensor [d, d']
 wrapIntoMatrix f =   (id >@ rightUnit)
                  %>> f

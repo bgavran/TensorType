@@ -19,7 +19,7 @@ runActionUntilMaxSteps action maxSteps currStep currVal lossIO
         putStrLn "Current step: \{show currStep}, loss: \{show (loss)}"
         -- putStrLn "Current step: \{show currStep}, value: \{show currVal}, loss: \{show (loss)}"
       result <- action currVal
-      runActionUntilMaxSteps {printEvery=printEvery} action maxSteps (currStep + 1) result lossIO
+      runActionUntilMaxSteps {printEvery=printEvery} action maxSteps (assert_smaller currStep (currStep + 1)) result lossIO
     False => do
       loss <- lossIO currVal
       -- putStrLn "Max steps (\{show maxSteps}) reached. Final loss: \{show (loss)}"

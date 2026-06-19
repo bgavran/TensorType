@@ -34,9 +34,9 @@ b) use monadic lenses
 -------------------------------------------------------------------------------}
 
 ||| Performs a single step of optimisation of some differentiable function
-||| `f : p -> x`, where we additionally need to handle some effect `e`
-||| Uses a potentially stateful optimiser, and returns an update of its
-||| parameters and state
+||| `f : p -> l`, additionally handling some effect `e`
+||| The optimiser used is allowed to be stateful meaning the result of the
+||| optimisation is both the final parameter and the state of the optimiser
 public export
 optimiseStep : {p, l, e : AddCont} -> InterfaceOnPositions l Num =>
   (f : p =%> (e >@ l)) ->
@@ -179,6 +179,7 @@ namespace WithoutEffect
   handleTrivial = toCostate $ \() => pure ()
 
 
+  ||| Eval a model with specific parameters
   public export
   eval : {y : AddCont} -> Show x.Shp => Show y.Shp =>
     (f : ParaAddDLens x y) ->

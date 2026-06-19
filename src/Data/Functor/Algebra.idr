@@ -95,7 +95,7 @@ namespace Instances
         in (uncurry (+)) <$> (liftA2 lt rt) 
   
   
-  public export
+  public export covering
   Num a => Algebra RoseTreeSame a where
     reduce (Leaf x) = x
     reduce (Node x subTrees)
@@ -114,7 +114,8 @@ namespace Instances
 
 namespace Initial
   ||| Initial algebra for an endofunctor
-  public export
+  ||| Can we make it total by using containers, i.e. strictly positive functors?
+  public export covering
   data Initial : (f : Type -> Type) -> Type where
     ||| One part of the isomorphism
     In : f (Initial f) -> Initial f
@@ -124,23 +125,23 @@ namespace Initial
   Out : Initial f -> f (Initial f)
   Out (In r) = r
   
-  public export
+  public export covering
   cata : Functor f =>
     Algebra f a -> (Initial f -> a)
   cata (MkAlgebra g) rs = g $ cata (MkAlgebra g) <$> Out rs 
 
 
 namespace Final
-  public export
+  public export covering
   data Final : (f : Type -> Type) -> Type where
     MkFinal : f (Inf (Final f)) -> Final f
 
   ||| For some reason, inlining this function in `ana` causes a compiler error
-  public export
+  public export covering
   embedFinal : Final f -> Inf (Final f)
   embedFinal x = x
 
-  public export
+  public export covering
   ana : Functor f =>
     (a -> f a) -> a -> Final f
   ana next seed = MkFinal $ (embedFinal . ana next) <$> next seed

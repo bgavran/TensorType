@@ -241,25 +241,25 @@ namespace NestedTensorUtils
 
 namespace TensorFromConcrete
   public export
-  concreteTypeTensor : (shape : TensorShape rank) ->
+  funcTensor : (shape : TensorShape rank) ->
     AllC IsConcrete shape =>
     Type -> Type
-  concreteTypeTensor [] @{[]} = concreteType {c=Scalar}
-  concreteTypeTensor (a :: as) @{ic :: _}
-    = concreteType @{ic} . (concreteTypeTensor as)
+  funcTensor [] @{[]} = func {c=Scalar}
+  funcTensor (a :: as) @{ic :: _}
+    = func @{ic} . (funcTensor as)
 
   public export
-  concreteTypeFunctor : {shape : TensorShape rank} ->
+  funcFunctor : {shape : TensorShape rank} ->
     AllC IsConcrete shape =>
-    Functor (concreteTypeTensor shape)
-  concreteTypeFunctor {shape = []} @{[]} = concreteFunctor {c=Scalar}
-  concreteTypeFunctor {shape = (c :: cs)} @{ic :: _}
-    = Functor.Compose @{concreteFunctor @{ic} } @{concreteTypeFunctor}
+    Functor (funcTensor shape)
+  funcFunctor {shape = []} @{[]} = functorInstance {c=Scalar}
+  funcFunctor {shape = (c :: cs)} @{ic :: _}
+    = Functor.Compose @{functorInstance @{ic} } @{funcFunctor}
 
   public export
   concreteToExtensions : {shape : TensorShape rank} ->
     AllC IsConcrete shape =>
-    concreteTypeTensor shape a -> composeExtensions (conts shape) a
+    funcTensor shape a -> composeExtensions (conts shape) a
   concreteToExtensions {shape = []} @{[]} ct = fromConcreteTy ct
   concreteToExtensions {shape = (_ :: _)} @{(ic :: _)} ct =
     concreteToExtensions <$> (fromConcreteTy @{ic} ct)
@@ -267,21 +267,21 @@ namespace TensorFromConcrete
   public export
   extensionsToConcreteType : {shape : TensorShape rank} ->
     AllC IsConcrete shape =>
-    composeExtensions (conts shape) a -> concreteTypeTensor shape a
+    composeExtensions (conts shape) a -> funcTensor shape a
   extensionsToConcreteType {shape = []} @{[]} ct = toConcreteTy ct
   extensionsToConcreteType {shape = (_ :: _)} @{ic :: _} ct
-    = (map @{concreteFunctor @{ic}} extensionsToConcreteType) (toConcreteTy @{ic} ct)
+    = (map @{functorInstance @{ic}} extensionsToConcreteType) (toConcreteTy @{ic} ct)
 
   public export
   toTensor : {shape : TensorShape rank} ->
     AllC IsConcrete shape =>
-    concreteTypeTensor shape a -> Tensor shape a
+    funcTensor shape a -> Tensor shape a
   toTensor = fromExtensionComposition . concreteToExtensions
 
   public export
   fromTensor : {shape : TensorShape rank} ->
     AllC IsConcrete shape =>
-    Tensor shape a -> concreteTypeTensor shape a
+    Tensor shape a -> funcTensor shape a
   fromTensor = extensionsToConcreteType . toExtensionComposition
 
   ||| Many containers have a `FromConcrete` instance, allowing them to easily
@@ -295,13 +295,13 @@ namespace TensorFromConcrete
   public export
   fromConcreteTy : {shape : TensorShape rank} ->
     AllC IsConcrete shape =>
-    concreteTypeTensor shape a -> Tensor shape a
+    funcTensor shape a -> Tensor shape a
   fromConcreteTy = toTensor
 
   public export
   toConcreteTy : {shape : TensorShape rank} ->
     AllC IsConcrete shape =>
-    Tensor shape a -> concreteTypeTensor shape a
+    Tensor shape a -> funcTensor shape a
   toConcreteTy = fromTensor
 
   public export prefix 0 >#, #>
@@ -311,7 +311,7 @@ namespace TensorFromConcrete
   public export
   (>#) : {shape : TensorShape rank} ->
     AllC IsConcrete shape =>
-    concreteTypeTensor shape a -> Tensor shape a
+    funcTensor shape a -> Tensor shape a
   (>#) = fromConcreteTy
 
   ||| Prefix operator for converting from a tensor to concrete type
@@ -319,7 +319,7 @@ namespace TensorFromConcrete
   public export
   (#>) : {shape : TensorShape rank} ->
     AllC IsConcrete shape =>
-    Tensor shape a -> concreteTypeTensor shape a
+    Tensor shape a -> funcTensor shape a
   (#>) = toConcreteTy
 
   public export infixr 0 >#>, #>#
@@ -331,7 +331,7 @@ namespace TensorFromConcrete
     AllC IsConcrete shapeOld =>
     AllC IsConcrete shapeNew =>
     (Tensor shapeOld a -> Tensor shapeNew b) ->
-    concreteTypeTensor shapeOld a -> concreteTypeTensor shapeNew b
+    funcTensor shapeOld a -> funcTensor shapeNew b
   (>#>) f ct = #> (f (># ct))
 
   public export
@@ -340,7 +340,7 @@ namespace TensorFromConcrete
     {shapeNew : TensorShape rankNew} ->
     AllC IsConcrete shapeOld =>
     AllC IsConcrete shapeNew =>
-    (concreteTypeTensor shapeOld a -> concreteTypeTensor shapeNew b) ->
+    (funcTensor shapeOld a -> funcTensor shapeNew b) ->
     Tensor shapeOld a -> Tensor shapeNew b
   (#>#) f t = ># (f (#> t))
 

@@ -21,38 +21,45 @@ namespace DependentLenses
   ||| Forward-backward morphism between additive containers
   ||| It should also encode the constraint that the backward part is a comonoid
   ||| homomorphism. That is currently left out.
+  |||
+  |||                  ┌─────────────┐
+  |||  (x : c.Shp)  ──►┤             ├──► (y : c.Shp)
+  |||                  │    lens     │
+  |||     c.Pos x   ◄──┤             ├◄── d.Pos y
+  |||                  └─────────────┘
   public export
-  record (=%>) (c1, c2 : AddCont) where
+  record (=%>) (c, d : AddCont) where
     constructor (!%)
-    ULens : UC c1 =%> UC c2
+    ULens : UC c =%> UC d
 
   ||| Analogous to `!%` for ordinary containers, allows us to construct the 
   ||| lens directly
   public export
-  (!%+) : {0 c1, c2 : AddCont} ->
-    ((x : c1.Shp) -> (y : c2.Shp ** (c2.Pos y -> c1.Pos x))) ->
-    c1 =%> c2
+  (!%+) : {0 c, d : AddCont} ->
+    ((x : c.Shp) -> (y : d.Shp ** (d.Pos y -> c.Pos x))) ->
+    c =%> d
   (!%+) f = (!%) ((!%) f)
 
   public export
-  (%!) : {0 c1, c2 : AddCont} -> c1 =%> c2 -> (x : c1.Shp) -> (y : c2.Shp ** (c2.Pos y -> c1.Pos x))
+  (%!) : {0 c, d : AddCont} ->
+    c =%> d -> (x : c.Shp) -> (y : d.Shp ** (d.Pos y -> c.Pos x))
   (%!) (!% f) = (%!) f
 
   public export
-  (.fwd) : {0 c1, c2 : AddCont} -> c1 =%> c2 -> c1.Shp -> c2.Shp
+  (.fwd) : {0 c, d : AddCont} -> c =%> d -> c.Shp -> d.Shp
   (.fwd) f = (ULens f).fwd
 
   public export
-  (.bwd) : {0 c1, c2 : AddCont} -> (f : c1 =%> c2) ->
-    (x : c1.Shp) -> c2.Pos (f.fwd x) -> c1.Pos x
+  (.bwd) : {0 c, d : AddCont} -> (f : c =%> d) ->
+    (x : c.Shp) -> d.Pos (f.fwd x) -> c.Pos x
   (.bwd) f = (ULens f).bwd
 
   public export
-  compDepLens : {0 c1, c2, c3 : AddCont} -> c1 =%> c2 -> c2 =%> c3 -> c1 =%> c3
+  compDepLens : {0 c, d, e : AddCont} -> c =%> d -> d =%> e -> c =%> e
   compDepLens f g = (!%) (compDepLens (ULens f) (ULens g))
 
   public export
-  (%>>) : {0 c1, c2, c3 : AddCont} -> c1 =%> c2 -> c2 =%> c3 -> c1 =%> c3
+  (%>>) : {0 c, d, e : AddCont} -> c =%> d -> d =%> e -> c =%> e
   (%>>) = compDepLens
 
   public export
@@ -78,30 +85,36 @@ namespace DependentCharts
   ||| Forward-forward morphism between additive containers
   ||| It should also encode the constraint that the second component of the
   ||| chart is a commutative monoid homomorphism. That is currently left out
+  |||
+  |||                  ┌─────────────┐
+  |||  (x : c.Shp)  ──►┤             ├──► (y : c.Shp)
+  |||                  │    lens     │
+  |||     c.Pos x   ──►┤             ├──► d.Pos y
+  |||                  └─────────────┘
   public export
-  record (=&>) (c1, c2 : AddCont) where
+  record (=&>) (c, d : AddCont) where
     constructor (!&)
-    UChart : UC c1 =&> UC c2
+    UChart : UC c =&> UC d
 
   public export
-  (&!) : {0 c1, c2 : AddCont} -> c1 =&> c2 -> (x : c1.Shp) -> (y : c2.Shp ** (c1.Pos x -> c2.Pos y))
+  (&!) : {0 c, d : AddCont} -> c =&> d -> (x : c.Shp) -> (y : d.Shp ** (c.Pos x -> d.Pos y))
   (&!) (!& f) = (&!) f
 
   public export
-  (.fwd) : {0 c1, c2 : AddCont} -> c1 =&> c2 -> c1.Shp -> c2.Shp
+  (.fwd) : {0 c, d : AddCont} -> c =&> d -> c.Shp -> d.Shp
   (.fwd) f = (UChart f).fwd
 
   public export
-  (.bwd) : {0 c1, c2 : AddCont} -> (f : c1 =&> c2) ->
-    (x : c1.Shp) -> c1.Pos x -> c2.Pos (f.fwd x)
+  (.bwd) : {0 c, d : AddCont} -> (f : c =&> d) ->
+    (x : c.Shp) -> c.Pos x -> d.Pos (f.fwd x)
   (.bwd) f = (UChart f).bwd
 
   public export
-  compDepChart : {0 c1, c2, c3 : AddCont} -> c1 =&> c2 -> c2 =&> c3 -> c1 =&> c3
+  compDepChart : {0 c, d, e : AddCont} -> c =&> d -> d =&> e -> c =&> e
   compDepChart f g = (!&) (compDepChart (UChart f) (UChart g))
 
   public export
-  (&>>) : {0 c1, c2, c3 : AddCont} -> c1 =&> c2 -> c2 =&> c3 -> c1 =&> c3
+  (&>>) : {0 c, d, e : AddCont} -> c =&> d -> d =&> e -> c =&> e
   (&>>) = compDepChart
 
   public export

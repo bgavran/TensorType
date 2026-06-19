@@ -29,37 +29,43 @@ export infixl 5 &>> -- composition of dependent charts
 namespace DependentLenses
   ||| Dependent lenses
   ||| Forward-backward container morphisms
+  |||
+  |||                  ┌─────────────┐
+  |||  (x : c.Shp)  ──►┤             ├──► (y : c.Shp)
+  |||                  │    lens     │
+  |||     c.Pos x   ◄──┤             ├◄── d.Pos y
+  |||                  └─────────────┘
   public export
-  data (=%>) : (c1, c2 : Cont) -> Type where
-    (!%) : ((x : c1.Shp) -> (y : c2.Shp ** (c2.Pos y -> c1.Pos x))) -> c1 =%> c2
+  data (=%>) : (c, d : Cont) -> Type where
+    (!%) : ((x : c.Shp) -> (y : d.Shp ** (d.Pos y -> c.Pos x))) -> c =%> d
 
   %name (=%>) f, g, h
 
   public export
-  (%!) : c1 =%> c2 -> (x : c1.Shp) -> (y : c2.Shp ** (c2.Pos y -> c1.Pos x))
+  (%!) : c =%> d -> (x : c.Shp) -> (y : d.Shp ** (d.Pos y -> c.Pos x))
   (%!) (!% f) x = f x
 
   ||| See fwd of `DChart`
   public export
-  (.fwd) : c1 =%> c2 -> c1.Shp -> c2.Shp
+  (.fwd) : c =%> d -> c.Shp -> d.Shp
   (.fwd) f x = ((%! f) x).fst
 
   public export
-  (.bwd) : (f : c1 =%> c2) -> (x : c1.Shp) -> c2.Pos (f.fwd x) -> c1.Pos x
+  (.bwd) : (f : c =%> d) -> (x : c.Shp) -> d.Pos (f.fwd x) -> c.Pos x
   (.bwd) f x y' = ((%! f) x).snd y'
 
   ||| Composition of dependent lenses
   public export
-  compDepLens : a =%> b -> b =%> c -> a =%> c
-  compDepLens (!% f) (!% g) = !% \x => let (b ** kb) = f x
-                                           (c ** kc) = g b
-                                       in (c ** kb . kc)
+  compDepLens : c =%> d -> d =%> e -> c =%> e
+  compDepLens (!% f) (!% g) = !% \x => let (y ** ky) = f x
+                                           (z ** kz) = g y
+                                       in (z ** ky . kz)
   public export
-  (%>>) : a =%> b -> b =%> c -> a =%> c
+  (%>>) : c =%> d -> d =%> e -> c =%> e
   (%>>) = compDepLens
 
   public export
-  id : a =%> a
+  id : c =%> c
   id = !% \x => (x ** id)
 
   ||| Pairing of all possible combinations of inputs to a particular lens
@@ -67,7 +73,6 @@ namespace DependentLenses
   |||                  ┌─────────────┐
   |||  (x : c.Shp)  ──►┤             ├──►
   |||                  │    lens     │
-  |||                  │             │
   |||               ◄──┤             ├◄── d.Pos (lens.fwd x)
   |||                  └─────────────┘
   public export
@@ -78,38 +83,44 @@ namespace DependentLenses
 namespace DependentCharts
   ||| Dependent charts
   ||| Forward-forward container morphisms
+  |||
+  |||                  ┌─────────────┐
+  |||  (x : c.Shp)  ──►┤             ├──► (y : c.Shp)
+  |||                  │    lens     │
+  |||     c.Pos x   ──►┤             ├──► d.Pos y
+  |||                  └─────────────┘
   public export
-  data (=&>) : (c1, c2 : Cont) -> Type where
-    (!&) : ((x : c1.Shp) -> (y : c2.Shp ** (c1.Pos x -> c2.Pos y))) -> c1 =&> c2
+  data (=&>) : (c, d : Cont) -> Type where
+    (!&) : ((x : c.Shp) -> (y : d.Shp ** (c.Pos x -> d.Pos y))) -> c =&> d
 
   %name (=&>) f, g, h
 
   public export
-  (&!) : c1 =&> c2 -> (x : c1.Shp) -> (y : c2.Shp ** (c1.Pos x -> c2.Pos y))
+  (&!) : c =&> d -> (x : c.Shp) -> (y : d.Shp ** (c.Pos x -> d.Pos y))
   (&!) (!& f) x = f x
 
   ||| For some reason, this has to be a lambda for
   ||| `Autodiff.Core.Forward.MkDiff` to reduce correctly
   public export
-  (.fwd) : c1 =&> c2 -> c1.Shp -> c2.Shp
+  (.fwd) : c =&> d -> c.Shp -> d.Shp
   (.fwd) f = \x => ((&! f) x).fst
 
   public export
-  (.bwd) : (f : c1 =&> c2) -> (x : c1.Shp) -> c1.Pos x -> c2.Pos (f.fwd x)
+  (.bwd) : (f : c =&> d) -> (x : c.Shp) -> c.Pos x -> d.Pos (f.fwd x)
   (.bwd) f = \x => ((&! f) x).snd
 
   public export
-  compDepChart : a =&> b -> b =&> c -> a =&> c
-  compDepChart f g = !& \x => let (b ** kb) = (&! f) x
-                                  (c ** kc) = (&! g) b
-                              in (c ** kc . kb)
+  compDepChart : c =&> d -> d =&> e -> c =&> e
+  compDepChart f g = !& \x => let (y ** ky) = (&! f) x
+                                  (z ** kz) = (&! g) y
+                              in (z ** kz . ky)
 
   public export
-  (&>>) : a =&> b -> b =&> c -> a =&> c
+  (&>>) : c =&> d -> d =&> e -> c =&> e
   (&>>) = compDepChart
 
   public export
-  id : a =&> a
+  id : c =&> c
   id = !& \x => (x ** id)
 
 
@@ -118,26 +129,32 @@ namespace Cartesian
   ||| Morphisms whose function on positions is an isomorphism
   ||| There is a sense in which these are "linear" morphisms of containers
   public export
-  data (=:>) : (c1, c2 : Cont) -> Type where
-    (!:) : ((x : c1.Shp) -> (y : c2.Shp ** Iso (c1.Pos x) (c2.Pos y)))
-      -> c1 =:> c2
+  data (=:>) : (c, d : Cont) -> Type where
+    (!:) : ((x : c.Shp) -> (y : d.Shp ** Iso (c.Pos x) (d.Pos y)))
+      -> c =:> d
 
   %name (=:>) f, g, h
 
   public export
-  (:!) : c1 =:> c2 -> ((x : c1.Shp) -> (y : c2.Shp ** Iso (c1.Pos x) (c2.Pos y)))
+  (:!) : c =:> d -> ((x : c.Shp) -> (y : d.Shp ** Iso (c.Pos x) (d.Pos y)))
   (:!) (!: f) x = f x
 
   ||| Every cartesian morphism is a dependent lens
   public export
-  (:%) : c1 =:> c2 -> c1 =%> c2
+  (:%) : c =:> d -> c =%> d
   (:%) (!: f) = !% \x => let (y ** ky) = f x in (y ** backward ky)
 
   ||| Every cartesian morphism is a dependent chart
   public export
-  (:&) : c1 =:> c2 -> c1 =&> c2
+  (:&) : c =:> d -> c =&> d
   (:&) (!: f) = !& \x => let (y ** ky) = f x in (y ** forward ky)
 
+public export
+reduceVia : {0 c, d : Cont} ->
+  ((s' : d.Shp) -> d.Pos s') -> -- given a solution to a problem
+  c =%> d -> -- and a way of transforming another problem into it
+  ((s : c.Shp) -> c.Pos s) -- we obtain a solution of the other problem
+reduceVia f l s = l.bwd s (f (l.fwd s))
 
 ||| Similar to the extension of a container. Following some ideas in
 ||| Diegetic open games (https://arxiv.org/abs/2206.12338)

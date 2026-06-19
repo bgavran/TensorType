@@ -28,7 +28,7 @@ public export
 ||| Underlying monoid structure of positions
 public export
 UMon : (c : AddCont) -> (s : c.Shp) -> ComMonoid (c.Pos s)
-UMon (MkAddCont c @{MkI m}) s = m s
+UMon c = GetInterface (mon c)
 
 public export
 (.Plus) : (c : AddCont) -> (s : c.Shp) -> (c.Pos s -> c.Pos s -> c.Pos s)

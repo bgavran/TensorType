@@ -253,12 +253,12 @@ namespace RoseTrees
     RoseTreeSame : (content : Type) -> Type
     RoseTreeSame content = RoseTree content content
 
-    public export
+    public export covering
     Functor RoseTreeSame where
       map f (Leaf x) = Leaf (f x)
       map f (Node x subTrees) = Node (f x) (map {f=RoseTreeSame} f <$> subTrees)
 
-    public export
+    public export covering
     liftA2RoseTreeSame : RoseTreeSame a -> RoseTreeSame b -> RoseTreeSame (a, b)
     liftA2RoseTreeSame (Leaf a) (Leaf b) = Leaf (a, b)
     liftA2RoseTreeSame l@(Leaf a) (Node b subTreesb)
@@ -270,7 +270,7 @@ namespace RoseTrees
       = Node (a, b) ((uncurry liftA2RoseTreeSame) <$> (listZip subTreesa subTreesb))
 
     ||| Making RoseTreeSame an applicative relies on the applicative structure of lists
-    public export
+    public export covering
     Applicative RoseTreeSame where
       pure a = Leaf a
       fs <*> xs = map {f=RoseTreeSame} (uncurry ($)) $ liftA2RoseTreeSame fs xs

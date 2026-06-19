@@ -426,24 +426,26 @@ displayNodeWithBranches root left right =
 BinTree (values on both nodes and leaves)
 -------------------------------------------------------------------------------}
 
+
 collectBinTreeValues : Display2D a =>
   BinTree' a ->
   (List (Grid Char), List (Grid Char))
 collectBinTreeValues (LeafS <| index) = ([], [display2D (index AtLeaf)])
-collectBinTreeValues (NodeS l r <| index) =
-  case collectBinTreeValues (l <| (index . GoLeft)) of
-    (ln, ll) => case collectBinTreeValues (r <| (index . GoRight)) of
-      (rn, rl) => (display2D (index AtNode) :: (ln ++ rn), ll ++ rl)
+collectBinTreeValues n@(NodeS l r <| index) =
+  let (ln, ll) = collectBinTreeValues $ assert_smaller n (l <| (index . GoLeft))
+      (rn, rl) = collectBinTreeValues $ assert_smaller n (r <| (index . GoRight))
+  in (display2D (index AtNode) :: (ln ++ rn), ll ++ rl)
+
 
 displayBinTreeWith : Display2D a => (tree : Tree) =>
   (nodeBox, leafBox : Grid Char -> Grid Char) ->
   BinTree' a -> Grid Char
 displayBinTreeWith _ leafBox (LeafS <| index)
   = leafBox (display2D (index AtLeaf))
-displayBinTreeWith nodeBox leafBox (NodeS l r <| index) =
+displayBinTreeWith nodeBox leafBox n@(NodeS l r <| index) =
   displayNodeWithBranches (nodeBox (display2D (index AtNode)))
-    (displayBinTreeWith nodeBox leafBox (l <| (index . GoLeft)))
-    (displayBinTreeWith nodeBox leafBox (r <| (index . GoRight)))
+    (displayBinTreeWith nodeBox leafBox $ assert_smaller n (l <| (index . GoLeft)))
+    (displayBinTreeWith nodeBox leafBox $ assert_smaller n (r <| (index . GoRight)))
 
 displayBinTree : Display2D a => (tree : Tree) => (box : Box) =>
   BinTree' a -> Grid Char
@@ -461,22 +463,23 @@ Display2D a => Display2D (BinTree' a) where
 BinTreeLeaf (values only on leaves)
 -------------------------------------------------------------------------------}
 
+
 collectLeafValues : Display2D a =>
   BinTreeLeaf' a ->
   List (Grid Char)
 collectLeafValues (LeafS <| index) = [display2D (index AtLeaf)]
-collectLeafValues (NodeS l r <| index) =
-  collectLeafValues (l <| index . GoLeft) ++
-  collectLeafValues (r <| index . GoRight)
+collectLeafValues n@(NodeS l r <| index) =
+  collectLeafValues (assert_smaller n (l <| index . GoLeft)) ++
+  collectLeafValues (assert_smaller n (r <| index . GoRight))
 
 displayBinTreeLeafWith : Display2D a => (tree : Tree) =>
   (leafBox : Grid Char -> Grid Char) ->
   BinTreeLeaf' a -> Grid Char
 displayBinTreeLeafWith box (LeafS <| index) = box (display2D (index AtLeaf))
-displayBinTreeLeafWith box (NodeS l r <| index) =
+displayBinTreeLeafWith box n@(NodeS l r <| index) =
   displayNodeWithBranches (singleValue tree.placeholder)
-    (displayBinTreeLeafWith box (l <| index . GoLeft))
-    (displayBinTreeLeafWith box (r <| index . GoRight))
+    (displayBinTreeLeafWith box $ assert_smaller n (l <| index . GoLeft))
+    (displayBinTreeLeafWith box $ assert_smaller n (r <| index . GoRight))
 
 ||| Uniform boxing for BinTreeLeaf: if any leaf is multi-line, box all
 displayBinTreeLeaf : Display2D a => (tree : Tree) => (box : Box) =>
@@ -493,22 +496,25 @@ Display2D a => Display2D (Ext BinTreeLeaf a) where
 BinTreeNode (values only on nodes)
 -------------------------------------------------------------------------------}
 
+
 collectNodeValues : Display2D a =>
   BinTreeNode' a -> List (Grid Char)
 collectNodeValues (LeafS <| _) = []
-collectNodeValues (NodeS l r <| index) =
-  let leftValues = collectNodeValues (l <| index . GoLeft)
-      rightValues = collectNodeValues (r <| index . GoRight)
+collectNodeValues n@(NodeS l r <| index) =
+  let leftValues = collectNodeValues $ assert_smaller n (l <| index . GoLeft)
+      rightValues = collectNodeValues $ assert_smaller n (r <| index . GoRight)
   in display2D (index AtNode) :: (leftValues ++ rightValues)
+
 
 displayBinTreeNodeWith : Display2D a => (tree : Tree) =>
   (nodeBox : Grid Char -> Grid Char) ->
   BinTreeNode' a -> Grid Char
 displayBinTreeNodeWith _ (LeafS <| _) = singleValue tree.placeholder
-displayBinTreeNodeWith box (NodeS l r <| index) =
+displayBinTreeNodeWith box n@(NodeS l r <| index) =
   displayNodeWithBranches (box (display2D (index AtNode)))
-    (displayBinTreeNodeWith box (l <| index . GoLeft))
-    (displayBinTreeNodeWith box (r <| index . GoRight))
+    (displayBinTreeNodeWith box $ assert_smaller n (l <| index . GoLeft))
+    (displayBinTreeNodeWith box $ assert_smaller n (r <| index . GoRight))
+
 
 displayBinTreeNode : Display2D a => (tree : Tree) => (box : Box) =>
   BinTreeNode' a -> Grid Char
@@ -543,16 +549,14 @@ public export
 {n : Nat} -> Display2D a => Show (Vect' n a) where
   show = showViaDisplay2D
 
--- Technocally should not need assert_total here, but its hard to convince
--- the typechecker
 public export
 Display2D a => Show (BinTree' a) where
-  show t = assert_total $ showViaDisplay2D t
+  show t = showViaDisplay2D t
 
 public export
 Display2D a => Show (BinTreeLeaf' a) where
-  show t = assert_total $ showViaDisplay2D t
+  show t = showViaDisplay2D t
 
 public export
 Display2D a => Show (BinTreeNode' a) where
-  show t = assert_total $ showViaDisplay2D t
+  show t = showViaDisplay2D t

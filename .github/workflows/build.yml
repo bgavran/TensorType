@@ -38,3 +38,7 @@ jobs:
           pack --no-prompt install tensortype
           cd examples
           pack --no-prompt install tensortype-examples
+          cd ../tests
+          pack --no-prompt install tensortype-tests
+          ./build/exec/tensortype-tests
+

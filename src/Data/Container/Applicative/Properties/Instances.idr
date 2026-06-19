@@ -5,7 +5,7 @@ import Data.Container.Applicative.Object.Instances
 import Data.Container.Applicative.Extension.Instances
 import Data.Container.Applicative.TreeUtils
 
-public export
+public export covering
 fromRoseTreeSame : RoseTreeSame a -> RoseTree' a
 fromRoseTreeSame (Leaf a) = LeafS <| \_ => a
 fromRoseTreeSame (Node a rts) =
@@ -21,7 +21,7 @@ fromRoseTreeSame (Node a rts) =
       -- for some reason all the explicit type annotations above are needed
       -- to convince the typechecker
 
-public export
+public export covering
 toRoseTreeSame : RoseTree' a -> RoseTreeSame a
 toRoseTreeSame (LeafS <| contentAt) = Leaf (contentAt AtLeaf)
 toRoseTreeSame (NodeS (len <| content) <| contentAt)
@@ -30,9 +30,9 @@ toRoseTreeSame (NodeS (len <| content) <| contentAt)
                 <$> (\i => content i <| contentAt . SubTree i)
                 <$> positionsCont)
 
-public export
+public export covering
 IsConcrete RoseTree where
-  concreteType = RoseTreeSame
-  concreteFunctor = %search
+  func = RoseTreeSame
+  functorInstance = %search
   fromConcreteTy = fromRoseTreeSame
   toConcreteTy = toRoseTreeSame

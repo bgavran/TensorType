@@ -5,15 +5,15 @@ import Data.Container.Applicative.Object.Instances
 
 ||| Isomorphic to Data.Tree.ApplicativeRoseTree (TODO)
 public export
-ApplicativeRoseTree' : {c : Cont} -> TensorMonoid c => Type -> Type
+ApplicativeRoseTree' : TensorMonoid c => Type -> Type
 ApplicativeRoseTree' = Ext (ApplicativeRoseTree {c=c})
 
 public export
-ApplicativeRoseTreeNode' : {c : Cont} -> TensorMonoid c => Type -> Type
+ApplicativeRoseTreeNode' : TensorMonoid c => Type -> Type
 ApplicativeRoseTreeNode' = Ext (ApplicativeRoseTreeNode {c=c})
 
 public export
-ApplicativeRoseTreeLeaf' : {c : Cont} -> TensorMonoid c => Type -> Type
+ApplicativeRoseTreeLeaf' : TensorMonoid c => Type -> Type
 ApplicativeRoseTreeLeaf' = Ext (ApplicativeRoseTreeLeaf {c=c})
 
 

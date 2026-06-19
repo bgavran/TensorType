@@ -281,6 +281,9 @@ namespace Morphism
 ||| In general, we'll want to instantiate `f` with `IO`, and in that case
 ||| it'll never be the case that the set of positions is additive
 ||| Hence we just overload the operator here, and return an ordinary container
+||| Edit,later: Hmm, but sometimes there is a need to return an additive cont, 
+||| for instance in leftUnitInv in additive morphism instances...
+||| See below
 public export
 (<!>) : (f : Type -> Type) -> AddCont -> Cont
 (<!>) f c = (f <!> (UC c))
@@ -293,6 +296,16 @@ namespace Morphism
   (<!>) f l = !% \x => (l.fwd x ** ((l.bwd x) <$>) )
 
   public export infixr 9 <!>
+
+namespace BangAddCont
+  ||| Here we use join?
+  public export
+  (<!>) : {m : Type -> Type} -> Monad m => AddCont -> AddCont
+  (<!>) c = MkAddCont ?heheh {mon=(MkI ?eiiix)}
+  
+  public export
+  ipList : {0 c : AddCont} -> InterfaceOnPositions (List <!> c) ComMonoid
+  ipList = MkI $ \_ => listIsMonoid
 
 
 ||| Must produce all shapes (branches), expects a response from any subset of

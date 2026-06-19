@@ -7,7 +7,6 @@ import Data.Vect.Elem
 import System.Random
 import Data.Fin
 import Data.List1
-import Data.Fin.Arith
 import Data.List.Quantifiers
 import Data.Vect.Quantifiers
 import Decidable.Equality
@@ -20,12 +19,50 @@ import Data.List
 {-------------------------------------------------------------------------------
 {-------------------------------------------------------------------------------
 Various utilities necessary for TensorType, but that don't fit anywhere else
-Does not depend on any other file within this project
+Does not depend on any other file within this project.
 
 Some of these feel like they should be in the Idris standard library
 
 -------------------------------------------------------------------------------}
 -------------------------------------------------------------------------------}
+
+public export
+constUnit : a -> Unit
+constUnit _ = ()
+
+public export
+const2Unit : a -> b -> Unit
+const2Unit _ _ = ()
+
+public export
+fromBool : Num a => Bool -> a
+fromBool False = fromInteger 0
+fromBool True = fromInteger 1
+
+public export
+applyWhen : Bool -> (a -> a) -> a -> a
+applyWhen False f a = a
+applyWhen True f a = f a
+
+public export
+updateAt : Eq a => (a -> b) -> (a, b) -> (a -> b)
+updateAt f (i, val) i' = if i == i' then val else f i'
+
+||| Graph of a dependent function
+public export
+graph : {t : a -> Type} ->
+  (g : (x : a) -> t x) ->
+  a -> (x : a ** t x)
+graph g x = (x ** g x)
+
+||| Version of `map` for dependent function
+||| Note that here `x : a` is identity in some sense, it comes from `f a`
+public export
+dependentMap : Functor f => {t : a -> Type} ->
+  (g : (x : a) -> t x) ->
+  f a -> f (x : a ** t x)
+dependentMap g fa = map (graph g) fa
+
 
 namespace IsNo
   ||| The proof that a decidable property leads to a contradiction
@@ -293,7 +330,6 @@ namespace List
   padToSize targetSize padValue xs =
     xs ++ replicate (minus targetSize (length xs)) padValue
 
-
   ||| Drop all the elements after the element `x` from a list
   public export
   dropAfterElem : (xs : List a) -> (elem : Elem x xs) -> List a
@@ -342,6 +378,8 @@ namespace VectNaperianUtils
   toList = toList' . tabulate
 
 namespace FinArithmetic
+  ||| Proof that subtracting from a successor is the same as taking the sucessor
+  ||| of the subtraction
   public export
   minusSuccLTE : {n, m : Nat} -> LTE n m ->
     minus (S m) n = S (minus m n)
@@ -349,12 +387,12 @@ namespace FinArithmetic
   minusSuccLTE {m = (S k), n = 0} LTEZero = Refl
   minusSuccLTE {m = (S k), n = (S left)} (LTESucc x) = minusSuccLTE x
 
-  ||| Like weakenN from Data.Fin, but where n is on the other side of +
+  ||| A version of `weakenN` from Data.Fin with `n` on the other side of `+`
   public export
   weakenN' : (0 n : Nat) -> Fin m -> Fin (n + m)
   weakenN' n x = rewrite plusCommutative n m in weakenN n x
 
-  ||| Like weakenN, but with mutliplication
+  ||| Variant of `weakenN` from `Data.Fin`, but for multiplication
   ||| Like shiftMul, but without changing the value of the index
   public export
   weakenMultN : {n : Nat} ->
@@ -371,13 +409,12 @@ namespace FinArithmetic
   multRightZeroCancel 0 = Refl
   multRightZeroCancel (S k) = multRightZeroCancel k
 
-  ||| Variant of `shift` from Data.Fin, but with multiplication
-  ||| Given an index i : Fin n, it recasts it as one where steps are stride sized
-  ||| That is, returns stride * i : Fin (stride * n)
+  ||| Variant of `shift` from Data.Fin, but for multiplication
+  ||| Given a stride and an index `i : Fin n`, it returns a stride-sized step
+  ||| That is, it returns `stride * i` : Fin (stride * n)
   ||| Implemented by recursing on i, adding stride each time
   public export
-  shiftMul : {n : Nat} ->
-    (stride : Nat) -> {auto prf : IsSucc stride} ->
+  shiftMul : (stride : Nat) -> (prf : IsSucc stride) =>
     (i : Fin n) -> Fin (n * stride)
   shiftMul (S s) {prf = ItIsSucc} FZ = FZ
   shiftMul stride (FS i) = shift stride (shiftMul stride i)
@@ -385,7 +422,7 @@ namespace FinArithmetic
   shiftMulTest : shiftMul {n=3} 5 1 = 5
   shiftMulTest = Refl
 
-  ||| Analogous to strengthen from Data.Fin
+  ||| Analogue of `strengthen` from Data.Fin
   ||| Attempts to strengthen the bound on Fin (m + n) to Fin m
   ||| If it doesn't succeed, then returns the remainder in Fin n
   public export
@@ -395,45 +432,47 @@ namespace FinArithmetic
   strengthenN {m = (S k)} (FS x) with (strengthenN x)
     _ | (Left p) = Left $ FS p
     _ | (Right q) = Right q
-  -- strengthenN {m = 0} x = Nothing
-  -- strengthenN {m = (S k)} FZ = Just FZ
-  -- strengthenN {m = (S k)} (FS x) with (strengthenN x)
-  --   _ | Nothing = Nothing
-  --   _ | (Just p) = Just $ FS p
-    --= let t = strengthenN x
-    --  in ?strengthenN_rhs_3
 
-  -- strengthenN {n = 0} x = Just x
-  -- strengthenN {m = 0} {n = (S k)} FZ = Nothing
-  -- strengthenN {m = (S j)} {n = (S k)} FZ = Just FZ
-  -- strengthenN {m} {n = (S k)} (FS x)
-  --   = let t = strengthenN x
-  --         v = Fin.FS
-  --     in ?what -- strengthenN x
-
-
-  --         restCount = indexCount is -- fpn = 13 : Fin (20)
-  -- iCTest1 : indexCount {shape = [3, 4, 5]} [1, 2, 3] = 33
-  -- iCTest1 = ?iCTest_rhs
-  
-  ||| Like finS, but without wrapping
-  ||| finS' last = last
+  ||| Analogue of `finS` from `Data.Fin`, but without without wrapping
+  ||| That is, `finS' last = last`
   public export
   finS' : {n : Nat} -> Fin n -> Fin n
   finS' {n = 1} x = x
-  finS' {n = (S (S k))} FZ = FS FZ
-  finS' {n = (S (S k))} (FS x) = FS $ finS' x
+  finS' {n = S (S k)} FZ = FS FZ
+  finS' {n = S (S k)} (FS x) = FS (finS' x)
   --finS' {n = S _} x = case strengthen x of
   --    Nothing => x
   --    Just y => FS y
 
+  finS'test1 : finS' {n=10} 4 = 5
+  finS'test1 = Refl
+
+  finS'lastIsLast : {n : Nat} -> finS' {n=S n} Fin.last = Fin.last
+  finS'lastIsLast {n = 0} = Refl
+  finS'lastIsLast {n = (S k)} = cong FS finS'lastIsLast
+
+  ||| This can be implemented using `Data.Fin.Order`, but it doesn't seem worth
+  ||| the effort, as the typechecker ends up needing a lot of extra hand holding
+  public export
+  lastBiggerThanOthers : {n : Nat} ->
+    (i : Fin (S n)) ->
+    So (Fin.last >= i)
+  lastBiggerThanOthers {n = 0} FZ = Oh
+  lastBiggerThanOthers {n = (S k)} FZ = Oh
+  lastBiggerThanOthers {n = (S k)} (FS x) = lastBiggerThanOthers x
   
-  ||| Adds two Fin n, and bounds the result
-  ||| Meaning (93:Fin 5) + (4 : Fin 5) = 4
+  -- lastBiggerThanOthers {n = 0} FZ = FromNatPrf LTEZero
+  -- lastBiggerThanOthers {n = (S k)} FZ = FromNatPrf LTEZero
+  -- lastBiggerThanOthers {n = (S k)} (FS x) = FSFinLTE (lastBiggerThanOthers x)
+
+  ||| Adds two bounded numbers, bounds the result
+  ||| That is, `addFinsBounded {n=5} 3 4 = 4`
+  ||| `assert_smaller` is only needed for totality checking
   public export
   addFinsBounded : {n : Nat} -> Fin n -> Fin n -> Fin n
   addFinsBounded x FZ = x
-  addFinsBounded x (FS y) = addFinsBounded (finS' x) (weaken y)
+  addFinsBounded x (FS y) = addFinsBounded (finS' x)
+    (assert_smaller (FS y) (weaken y))
 
   finSTest : finS' {n = 5} 3 = 4
   finSTest = Refl
@@ -442,59 +481,113 @@ namespace FinArithmetic
   finSTest2 = Refl
 
   ||| Divides a Fin by 2, rounding down
+  ||| `half {n=10} 6 = 3`
+  ||| `half {n=10} 5 = 2`
+  ||| `half {n=10} 4 = 2`
+  ||| `half {n=10} 3 = 1`
+  ||| `half {n=10} 2 = 1`
+  ||| `half {n=10} 1 = 0`
   public export
-  half : (k : Fin n) -> Fin n
+  half : Fin n -> Fin n
   half FZ = FZ
   half (FS FZ) = FZ
-  half (FS (FS x)) = weakenN' 2 x
+  half (FS (FS x)) = weaken (FS (half x))
 
   ||| Computes the midway index between two bounds
   public export
-  mid : (low : Fin n) -> (high : Fin n) ->
-    {auto prf : So (high >= low)} ->
+  mid : (low, high : Fin n) ->
+    So (high >= low) =>
     Fin n
   mid FZ high = half high
-  mid (FS x) (FS y) {prf} = FS (mid x y)
+  mid (FS x) (FS y) @{prf} = FS (mid x y)
 
-||| Given a non-empty sorted vector `xs`, finds the "right bin", i.e. the index 
-||| of the smallest element between the bounds that `x` is not bigger than.
-||| If `x` is bigger than the highest element, returns `Nothing`
-||| `findBinBetween [2,7,10] 1 0 2 = Just 0`
-||| `findBinBetween [2,7,10] 3 0 2 = Just 1`
-||| `findBinBetween [2,7,10] 9 0 2 = Just 2`
-||| `findBinBetween [2,7,10] 7 0 2 = Just 2`
-||| `findBinBetween [1,2,3,4,5] 6 0 4 = Nothing`
+  -- ||| There is a similar function in Data.Fin.Arith, which has the smallest
+  -- ||| possible bound. This one does not, but has a simpler type signature.
+  -- public export
+  -- multFin : {m, n : Nat} -> Fin m -> Fin n -> Fin (m * n)
+  -- multFin {n = (S _)} FZ y = FZ
+  -- multFin {n = (S _)} (FS x) y = FinArith.(+) y (weaken (multFin x y))
+
 public export
-findBinBetween : Ord a => {n : Nat} -> (xs : Vect (S n) a) ->
+multSucc : {m, n : Nat} -> IsSucc m -> IsSucc n -> IsSucc (m * n)
+multSucc {m = S m'} {n = S n'} ItIsSucc ItIsSucc = ItIsSucc
+
+public export
+allSuccThenProdSucc : (xs : List Nat) ->
+  (ps : All IsSucc xs) =>
+  IsSucc (prod xs)
+allSuccThenProdSucc [] {ps = []} = ItIsSucc
+allSuccThenProdSucc (_ :: xs') {ps = p :: _} = multSucc p (allSuccThenProdSucc xs')
+
+||| Data structure storing a lower and upper bound during a search
+record Range (n : Nat) where
+  constructor MkRange
+  lowerBound : Fin n
+  higherBound : Fin n
+  {auto prf : So (higherBound >= lowerBound)}
+
+||| Given a non-empty sorted vector `xs`, an element `x` and a lower and upper
+||| bound, it finds the "right bin", i.e. the index of the smallest element 
+||| between the bounds that's bigger than `x`
+||| If `x` is bigger than the largest element, returns `Nothing`
+||| `findBinBetween [2,7,10] 1 (MkRange 0 2) = Just 0`
+||| `findBinBetween [2,7,10] 3 (MkRange 0 2) = Just 1`
+||| `findBinBetween [2,7,10] 9 (MkRange 0 2) = Just 2`
+||| `findBinBetween [2,7,10] 7 (MkRange 0 2) = Just 2`
+||| `findbinbetween [2,7,15] 7 (MkRange 0 2) = Nothing`
+||| `findBinBetween [1,2,3,4,5] 6 (MkRange 0 4) = Nothing`
+||| Done using binary search
+public export
+findBinBetween : Ord a => {n : Nat} -> (is : IsSucc n) =>
+  (xs : Vect n a) -> -- we assume this is sorted
   (x : a) ->
-  (lowInd : Fin (S n)) -> (highInd : Fin (S n)) ->
-  {auto prf : So (highInd >= lowInd)} ->
-  Maybe (Fin (S n))
-findBinBetween xs x lowInd highInd = case x > index highInd xs of
-  True => Nothing -- rule out the case where x is bigger
+  (range : Range n) ->
+  Maybe (Fin n)
+findBinBetween {is = ItIsSucc {n=k}} xs x r@(MkRange lowInd highInd)
+  = case x > index highInd xs of
+  True => Nothing -- There are no elements bigger than `x`
   False => case x <= index lowInd xs of
     True => Just lowInd
     False => let midInd = mid lowInd highInd
              in case compare x (index midInd xs) of
-               LT => findBinBetween xs x lowInd midInd {prf = believe_me ()}
-               EQ => Just midInd
-               GT => findBinBetween xs x (finS' midInd) highInd {prf = believe_me ()}
+               LT => let newRange = MkRange lowInd midInd {prf = believe_me ()}
+                     in findBinBetween xs x (assert_smaller r newRange)
+               EQ => Just (finS' midInd) -- we need the next index after the middle one
+               GT => let newRange = MkRange (finS' midInd) highInd {prf = believe_me ()}
+                     in findBinBetween xs x (assert_smaller r newRange)
+
+namespace FindBinTests
+  findBinTest1 : findBinBetween [2,7,10] 1 (MkRange 0 2) = Just 0
+  findBinTest1 = Refl
+
+  findBinTest2 : findBinBetween [2,7,10] 3 (MkRange 0 2) = Just 1
+  findBinTest2 = Refl
+
+  findBinTest3 : findBinBetween [2,7,10] 9 (MkRange 0 2) = Just 2
+  findBinTest3 = Refl
+
+  findBinTest4 : findBinBetween [2,7,10] 7 (MkRange 0 2) = Just 2
+  findBinTest4 = Refl
+
+  findBinTest5 : findBinBetween [2,7,10] 15 (MkRange 0 2) = Nothing
+  findBinTest5 = Refl
+
+  findBinTest6 : findBinBetween [1,2,3,4,5] 6 (MkRange 0 4) = Nothing
+  findBinTest6 = Refl
 
 ||| Todo can this eventually be generalised to non-cubical tensors?
-||| Given a non-empty sorted vector `xs`, finds the "right bin", i.e. the index 
-||| of the smallest element between the bounds that `x` is not bigger than.
+||| Given a non-empty sorted vector `xs` and an element `x` it finds the 
+||| "right bin", i.e. the index of the smallest element that's bigger than `x`
 ||| If `x` is bigger than the highest element, returns `Nothing`
 ||| `findBin [2,7,10] 1 = Just 0`
 ||| `findBin [2,7,10] 3 = Just 1`
 ||| `findBin [2,4,6,8] 7 = Just 3`
 public export
-findBin : Ord a => {n : Nat} ->
-  (xs : Vect (S n) a) -> (x : a) -> Maybe (Fin (S n))
-findBin {n = 0} (x' :: []) x = case x' <= x of
-  True => Just FZ
-  False => Nothing
-findBin {n = (S k)} xs x = findBinBetween xs x 0 last
-
+findBin : Ord a => {n : Nat} -> (is : IsSucc n) =>
+  (xs : Vect n a) -> (x : a) -> Maybe (Fin n)
+findBin {is = ItIsSucc {n=k}} xs x
+  = findBinBetween xs x (MkRange 0 last {prf=lastBiggerThanOthers {n=k} 0})
+ 
 
 -- t : Double -> Type
 -- t 4 = Double
@@ -514,12 +607,6 @@ public export
 Show a => ((x : a) -> Show (b x)) => Show (DPair a b) where
    show = mkDepPairShow
 
--- public export
--- Num Unit where
---   fromInteger _ = ()
---   () * () = ()
---   () + () = ()
-
 public export
 runIf: HasIO io => Bool -> io () -> io ()
 runIf True action = action
@@ -534,12 +621,6 @@ pairIO a b = do
 
 
 namespace RandomUtils
--- Probably there's a faster way to do this
--- public export
--- {n : Nat} -> Random a => Random (Vect n a) where
---   randomIO = sequence $ replicate n randomIO
---   randomRIO (lo, hi) = sequence $ zipWith (\l, h => randomRIO (l, h)) lo hi
-
   public export
   Random Unit where
     randomIO = pure ()
@@ -551,105 +632,11 @@ namespace RandomUtils
     randomRIO ((loA, loB), (hiA, hiB))
       = pairIO (randomRIO (loA, hiA)) (randomRIO (loB, hiB))
 
-
-
--- for reshaping a tensor
-rrrrr : {n, x, y : Nat}
-  -> Fin (S n)
-  -> {auto prf : n = x * y}
-  -> (Fin (S x), Fin (S y))
-  -- -> Data.Fin.Arith.(*) (Fin (S x)) (Fin (S y))
-
-
-||| There is a similar function in Data.Fin.Arith, which has the smallest
-||| possible bound. This one does not, but has a simpler type signature.
-public export
-multFin : {m, n : Nat} -> Fin m -> Fin n -> Fin (m * n)
-multFin {n = (S _)} FZ y = FZ
-multFin {n = (S _)} (FS x) y = y + weaken (multFin x y)
-
-||| Splits xs at each occurence of delimeter (general version for lists)
-public export
-splitList : Eq a =>
-  (xs : List a) -> (delimeter : List a) -> (n : Nat ** Vect n (List a))
-splitList xs delimeter = 
-  if delimeter == []
-    then (1 ** [xs]) -- Empty delimiter returns original list
-    else case isInfixOfList delimeter xs of
-      False => (1 ** [xs]) -- Delimiter not found, return original list
-      True => 
-        let (before, after) = breakOnList delimeter xs
-        in case after of
-          [] => (1 ** [before]) -- No more occurrences
-          _  => let (restCount ** restVect) = splitList (drop (length delimeter) after) delimeter
-                in (S restCount ** before :: restVect)
-  where
-    -- Check if list starts with delimiter
-    isPrefixOfList : List a -> List a -> Bool
-    isPrefixOfList [] _ = True
-    isPrefixOfList _ [] = False
-    isPrefixOfList (d :: ds) (x :: xs) = d == x && isPrefixOfList ds xs
-    
-    -- Check if delimiter occurs anywhere in the list
-    isInfixOfList : List a -> List a -> Bool
-    isInfixOfList del [] = del == []
-    isInfixOfList del xs@(_ :: xs') = 
-      isPrefixOfList del xs || isInfixOfList del xs'
-    
-    -- Break list at first occurrence of delimiter
-    breakOnList : List a -> List a -> (List a, List a)
-    breakOnList del xs = breakOnListAcc del xs []
-      where
-        breakOnListAcc : List a -> List a -> List a -> (List a, List a)
-        breakOnListAcc del remaining acc = 
-          case isPrefixOfList del remaining of
-            True => (reverse acc, remaining)
-            False => case remaining of
-              [] => (reverse acc, [])
-              (c :: cs) => breakOnListAcc del cs (c :: acc)
-
-||| Splits xs at each occurence of delimeter (string version)
-public export
-splitString : (xs : String) -> (delimeter : String) -> (n : Nat ** Vect n String)
-splitString xs delimeter = 
-  let (n ** result) = splitList (unpack xs) (unpack delimeter)
-  in (n ** pack <$> result)
-
-||| Simple string replacement function
-public export
-replaceString : String -> String -> String -> String
-replaceString old new str = 
-  let chars = unpack str
-      oldChars = unpack old
-      newChars = unpack new
-  in pack (replaceInList oldChars newChars chars)
-  where
-    replaceInList : List Char -> List Char -> List Char -> List Char
-    replaceInList [] _ xs = xs
-    replaceInList old new [] = []
-    replaceInList old new xs@(x :: rest) =
-      if isPrefixOf old xs
-        then new ++ replaceInList old new (drop (length old) xs)
-        else x :: replaceInList old new rest
-
-
-public export
-constUnit : a -> Unit
-constUnit _ = ()
-
-public export
-const2Unit : a -> b -> Unit
-const2Unit _ _ = ()
-
-public export
-fromBool : Num a => Bool -> a
-fromBool False = fromInteger 0
-fromBool True = fromInteger 1
-
-public export
-applyWhen : Bool -> (a -> a) -> a -> a
-applyWhen False f a = a
-applyWhen True f a = f a
+-- Probably there's a faster way to do this
+-- public export
+-- {n : Nat} -> Random a => Random (Vect n a) where
+--   randomIO = sequence $ replicate n randomIO
+--   randomRIO (lo, hi) = sequence $ zipWith (\l, h => randomRIO (l, h)) lo hi
 
 
 namespace All
@@ -707,36 +694,6 @@ record Iso (a, b : Type) where
   forwardBackward : (x : a) -> backward (forward x) = x
   backwardForward : (y : b) -> forward (backward y) = y
 
-public export
-multSucc : {m, n : Nat} -> IsSucc m -> IsSucc n -> IsSucc (m * n)
-multSucc {m = S m'} {n = S n'} ItIsSucc ItIsSucc = ItIsSucc
-
-public export
-allSuccThenProdSucc : (xs : List Nat) -> {auto ps : All IsSucc xs} -> IsSucc (prod xs)
-allSuccThenProdSucc [] {ps = []} = ItIsSucc
-allSuccThenProdSucc (_ :: xs') {ps = p :: _} = multSucc p (allSuccThenProdSucc xs')
-
-
-public export
-updateAt : Eq a => (a -> b) -> (a, b) -> (a -> b)
-updateAt f (i, val) i' = if i == i' then val else f i'
-
-||| Graph of a dependent function
-public export
-graph : {t : a -> Type} ->
-  (g : (x : a) -> t x) ->
-  a -> (x : a ** t x)
-graph g x = (x ** g x)
-
-||| Version of `map` for dependent function
-||| Note that here `x : a` is identity in some sense, it comes from `f a`
-public export
-dependentMap : Functor f => {t : a -> Type} ->
-  (g : (x : a) -> t x) ->
-  f a -> f (x : a ** t x)
-dependentMap g fa = map (graph g) fa
-
-
 -- ||| Duplicate of `index` from Data.Vect.Quantifiers.All, but with an
 -- ||| additional `public` export modifier
 public export
@@ -782,7 +739,6 @@ filter'' p (x :: xs) with (filter' p xs)
 {-
 Prelude.absurd : Uninhabited t => t -> a
 believe_me : a -> b
-
 -}
 
 
@@ -828,3 +784,68 @@ composed p xs = ?composed_rhs
 public export
 filter2 : (a -> Bool) -> Vect len a -> Vect p a
 filter2 f xs = ?filter2_rhs
+
+-- ||| Splits xs at each occurence of delimeter (general version for lists)
+-- public export
+-- splitList : Eq a =>
+--   (xs : List a) -> (delimeter : List a) -> (n : Nat ** Vect n (List a))
+-- splitList xs delimeter = 
+--   if delimeter == []
+--     then (1 ** [xs]) -- Empty delimiter returns original list
+--     else case isInfixOfList delimeter xs of
+--       False => (1 ** [xs]) -- Delimiter not found, return original list
+--       True => 
+--         let (before, after) = breakOnList delimeter xs
+--         in case after of
+--           [] => (1 ** [before]) -- No more occurrences
+--           _  => let (restCount ** restVect) = splitList (drop (length delimeter) after) delimeter
+--                 in (S restCount ** before :: restVect)
+--   where
+--     -- Check if list starts with delimiter
+--     isPrefixOfList : List a -> List a -> Bool
+--     isPrefixOfList [] _ = True
+--     isPrefixOfList _ [] = False
+--     isPrefixOfList (d :: ds) (x :: xs) = d == x && isPrefixOfList ds xs
+--     
+--     -- Check if delimiter occurs anywhere in the list
+--     isInfixOfList : List a -> List a -> Bool
+--     isInfixOfList del [] = del == []
+--     isInfixOfList del xs@(_ :: xs') = 
+--       isPrefixOfList del xs || isInfixOfList del xs'
+--     
+--     -- Break list at first occurrence of delimiter
+--     breakOnList : List a -> List a -> (List a, List a)
+--     breakOnList del xs = breakOnListAcc del xs []
+--       where
+--         breakOnListAcc : List a -> List a -> List a -> (List a, List a)
+--         breakOnListAcc del remaining acc = 
+--           case isPrefixOfList del remaining of
+--             True => (reverse acc, remaining)
+--             False => case remaining of
+--               [] => (reverse acc, [])
+--               (c :: cs) => breakOnListAcc del cs (c :: acc)
+-- 
+-- ||| Splits xs at each occurence of delimeter (string version)
+-- public export
+-- splitString : (xs : String) -> (delimeter : String) -> (n : Nat ** Vect n String)
+-- splitString xs delimeter = 
+--   let (n ** result) = splitList (unpack xs) (unpack delimeter)
+--   in (n ** pack <$> result)
+-- 
+-- ||| Simple string replacement function
+-- public export
+-- replaceString : String -> String -> String -> String
+-- replaceString old new str = 
+--   let chars = unpack str
+--       oldChars = unpack old
+--       newChars = unpack new
+--   in pack (replaceInList oldChars newChars chars)
+--   where
+--     replaceInList : List Char -> List Char -> List Char -> List Char
+--     replaceInList [] _ xs = xs
+--     replaceInList old new [] = []
+--     replaceInList old new xs@(x :: rest) =
+--       if isPrefixOf old xs
+--         then new ++ replaceInList old new (drop (length old) xs)
+--         else x :: replaceInList old new rest
+

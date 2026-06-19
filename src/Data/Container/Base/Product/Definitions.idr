@@ -16,6 +16,7 @@ import Data.Container.Base.Properties.Definitions
 import Data.Container.Base.Quantifiers
 
 import Control.Monad.Distribution
+import Data.ComMonoid
 
 import Misc
 
@@ -120,6 +121,13 @@ namespace CategoricalCoproduct
     Any : Vect n Cont -> Cont
     Any xs = (shapes : Any Shp xs) !> AnyShpPos shapes
 
+  namespace Morphism
+    public export
+    (>+<) : c1 =%> d1 -> c2 =%> d2 -> c1 >+< c2 =%> d1 >+< d2
+    (>+<) f g = !% \case
+      Left x => (Left (f.fwd x) ** f.bwd x)
+      Right y => (Right (g.fwd y) ** g.bwd y)
+
 namespace CompositionProduct
   ||| Composition of containers making Ext (c >@ d) = (Ext c) . (Ext d)
   ||| Non-symmetric in general, and not in diagrammatic order
@@ -195,12 +203,27 @@ public export infixr 9 <!>
 namespace Morphism
   public export
   (<!>) : (f : Type -> Type) -> Functor f =>
-    (c =%> d) ->
-    ((f <!> c) =%> (f <!> d))
+    c =%> d ->
+    f <!> c =%> f <!> d
   (<!>) f l = !% \x => (l.fwd x ** ((l.bwd x) <$>) )
 
   public export infixr 9 <!>
 
+||| Turn a banged container into a container
+||| Requires pure on the backward pass
+public export
+pureBw : Monad m => m <!> c =%> c
+pureBw = !% \x => (x ** pure)
+
+public export
+sumBw : InterfaceOnPositions c ComMonoid => c =%> List <!> c
+sumBw @{MkI i} = !% \x => (x ** ComMonoid.sum @{i x})
+
+public export
+coproductBang : m <!> (c >+< d) =%> (m <!> c) >+< (m <!> d)
+coproductBang = !% \case
+  Left x => (Left x ** id)
+  Right y => (Right y ** id)
 
 ||| Closure with respect to the Cartesian product
 namespace CartesianClosure

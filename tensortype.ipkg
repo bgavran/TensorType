@@ -120,7 +120,7 @@ modules = Data.Container.Base
 
 -- name of executable
 -- executable =
--- opts =
+opts = "--total"
 sourcedir = "src"
 -- builddir =
 -- outputdir =

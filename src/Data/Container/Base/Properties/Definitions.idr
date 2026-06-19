@@ -22,9 +22,13 @@ about concrete instances to define these?
 ||| Convenience datatype for storing the data that a container `c` has an
 ||| interface `i` on its positions
 public export
-data InterfaceOnPositions : (c : Cont) -> (i : Type -> Type) -> Type where
+data InterfaceOnPositions : (0 c : Cont) -> (i : Type -> Type) -> Type where
   ||| For every shape `s` the set of positions `c.Pos s` has that interface
   MkI : ((s : c.Shp) -> i (c.Pos s)) -> InterfaceOnPositions c i
+
+public export
+GetInterface : InterfaceOnPositions c i -> (s : c.Shp) -> i (c.Pos s)
+GetInterface (MkI f) = f
 
 ||| A container is finite when for every shape the set of positions is finite.
 ||| Examples: vectors, lists, but also finite binary trees.
@@ -55,12 +59,8 @@ data IsSharp : Cont -> Type where
   ItIsSharp : (s : Type) -> IsSharp ((_ : s) !> Void)
 
 namespace Naperian
-  ||| Local alias used solely to keep `MkIsNaperian`'s index out of raw
-  ||| record-constructor form. Without this, pattern matches like
-  ||| `(MkIsNaperian p :: as)` against `All IsNaperian shape` trip an
-  ||| Idris 2 coverage-checker incompleteness (see issue #3721).
-  ||| Definitionally equal to `Nap pos` from `Object.Instances`,
-  ||| but defined here to avoid an import cycle.
+  ||| Will be removed later, temp fix for now as otherwise the coverage 
+  ||| checker complains
   public export
   NaperianCont : Type -> Cont
   NaperianCont pos = (_ : Unit) !> pos
@@ -135,17 +135,17 @@ namespace IsConcrete
   public export
   interface IsConcrete (0 c : Cont) where
     constructor MkIsConcrete
-    concreteType : Type -> Type
-    concreteFunctor : Functor concreteType
-    fromConcreteTy : concreteType a -> Ext c a
-    toConcreteTy : Ext c a -> concreteType a
+    func : Type -> Type
+    functorInstance : Functor func
+    fromConcreteTy : func a -> Ext c a
+    toConcreteTy : Ext c a -> func a
 
   public export prefix 0 >#, #>
 
   public export
-  (>#) : IsConcrete c => concreteType {c=c} a -> Ext c a
+  (>#) : IsConcrete c => func {c=c} a -> Ext c a
   (>#) = fromConcreteTy
 
   public export
-  (#>) : IsConcrete c => Ext c a -> concreteType {c=c} a
+  (#>) : IsConcrete c => Ext c a -> func {c=c} a
   (#>) = toConcreteTy

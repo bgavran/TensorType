@@ -20,40 +20,88 @@ import Control.Monad.Sample.Definition
 
 import Misc
 
-%hide Data.Container.Base.Object.Instances.Const
+%hide Base.Object.Instances.Const
 %hide Data.Vect.Quantifiers.All.index
+%hide Base.Morphism.Definition.DependentLenses.(=%>)
+%hide Base.Morphism.Instances.State.State
+%hide Base.Morphism.Instances.Costate.Costate
+%hide Base.Product.Definitions.HancockTensorProduct.(><)
 
-public export
-toState : {0 c : AddCont} -> (x : c.Shp) -> Scalar =%> c
-toState x = !%+ \() => (x ** \_ => ())
+namespace State
+  ||| "State" as defined in https://arxiv.org/abs/2403.13001 and open games 
+  |||
+  |||       ┌─────────────┐
+  |||       │             ├──► (x : c.Shp)
+  |||       │    State    │
+  |||       │             ├◄── c.Pos x
+  |||       └─────────────┘
+  public export
+  State : AddCont -> Type
+  State c = Scalar =%> c
 
-public export
-fromState : {0 c : AddCont} -> Scalar =%> c -> c.Shp
-fromState f = f.fwd ()
+  public export
+  toState : (x : c.Shp) -> State c
+  toState x = !% toState x
+  
+  public export
+  fromState : State c -> c.Shp
+  fromState f = f.fwd ()
 
-public export
-toCostate : {0 c : AddCont} ->
-  (s : (x : c.Shp) -> c.Pos x) ->
-  c =%> Scalar
-toCostate s = !%+ \x => (() ** \() => s x)
+namespace Costate
+  ||| "Costate" as defined in https://arxiv.org/abs/2403.13001 and open games 
+  |||
+  |||                  ┌─────────────┐
+  |||  (x : c.Shp)  ──►┤             │
+  |||                  │   Costate   │
+  |||     c.Pos x   ◄──┤             │
+  |||                  └─────────────┘
+  public export
+  Costate : AddCont -> Type
+  Costate c = c =%> Scalar
+  
+  public export
+  toCostate : ((x : c.Shp) -> c.Pos x) -> Costate c
+  toCostate s = !% toCostate s
+  
+  public export
+  fromCostate : Costate c -> (x : c.Shp) -> c.Pos x
+  fromCostate f x = f.bwd x ()
 
-public export
-fromCostate : {0 c : AddCont} ->
-  c =%> Scalar ->
-  (x : c.Shp) -> c.Pos x
-fromCostate f x = f.bwd x ()
+  public export
+  constantOne : InterfaceOnPositions c Num => Costate c
+  constantOne @{MkI p} = toCostate (\x => let numPos = p x in 1)
 
+  public export
+  Delete : {c : AddCont} -> Costate c 
+  Delete = toCostate c.Zero
+  
 
+||| If we model the idea of a container (S !> P) as a box
+|||  ┌──────┐
+|||  │ s:S  │
+|||  ├──────┤
+|||  │  Ps  │
+|||  └──────┘
+||| then `pushDown` is interpreted as pushing down the container,
+||| pruning anything that goes out of the box, and using `Unit` for
+||| anything new that appears:
+|||  ┌──────┐
+|||  │ Unit │
+|||  ├──────┤
+|||  │ s:S  │
+|||  └──────┘
+|||     Ps
+||| For additive containers we need to take the free monoid
 public export
 pushDown : AddCont -> AddCont
-pushDown d = !! (Const2 Unit d.Shp)
+pushDown c = !! pushDown (UC c)
 
 public export
-pushIntoContinuationList : {d, p, l : AddCont} ->
-  (f : d >< p =%> l) ->
-  (p =%> (pushDown d) >@ (List l))
+pushIntoContinuationList : {p : AddCont} -> {0 d, l : AddCont} ->
+  d >< p =%> l ->
+  p =%> (pushDown d) >@ (List l)
 pushIntoContinuationList f = !%+ \param => (() <|
-  \ds => map (\dShp => f.fwd (dShp, param)) ds **
+  \ds => ds <&> (\dShp => f.fwd (dShp, param)) **
     \ll => sum @{UMon p param} (ll >>=
       \(ds ** grads) => extractPGrads param ds grads))
   where
@@ -74,54 +122,76 @@ pushIntoContinuation {flat = MkIsFlat _} f = !%+ \param => (() <|
     \ll => sum @{UMon p param} (ll >>=
       \(ds ** grad) => (\dShp => snd (f.bwd (dShp, param) grad)) <$> ds))
 
-public export
-constantOne : {c : AddCont} ->
-  InterfaceOnPositions c Num =>
-  c =%> Scalar
-constantOne @{MkI @{p}} = toCostate {c=c} (\x => let numPos = p x in 1)
-
+||| This is also the categorical product since our containers are additive
 namespace HancockTensorProduct
   public export
-  leftUnit : {c : AddCont} -> (Scalar >< c) =%> c
-  leftUnit = !%+ \((), s) => (s ** \p => ((), p))
+  leftUnit : Scalar >< c =%> c
+  leftUnit = !% leftUnit
   
   public export
-  rightUnit : {c : AddCont} -> (c >< Scalar) =%> c
-  rightUnit = !%+ \(x, ()) => (x ** \x' => (x', ()))
+  rightUnit : c >< Scalar =%> c
+  rightUnit = !% rightUnit
 
   public export
-  leftUnitInv : {c : AddCont} -> c =%> (Scalar >< c)
-  leftUnitInv = !%+ \x => (((), x) ** \((), x') => x')
+  leftUnitInv : c =%> Scalar >< c
+  leftUnitInv = !% leftUnitInv
   
   public export
-  rightUnitInv : {c : AddCont} -> c =%> (c >< Scalar)
-  rightUnitInv = !%+ \x => ((x, ()) ** \(x', ()) => x')
+  rightUnitInv : c =%> c >< Scalar
+  rightUnitInv = !% rightUnitInv
 
   public export
-  assocL : {0 a, b, c : AddCont} -> ((a >< b) >< c) =%> (a >< (b >< c))
-  assocL = !%+ \((a, b), c) => ((a, (b, c)) ** \(a', (b', c')) => ((a', b'), c'))
+  assocL : (a >< b) >< c =%> a >< (b >< c)
+  assocL = !% assocL
 
   public export
-  assocR : {0 a, b, c : AddCont} -> (a >< (b >< c)) =%> ((a >< b) >< c)
-  assocR = !%+ \(a, (b, c)) => (((a, b), c) ** \((a', b'), c') => (a', (b', c')))
+  assocR : a >< (b >< c) =%> (a >< b) >< c
+  assocR = !% assocR
 
   public export
-  swap : {0 a, b : AddCont} -> (a >< b) =%> (b >< a)
-  swap = !%+ \(a, b) => ((b, a) ** \(b', a') => (a', b'))
+  swap : a >< b =%> b >< a
+  swap = !% swap
+
+  public export
+  swapMiddle : (c1 >< c2) >< (c3 >< c4) =%> (c1 >< c3) >< (c2 >< c4)
+  swapMiddle = !% swapMiddle
+
+  ||| These do not exist for ordinary containers!
+  ||| Here we need `c` not to be erased since we're using its monoid structure
+  public export
+  Copy : {c : AddCont} -> c =%> c >< c
+  Copy = !%+ \x => ((x, x) ** uncurry (c.Plus x))
+  
+  public export
+  PairMaps : {c : AddCont} ->
+    c =%> d ->
+    c =%> e ->
+    c =%> d >< e
+  PairMaps f g = Copy %>> (f >< g)
+  
+  public export
+  ProjLeft : {d : AddCont} -> c >< d =%> c
+  ProjLeft = !%+ \(x, y) => (x ** \x' => (x', d.Zero y))
+  
+  public export
+  ProjRight : {c : AddCont} -> c >< d =%> d
+  ProjRight = !%+ \(x, y) => (y ** \y' => (c.Zero x, y'))
+
 
 namespace CompositionProduct
   public export
-  leftUnit : {0 c : AddCont} -> (Scalar >@ c) =%> c
-  leftUnit = !%+ \(() <| cShp) => (cShp () ** \c' => [(() ** c')])
+  leftUnit : Scalar >@ c =%> c
+  leftUnit = !% pureBw %>> leftUnit
 
   public export
-  rightUnit : {0 c : AddCont} -> (c >@ Scalar) =%> c
-  rightUnit = !%+ \(s <| _) => (s ** \p => [(p ** ())])
+  rightUnit : c >@ Scalar =%> c
+  rightUnit = !% pureBw %>> rightUnit
 
   public export
-  leftUnitInv : {c : AddCont} -> c =%> (Scalar >@ c)
-  leftUnitInv = !%+ \s => (() <| (\_ => s) ** \ll =>
+  leftUnitInv : {c : AddCont} -> c =%> Scalar >@ c
+  leftUnitInv = !%+ \s => (() <| (\_ => s) ** \ll => 
     sum @{UMon c s} (snd <$> ll))
+  -- leftUnitInv {c=MkAddCont uc} = (!% CompositionProduct.leftUnitInv) %>> ?eiei
   
   ||| Right unit inverse: c =%> c >@ I
   public export
@@ -132,85 +202,47 @@ namespace CompositionProduct
 
 namespace Coproduct
   public export
-  elim : {c : AddCont} ->
-    (c >+< c) =%> c
-  elim = !%+ \case
-    (Left x) => (x ** id)
-    (Right y) => (y ** id)
+  elim : c >+< c =%> c
+  elim = !% elim
 
 public export
-duoidal : {c, d, e, f : AddCont} ->
-  ((c >@ d) >< (e >@ f)) =%> ((c >< e) >@ (d >< f))
+duoidal : (c >@ d) >< (e >@ f) =%> (c >< e) >@ (d >< f)
 duoidal = !%+ \((sc <| idxC), (se <| idxE)) =>
   ((sc, se) <| \(cp, ep) => (idxC cp, idxE ep) **
     \ll => ((\((cp, ep) ** (dp, fp)) => (cp ** dp)) <$> ll,
             (\((cp, ep) ** (dp, fp)) => (ep ** fp)) <$> ll))
 
 public export
-coprodDistrOverTensor : {a, b, p, q : AddCont} ->
-  ((a >+< b) >< (p >< q)) =%> ((a >< p) >+< (b >< q))
+coprodDistrOverTensor : {q, p : AddCont} ->
+  (a >+< b) >< (p >< q) =%> (a >< p) >+< (b >< q)
 coprodDistrOverTensor = !%+ \case
   (Left a, (p, _)) => (Left (a, p) ** \(a', p') => (a', (p', q.Zero _)))
   (Right b, (_, q)) => (Right (b, q) ** \(b', q') => (b', (p.Zero _, q')))
 
 ||| Not an isomorphism, arising from duoidal structure between >@ and ><
 public export
-rebracketcomptensor: {e, y : AddCont} -> ((e >@ y) >< y) =%> (e >@ (y >< y))
+rebracketcomptensor: {y : AddCont} -> (e >@ y) >< y =%> e >@ (y >< y)
 rebracketcomptensor = (id {c=e >@ y} >< leftUnitInv {c=y})
                       %>> duoidal {c=e} {d=y} {e=Scalar} {f=y}
                       %>> (rightUnit {c=e} >@ id {c=(y><y)})
 
 
 public export
-distribute : {c, e, g : AddCont} ->
-  ((c >< e) =%> s) ->
-  ((c >< (e >@ g)) =%> (s >@ g))
+distribute : {c : AddCont} ->
+  c >< e =%> s ->
+  c >< (e >@ g) =%> s >@ g
 distribute f = (rightUnitInv >< id {c=e >@ g})
              %>> duoidal {d = Scalar}
              %>> (f >@ leftUnit)
 
 public export
-extractEffect : {d, e, f : AddCont} ->
-  (d >< (e >@ f)) =%> (e >@ (d >< f))
+extractEffect : {d : AddCont} ->
+  d >< (e >@ f) =%> e >@ (d >< f)
 extractEffect = (leftUnitInv >< (id {c=e >@ f}))
             %>> duoidal {c=Scalar}
             %>> (leftUnit >@ (id {c=d><f}))
 
   
-public export
-swapMiddle : {c1, c2, c3, c4 : AddCont} ->
-  ((c1 >< c2) >< (c3 >< c4)) =%> ((c1 >< c3) >< (c2 >< c4))
-swapMiddle = !%+ \((x, y), (z, w)) => (((x, z), (y, w)) **
-  \((x', z'), (y', w')) => ((x', y'), (z', w')))
-
-public export
-Copy : {c : AddCont} ->
-  c =%> (c >< c)
-Copy = !%+ \x => ((x, x) ** uncurry (c.Plus x))
-
-public export
-PairMaps : {c, d, e : AddCont} ->
-  (f : c =%> d) ->
-  (g : c =%> e) ->
-  c =%> (d >< e)
-PairMaps f g = Copy %>> (f >< g)
-
-public export
-Delete : {c : AddCont} ->
-  c =%> Scalar
-Delete = !%+ \x => (() ** \() => c.Zero x)
-
-||| Note that this doesn't exist for ordinary containers!
-public export
-ProjLeft : {c, d : AddCont} ->
-  (c >< d) =%> c
-ProjLeft = !%+ \(x, y) => (x ** \x' => (x', d.Zero y))
-
-public export
-ProjRight : {c, d : AddCont} ->
-  (c >< d) =%> d
-ProjRight = !%+ \(x, y) => (y ** \y' => (c.Zero x, y'))
-
 public export
 Sum : Num a =>
   (Const a >< Const a) =%> Const a
@@ -283,19 +315,19 @@ namespace Sample
 --   cojoin = !% \x => (x ** join)
 
   
-public export
-record FCoAlgCont (f : Type -> Type) where
-  constructor MkFCoAlgCont
-  carrier : Cont
-  coalg : (a : carrier.Shp) -> f (carrier.Pos a) -> carrier.Pos a
+-- public export
+-- record FCoAlgCont (f : Type -> Type) where
+--   constructor MkFCoAlgCont
+--   carrier : Cont
+--   coalg : (a : carrier.Shp) -> f (carrier.Pos a) -> carrier.Pos a
 
-public export
-coAlgMorphism : (c, d : FCoAlgCont f) -> Type
-coAlgMorphism c d = c.carrier =%> d.carrier
-
-convert : FCoAlgCont List -> AddCont
-convert (MkFCoAlgCont carrier coalg) = MkAddCont
-  carrier
-  {mon=(MkI $ \s => MkComMonoid
-    (\l, r => coalg s [l, r])
-    (coalg s []))}
+-- public export
+-- coAlgMorphism : (c, d : FCoAlgCont f) -> Type
+-- coAlgMorphism c d = c.carrier =%> d.carrier
+-- 
+-- convert : FCoAlgCont List -> AddCont
+-- convert (MkFCoAlgCont carrier coalg) = MkAddCont
+--   carrier
+--   {mon=(MkI $ \s => MkComMonoid
+--     (\l, r => coalg s [l, r])
+--     (coalg s []))}

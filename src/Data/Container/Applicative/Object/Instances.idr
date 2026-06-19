@@ -6,17 +6,17 @@ import Data.Container.Applicative.TreeUtils
 ||| Generalisation of Rose trees with a container of subtrees instead of
 ||| a list of subtrees. It's required that the container is a TensorMonoid
 public export
-ApplicativeRoseTree : {c : Cont} -> TensorMonoid c => Cont
+ApplicativeRoseTree : TensorMonoid c => Cont
 ApplicativeRoseTree = (t : RoseTreeShape c) !> RoseTreePos c t
 
 ||| Same as above, but with data stored at nodes
 public export
-ApplicativeRoseTreeNode : {c : Cont} -> TensorMonoid c => Cont
+ApplicativeRoseTreeNode : TensorMonoid c => Cont
 ApplicativeRoseTreeNode = (t : RoseTreeShape c) !> RoseTreePosNode c t
 
 ||| Same as above, but with data stored at leaf
 public export
-ApplicativeRoseTreeLeaf : {c : Cont} -> TensorMonoid c => Cont
+ApplicativeRoseTreeLeaf : TensorMonoid c => Cont
 ApplicativeRoseTreeLeaf = (t : RoseTreeShape c) !> RoseTreePosNode c t
 
 ||| Rose trees with data stored at both nodes and leaves
