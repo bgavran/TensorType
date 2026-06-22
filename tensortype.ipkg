@@ -5,7 +5,7 @@ authors = "Bruno Gavranovic"
 license = "AGPL-3.0"
 brief = "Type-safe pure functional tensor processing framework, supporting non-cubical tensors"
 -- readme =
--- homepage =
+homepage = "https://www.tensortype.org/"
 -- sourceloc =
 -- bugtracker =
 
