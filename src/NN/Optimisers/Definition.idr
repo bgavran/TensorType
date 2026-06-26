@@ -59,5 +59,5 @@ composeParallel (MkOptimiser o1 initP initS) (MkOptimiser o2 initQ initT) = MkOp
     \(p', q') => let (pUpdated, sUpdated) = o1.bwd (p, s) p'
                      (qUpdated, tUpdated) = o2.bwd (q, t) q'
                  in ((pUpdated, qUpdated), (sUpdated, tUpdated))))
-  (pairIO initP initQ)
-  (pairIO initS initT)
+  [| (initP, initQ) |]
+  [| (initS, initT) |]

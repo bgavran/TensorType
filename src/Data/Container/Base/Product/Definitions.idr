@@ -234,7 +234,7 @@ coproductBang = !% \case
 
 public export
 tensorBang : Applicative m => m <!> (c >< d) =%> (m <!> c) >< (m <!> d)
-tensorBang = !% \(x, y) => ((x, y) ** uncurry liftA2)
+tensorBang = !% \(x, y) => ((x, y) ** \(mx', my') => [| (mx', my') |])
 
 ||| Closure with respect to the Cartesian product
 namespace CartesianClosure

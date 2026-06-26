@@ -403,9 +403,8 @@ namespace TensorInstances
     liftA2Tensor {shape = [], allAppl=[]} (MkT t) (MkT t')
       = embed (index t (), index t' ())
     liftA2Tensor {shape = (s :: ss), allAppl = _ :: _} t t'
-      = embedTopExt $ uncurry liftA2Tensor <$>
-          liftA2 (extractTopExt t) (extractTopExt t')
-
+      = embedTopExt [| liftA2Tensor (extractTopExt t) (extractTopExt t') |]
+      
     public export
     {shape : TensorShape rank} ->
     (allAppl : AllC TensorMonoid shape) =>
@@ -451,41 +450,36 @@ namespace TensorInstances
     {shape : TensorShape rank} ->
     Num a => AllC TensorMonoid shape =>
     Num (Tensor shape a) where
-        fromInteger = tensorReplicate . fromInteger
-        t + t' = uncurry (+) <$> liftA2Tensor t t'
-        t * t' = uncurry (*) <$> liftA2Tensor t t'
+        t + t' = [| t + t' |]
+        t * t' = [| t * t' |]
+        fromInteger = pure . fromInteger
 
     public export
     {shape : TensorShape rank} ->
     Neg a => AllC TensorMonoid shape =>
     Neg (Tensor shape a) where
-      negate = (negate <$>)
-      xs - ys = (uncurry (-)) <$> liftA2 xs ys
-
-    -- TODO this throws an error?
-    negNotFound : {shape : TensorShape rank} ->
-      Neg a => Neg (Tensor shape a)
-    negNotFound = ?interfaceProblemsAgain
+      negate t = [| negate t |]
+      t - t' = [| t - t' |]
 
     public export
     {shape : TensorShape rank} ->
     Abs a => AllC TensorMonoid shape =>
     Abs (Tensor shape a) where
-      abs = (abs <$>)
+      abs t = [| abs t |]
 
     public export
     {shape : TensorShape rank} ->
     Fractional a => AllC TensorMonoid shape =>
     Fractional (Tensor shape a) where
-      t / v = (uncurry (/)) <$> liftA2 t v
+      t / t' = [| t / t' |]
 
     public export
     {shape : TensorShape rank} ->
     Exp a =>
     AllC TensorMonoid shape =>
     Exp (Tensor shape a) where
-      exp = (exp <$>)
-      log = (log <$>)
+      exp t = [| exp t |]
+      log t = [| log t |]
       minusInfinity = pure minusInfinity
 
     public export
@@ -493,7 +487,7 @@ namespace TensorInstances
     FromDouble a =>
     AllC TensorMonoid shape =>
       FromDouble (Tensor shape a) where
-        fromDouble x = tensorReplicate (fromDouble x)
+        fromDouble = pure . fromDouble
 
   namespace DiagonalAxis
     ||| Captures both "diagonal" operation for vector (Naperian containers) and
@@ -1216,7 +1210,7 @@ namespace TensorContractions
     vectorMatrixProduct v m =
       let em : Ext i.cont (Tensor [j] a) := extractTopExt m
           ev : Ext i.cont (Tensor [] a) := extractTopExt v
-      in reduce $ (\(x, gx) => ((extract x) *) <$> gx) <$> liftA2 ev em
+      in reduce $ (\(x, gx) => ((extract x) *) <$> gx) <$> [| (ev, em) |]
       --let t : CTensor [i] (CTensor [j] a) := toNestedTensor m
       --in extract $ dotWith (\x, gx => (x *) <$> gx) v t
 
@@ -1250,6 +1244,12 @@ tEx = ># [ [1, 2, 3, 4]
          , [9, 10, 11, 12] ]
 
 public export
+tExList : Tensor ["i" ~> List, "j" ~> List] Integer
+tExList = ># [ [1, 2, 3, 4]
+             , [5, 6, 7]
+             , [8, 9, 10, 11, 12] ]
+
+public export
 Ex2 : Tensor ["k" ~~> 12] Integer
 Ex2 = reshape tEx
 
@@ -1259,6 +1259,8 @@ Ex3 = reshape Ex2
 
 ||| At the moment, only works when the axis name apperas uniquely in the shape
 namespace IndexingByAxisNames
+  ||| Data containing the path to an axis in a tensor
+  ||| Used to index into a tensor by axis name
   public export
   data IndexTo : {shape : TensorShape rank} ->
     (t : Tensor shape a) ->
@@ -1281,6 +1283,7 @@ namespace IndexingByAxisNames
 
   %name IndexTo ind
 
+  ||| Function which indexes into the *shape* of a tensor by axis name
   ||| Here "axis shape" here meant in the container sense
   public export
   indexShapeFw : {shape : TensorShape rank} ->
@@ -1292,6 +1295,96 @@ namespace IndexingByAxisNames
   indexShapeFw t (ax .name) @{Here} Nil = shapeExt (extractTopExt t)
   indexShapeFw t indexAxis @{There} (p :: ind)
     = indexShapeFw (index (extractTopExt t) p) indexAxis ind
+
+  ||| The number of axes coming strictly after the located axis.
+  public export
+  afterRank : {rank : Nat} ->
+    (shape : TensorShape rank) ->
+    (indexAxis : AxisName) ->
+    (uElem : UniqueElem indexAxis shape) =>
+    Nat
+  afterRank {rank = S k} (ax :: as) indexAxis @{Here} = k
+  afterRank (ax :: as) indexAxis @{There} = afterRank as indexAxis
+
+  ||| The axes coming strictly after the located axis.
+  public export
+  afterShape : {rank : Nat} ->
+    (shape : TensorShape rank) ->
+    (indexAxis : AxisName) ->
+    (uElem : UniqueElem indexAxis shape) =>
+    TensorShape (afterRank shape indexAxis)
+  afterShape {rank = S k} (ax :: as) indexAxis @{Here} = as
+  afterShape (ax :: as) indexAxis @{There} = afterShape as indexAxis
+
+  public export
+  indexTensor : {rank : Nat} ->
+    {shape : TensorShape rank} ->
+    (t : Tensor shape a) ->
+    (indexAxis : AxisName) ->
+    (uElem : UniqueElem indexAxis shape) =>
+    (ind : IndexTo t indexAxis) ->
+    (p : (index shape indexAxis).Pos (indexShapeFw t indexAxis ind)) ->
+    Tensor (afterShape shape indexAxis) a
+  indexTensor {rank = S k} t (ax .name) @{Here} Nil p
+    = index (extractTopExt t) p
+  indexTensor t indexAxis @{There} (p0 :: ind) p
+    = indexTensor (index (extractTopExt t) p0) indexAxis ind p
+
+  namespace IndexAxisExamples
+    public export
+    tListRow : Tensor ["j" ~> List] Integer
+    tListRow = indexTensor tExList "i" [] 1
+
+    public export
+    rowI1 : Tensor ["j" ~~> 4] Integer
+    rowI1 = indexTensor tEx "i" [] 1
+
+    public export
+    scalarJ : Tensor [] Integer
+    scalarJ = indexTensor tEx "j" [2] 0
+
+
+  {- 
+  ||| The number of axes *from* the located axis onwards
+  public export
+  fromRank : {rank : Nat} ->
+    (shape : TensorShape rank) ->
+    (indexAxis : AxisName) ->
+    (uElem : UniqueElem indexAxis shape) =>
+    Nat
+  fromRank {rank = S k} (ax :: as) indexAxis @{Here} = S k
+  fromRank (ax :: as) indexAxis @{There} = fromRank as indexAxis
+
+  ||| The axes *from* the located axis onwards
+  public export
+  fromShape : {rank : Nat} ->
+    (shape : TensorShape rank) ->
+    (indexAxis : AxisName) ->
+    (uElem : UniqueElem indexAxis shape) =>
+    TensorShape (fromRank shape indexAxis)
+  fromShape {rank = S k} (ax :: as) indexAxis @{Here} = ax :: as
+  fromShape (ax :: as) indexAxis @{There} = fromShape as indexAxis
+
+  public export
+  indexToSubtensor : {rank : Nat} ->
+    {shape : TensorShape rank} ->
+    (t : Tensor shape a) ->
+    (indexAxis : AxisName) ->
+    (uElem : UniqueElem indexAxis shape) =>
+    (ind : IndexTo t indexAxis) ->
+    Tensor (fromShape shape indexAxis) a
+  indexToSubtensor {rank = S k} t (ax .name) @{Here} Nil = t
+  indexToSubtensor t indexAxis @{There} (p0 :: ind)
+    = indexToSubtensor (index (extractTopExt t) p0) indexAxis ind
+
+  public export
+  focusI : Tensor ["i" ~~> 3, "j" ~~> 4] Integer
+  focusI = indexToSubtensor tEx "i" []
+
+  public export
+  focusJ : Tensor ["j" ~~> 4] Integer
+  focusJ = indexToSubtensor tEx "j" [2]
+  -}
 
 
 namespace SetterGetter

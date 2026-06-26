@@ -102,6 +102,8 @@ SquaredError : {a : Type} -> Num a => Neg a => Loss (Const a) {l=Const a}
 SquaredError = Additive.Morphism.Instances.SquaredDifference
 
 
+-- All of these do a lot of unnecessary wrapping/unwrapping
+
 public export
 Sum : {n : Axis} -> IsCubical n => Num a =>
   TensorMonoid n.cont =>
@@ -111,7 +113,7 @@ Sum @{MkIsCubical _ n} = !%+ \t => (># reduce t ** \a' => fill (#> a'))
 public export
 Div : {a : Type} -> Num a => Fractional a =>
   (divBy : a) ->
-  (Const (Tensor [] a)) =%+> (Const (Tensor [] a))
+  Const (Tensor [] a) =%+> Const (Tensor [] a)
 Div divBy = !%+ \x => (x <&> (/ divBy) ** \x' => x' <&> (/ divBy))
 
 public export

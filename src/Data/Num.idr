@@ -2,39 +2,14 @@ module Data.Num
 
 import Data.Vect
 
-||| Interface for the Exponential
-||| We also include minus infinity because of the necessity to compute
-||| causal masks within the attention mechanism.
-||| For rules that `exp` should satisfy, see https://arxiv.org/abs/1911.04790
-||| We also have
-||| `exp . log = id`, `log . exp = id`, `exp minusInfinity = 0`...
-public export
-interface Num a => Exp a where
-  exp : a -> a
-  log : a -> a
-  minusInfinity : a
-
-public export
-Exp Double where
-  exp = Prelude.exp
-  log = Prelude.log
-  minusInfinity = cast "-inf.0"
-
-public export
-interface Num a => Sqrt a where
-  sqrt : a -> a
-
-public export
-Sqrt Double where
-  sqrt = Prelude.sqrt
-
-
 namespace Num
+  %defaulthint
   public export
-  {n : Nat} -> Num a => Num (Vect n a) where
-    xs + ys = zipWith (+) xs ys
-    xs * ys = zipWith (*) xs ys
-    fromInteger x = replicate n (fromInteger x)
+  applicativeNum : Num a => Applicative f => Num (f a)
+  applicativeNum = MkNum
+    (\xs, ys => [| xs + ys |])
+    (\xs, ys => [| xs * ys |])
+    (\n => pure (fromInteger n))
 
   public export
   Num Unit where
@@ -44,14 +19,14 @@ namespace Num
   
   public export
   Num a => Num b => Num (a, b) where
+    (lFst, lSnd) + (rFst, rSnd) = (lFst + rFst, lSnd + rSnd)
     (lFst, lSnd) * (rFst, rSnd) = (lFst * rFst, lSnd * rSnd)
-    (+) (lFst, lSnd) (rFst, rSnd) = (lFst + rFst, lSnd + rSnd)
     fromInteger x = (fromInteger x, fromInteger x)
 
   public export
   Num a => Num b => Num (DPair a (const b)) where
     (lFst ** lSnd) * (rFst ** rSnd) = (lFst * rFst ** lSnd * rSnd)
-    (+) (lFst ** lSnd) (rFst ** rSnd) = (lFst + rFst ** lSnd + rSnd)
+    (lFst ** lSnd) + (rFst ** rSnd) = (lFst + rFst ** lSnd + rSnd)
     fromInteger x = (fromInteger x ** fromInteger x)
 
   %hint
@@ -65,8 +40,14 @@ namespace Num
     (\n => \i => fromInteger n)
 
 
-
 namespace Neg
+  %defaulthint
+  public export
+  applicativeNeg : Neg a => Applicative f => Neg (f a)
+  applicativeNeg = MkNeg @{applicativeNum}
+    (\fa => [| negate fa |])
+    (\fx, fy => [| fx - fy |])
+
   public export
   Neg Unit where
     negate () = ()
@@ -91,7 +72,31 @@ namespace Neg
     (\s => \i => negate (s i))
     (\f, g => \i => f i - g i)
 
+namespace Abs
+  %defaulthint
+  public export
+  applicativeAbs : Abs a => Applicative f => Abs (f a)
+  applicativeAbs = MkAbs @{applicativeNum}
+    (\fa => [| abs fa |])
+
+  public export
+  Abs Unit where
+    abs () = ()
+
+  public export
+  Abs a => Abs b => Abs (a, b) where
+    abs (lFst, lSnd) = (abs lFst, abs lSnd)
+
+  public export
+  Abs a => Abs b => Abs (DPair a (const b)) where
+    abs (fst ** snd) = (abs fst ** abs snd)
+
 namespace FromDouble
+  %defaulthint
+  public export
+  applicativeFromDouble : FromDouble a => Applicative f => FromDouble (f a)
+  applicativeFromDouble = MkFromDouble (pure . fromDouble)
+
   public export
   FromDouble Unit where
     fromDouble x = ()
@@ -113,6 +118,13 @@ namespace FromDouble
     (\s => \i => fromDouble s)
 
 namespace Fractional
+  %defaulthint
+  public export
+  applicativeFractional : Fractional a => Applicative f => Fractional (f a)
+  applicativeFractional = MkFractional @{applicativeNum}
+    (\fx, fy => [| fx / fy |])
+    (\x => [| recip x |])
+
   public export
   Fractional Unit where
     () / () = ()
@@ -125,7 +137,50 @@ namespace Fractional
   Fractional a => Fractional b => Fractional (DPair a (const b)) where
     (fst ** snd) / (rFst ** rSnd) = (fst / rFst ** snd / rSnd)
 
+
+namespace Exp
+  ||| Interface for the Exponential
+  ||| We also include minus infinity because of the necessity to compute
+  ||| causal masks within the attention mechanism.
+  ||| For rules that `exp` should satisfy, see https://arxiv.org/abs/1911.04790
+  ||| We also have
+  ||| `exp . log = id`, `log . exp = id`, `exp minusInfinity = 0`...
+  public export
+  interface Num a => Exp a where
+    constructor MkExp
+    exp : a -> a
+    log : a -> a
+    minusInfinity : a
+  
+  public export
+  Exp Double where
+    exp = Prelude.exp
+    log = Prelude.log
+    minusInfinity = cast "-inf.0"
+
+  %defaulthint
+  public export
+  applicativeExp : Exp a => Applicative f => Exp (f a)
+  applicativeExp = MkExp @{applicativeNum}
+    (\fa => [| exp fa |])
+    (\fa => [| log fa |])
+    (pure minusInfinity)
+
 namespace Sqrt
+  public export
+  interface Num a => Sqrt a where
+    constructor MkSqrt
+    sqrt : a -> a
+  
+  public export
+  Sqrt Double where
+    sqrt = Prelude.sqrt
+
+  %defaulthint
+  public export
+  applicativeSqrt : Sqrt a => Applicative f => Sqrt (f a)
+  applicativeSqrt = MkSqrt @{applicativeNum} (\fa => [| sqrt fa |])
+
   public export
   Sqrt Unit where
     sqrt () = ()

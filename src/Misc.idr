@@ -150,23 +150,11 @@ namespace NotElem
 
 
 namespace Applicative
-  ||| Definition of liftA2 in terms of (<*>)
-  public export
-  liftA2 : Applicative f => f a -> f b -> f (a, b)
-  liftA2 fa fb = ((,) <$> fa) <*> fb
-  
   ||| Tensorial strength
   public export
   strength : Applicative f => a -> f b -> f (a, b)
-  strength a fb = liftA2 (pure a) fb
+  strength a fb = [| (pure a, fb) |]
   
-  ||| Pointwise Num structure for Applicative functors
-  public export
-  [applicativeNum] Num a => Applicative f => Num (f a) where
-    xs + ys = uncurry (+) <$> liftA2 xs ys
-    xs * ys = uncurry (*) <$> liftA2 xs ys
-    fromInteger = pure . fromInteger
-
 
 namespace VectFoldable
   ||| Implementation of Foldable for Vect that is denotationally equivalent to
@@ -612,14 +600,6 @@ runIf: HasIO io => Bool -> io () -> io ()
 runIf True action = action
 runIf False action = pure ()
 
-public export
-pairIO : HasIO io => io a -> io b -> io (a, b)
-pairIO a b = do
-  a <- a
-  b <- b
-  pure (a, b)
-
-
 namespace RandomUtils
   public export
   Random Unit where
@@ -628,9 +608,9 @@ namespace RandomUtils
 
   public export
   Random a => Random b => Random (a, b) where
-    randomIO = pairIO randomIO randomIO
+    randomIO = [| (randomIO, randomIO) |]
     randomRIO ((loA, loB), (hiA, hiB))
-      = pairIO (randomRIO (loA, hiA)) (randomRIO (loB, hiB))
+      = [| (randomRIO (loA, hiA), randomRIO (loB, hiB)) |]
 
 -- Probably there's a faster way to do this
 -- public export

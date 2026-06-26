@@ -92,7 +92,7 @@ namespace Instances
     reduce (Node node leftTree rightTree)
       = let lt = reduce {f=BinTreeLeaf} leftTree 
             rt = reduce {f=BinTreeLeaf} rightTree
-        in (uncurry (+)) <$> (liftA2 lt rt) 
+        in [| lt + rt |]
   
   
   public export covering
