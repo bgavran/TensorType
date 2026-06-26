@@ -62,7 +62,7 @@ softargmax = MkPara
 public export
 {i : Nat} -> Show (Dist i) where
   show (MkDist xs) = assert_total $ 
-    show @{(?todoTensorShow)} (softargmaxImpl {i="softmaxTemp" ~~> i} (># xs))
+    show (softargmaxImpl {i="softmaxTemp" ~~> i} (># xs))
 
 inpp : Tensor ["ieva" ~~> 3] Double
 inpp = ># [1000, 999, 998]
