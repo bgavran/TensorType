@@ -73,8 +73,8 @@ namespace HancockTensorProduct
   namespace List
     ||| N-ary version of tensor product
     public export
-    AllAny : List Cont -> Cont
-    AllAny xs = (shapes : All Shp xs) !> AllPos shapes
+    AllAll : List Cont -> Cont
+    AllAll xs = (shapes : All Shp xs) !> AllPos shapes
 
   namespace Vect
     ||| N-ary version of tensor product
@@ -167,11 +167,6 @@ namespace CompositionProduct
   --     in fst gOut) ** \(d1Pos ** d2Pos) => (snd ((%!) f c1Shp) d1Pos **
   --       snd ((%!) g (c2Index (snd ((%!) f c1Shp) d1Pos))) d2Pos))
 
-  -- public export 
-  -- associateToRight : ((c >@ d) >@ e) =%> (c >@ (d >@ e))
-  -- associateToRight = !% \(h <| k) => ?associateToRight_rhs
-
-
 ||| Closure with respect to the Hancock tensor product
 namespace MonoidalClosure
   ||| Every lens gives rise to a container
@@ -193,21 +188,33 @@ namespace MonoidalClosure
   uncurry f = !% \(x, y) => ((f.fwd x).fwd y **
     \e' => (f.bwd x (y ** e'), (f.fwd x).bwd y e'))
 
+public export infixr 9 <!>
 ||| If `f` is a monad, then `f <!> -` is a comonad, and vice versa
 public export
 (<!>) : (f : Type -> Type) -> Cont -> Cont
-(<!>) f c = (s : c.Shp) !> (f (c.Pos s))
+f <!> c = (s : c.Shp) !> (f (c.Pos s))
 
-public export infixr 9 <!>
 
 namespace Morphism
   public export
   (<!>) : (f : Type -> Type) -> Functor f =>
     c =%> d ->
     f <!> c =%> f <!> d
-  (<!>) f l = !% \x => (l.fwd x ** ((l.bwd x) <$>) )
+  f <!> l = !% \x => (l.fwd x ** ((l.bwd x) <$>) )
 
-  public export infixr 9 <!>
+
+public export prefix 9 !!
+||| BANG. List on positions, always has a monoid structure
+public export
+(!!) : Cont -> Cont
+(!!) = (List <!>)
+
+
+namespace Morphism
+  public export
+  (!!) : c =%> d -> !! c =%> !! d
+  (!!) = (List <!>)
+  
 
 ||| Turn a banged container into a container
 ||| Requires pure on the backward pass
@@ -216,14 +223,18 @@ pureBw : Monad m => m <!> c =%> c
 pureBw = !% \x => (x ** pure)
 
 public export
-sumBw : InterfaceOnPositions c ComMonoid => c =%> List <!> c
-sumBw @{MkI i} = !% \x => (x ** ComMonoid.sum @{i x})
+sumBw : InterfaceOnPositions c ComMonoid => c =%> !! c
+sumBw @{MkI i} = !% \x => (x ** sum @{i x})
 
 public export
 coproductBang : m <!> (c >+< d) =%> (m <!> c) >+< (m <!> d)
 coproductBang = !% \case
   Left x => (Left x ** id)
   Right y => (Right y ** id)
+
+public export
+tensorBang : Applicative m => m <!> (c >< d) =%> (m <!> c) >< (m <!> d)
+tensorBang = !% \(x, y) => ((x, y) ** uncurry liftA2)
 
 ||| Closure with respect to the Cartesian product
 namespace CartesianClosure
@@ -262,7 +273,7 @@ namespace CartesianClosure
 -- Not exactly a product
 public export
 List : Cont -> Cont
-List c = (ss : List (c.Shp)) !> All c.Pos ss
+List c = (ss : List c.Shp) !> All c.Pos ss
 
 namespace Morphism
   public export
@@ -272,18 +283,10 @@ namespace Morphism
   bww f (c :: cs) (a :: as) = (f.bwd c a) :: bww f cs as
 
   public export
-  List : (c =%> d) -> (List c) =%> (List d)
+  List : c =%> d -> List c =%> List d
   List f = !% \cs => (f.fwd <$> cs ** bww f cs)
 
 
-
-
-||| BANG. List on positions, always has a monoid structure
-public export
-(!!) : Cont -> Cont
-(!!) = (List <!>)
-
-export prefix 9 !!
 
 
 ||| TODO Might be able to delete this and leave just the definition in Additive?

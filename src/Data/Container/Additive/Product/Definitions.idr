@@ -22,18 +22,23 @@ import Misc
 public export infixr 3 ><  -- Hancock tensor product
 public export infixr 3 >*< -- categorical product
 public export infixr 3 >+< -- coproduct
-public export infixr 3 >@  -- composition
+public export infixr 3 >+@  -- composition
 public export infixr 3 <%> 
 
 
 {-------------------------------------------------------------------------------
 {-------------------------------------------------------------------------------
-Compared to ordinary containers, for additive containers:
-* Categorical product cannot be defined as it is in ordinary containers
-* Hancock tensor product becomes the categorical product
-* Coproduct is still coproduct
+The category Cont of ordinary containers has four interesting monoidal 
+products: categorical product, hancock tensor product, coproduct, and composition product.
 
-* The identity functor from Cont -> AddCont with product on domain and hancock product on codomain is not monoidal in any sense: it is not strict, strong, lax nor oplax
+We can understand the category AddCont in terms of the monoidal products of its
+underlying containers:
+* Categorical product of ordinary containers is not possible to define (positions do not form a monoid)
+* Hancock tensor product is possible to define, which becomes the categorical product
+* Coproduct is possible to define, and stays the coproduct
+* Composition product is possible to define, albeit it's slightly different
+
+Notably, the forgetful functor AddCont -> Cont with hancock product on domain and categorical product on codomain is not monoidal in any sense: it is not strict, strong, lax nor oplax.
 
 -------------------------------------------------------------------------------}
 -------------------------------------------------------------------------------}
@@ -72,8 +77,7 @@ namespace Product
 
   namespace Morphism
     public export
-    (><) : {0 c1, d1, c2, d2 : AddCont} ->
-      (c1 =%> d1) -> (c2 =%> d2) -> (c1 >< c2) =%> (d1 >< d2)
+    (><) : (c1 =%+> d1) -> (c2 =%+> d2) -> (c1 >< c2) =%+> (d1 >< d2)
     (><) f g = !%+ \(c, d) => ((f.fwd c, g.fwd d) **
       \(c', d') => (f.bwd c c', g.bwd d d'))
 
@@ -105,8 +109,7 @@ namespace Coproduct
 
   namespace Morphism
     public export
-    (>+<) : {0 c1, d1, c2, d2 : AddCont} ->
-      (c1 =%> d1) -> (c2 =%> d2) -> (c1 >+< c2) =%> (d1 >+< d2)
+    (>+<) : (c1 =%+> d1) -> (c2 =%+> d2) -> (c1 >+< c2) =%+> (d1 >+< d2)
     (>+<) f g = !%+ \case
       (Left x) => (Left (f.fwd x) ** f.bwd x)
       (Right y) => (Right (g.fwd y) ** g.bwd y)
@@ -127,43 +130,9 @@ namespace Coproduct
       ((shapes : Any (.Shp) xs) !> AnyShpPos shapes)
       @{MkI anyShpPosComMonoid}
 
-||| With an ordinary container `c`, the Pi and Sigma type simple are the 
-||| dependent function ((s : c.Shp) -> c.Pos s) and the dependent pair
-||| ((s : c.Shp ** c.Pos s)) type: they rely on the (co)product in Set.
-||| When the container is additive, the Pi and Sigma type rely on the 
-||| (co)product in the category ComMon. Here Pi stays the same, but Sigma
-||| ends up being a subtype of the Pi type, with finite support. This means that
-||| in the finitary case, product and coproduct coincide.
-|||
-||| This is a complicated way of saying something simple:
-||| The Sigma type, as inherited from Set, is not a monoid. This is because,
-||| despite the fact that `c` gives us a monoid structure on every `c.Pos s`, we
-||| still can't add `(s1 ** p1)` and `(s2 ** p2)` when `s1 ≠ s2` as
-||| `p1` and `p2` have different types. At best, we could do it if `c.Shp` was
-||| a monoid, and `c.Pos` was somehow laxly preserving the monoid structure.
-|||
-||| Instead, we need to use the Pi type representation: ((s : c.Shp) -> c.Pos s)
-||| whose monoid structure is given pointwise. When `c.Shp` is an infinite type,
-||| we need to ensure that the map above has finite support. Carrying this 
-||| explicit support data together with the function is very fiddly
-|||
-||| It turns out that there is a pragmatic representation of the coproduct:
-||| simply as a list of pairs `(s, p)` where `p : c.Pos s` such that:
-||| 1) The list order doesn't matter (we need to quotient it out by permutation)
-||| 2) Pairs where output is zero can be dropped, i.e. `(s, 0) : xs = xs`
-||| 3) Same-shape entires add: `(s, p1) : (s, p2) : xs` = (s, p1 + p2) : xs`
-||| That is, all maps that consume this type have to preserve these properties.
-|||
-||| It turns out that this works surprisingly well, and helps us be performant
-||| especially when dealing with autodiff.
-|||
-||| In other words, any dependent pairs that want to be a monoid should ask
-||| themselves if they're instead a list of input-output pairs.
-public export
-CoprodMon : AddCont -> ComMonoid
-CoprodMon c = (List (Path c) ** listIsMonoid)
-
 ||| Bang operator: list on positions, always has a monoid structure
+||| Note, this is different than the above operator which is a monoid on lists
+||| of dependent pairs. This one is not.
 public export
 (!!) : Cont -> AddCont
 (!!) c = MkAddCont
@@ -202,15 +171,26 @@ namespace Composition
 
   ||| Composition
   public export
-  (>@) : AddCont -> AddCont -> AddCont
-  c >@ d = !! (UC c >@ UC d)
+  (>+@) : AddCont -> AddCont -> AddCont
+  c >+@ d = !! (UC c >@ UC d)
+  -- c >@ d = !! (UC c >@ (List (UC d)))
+  
+  -- public export
+  -- X : AddCont
+  -- Y : AddCont
+  -- D : AddCont
+  
+  
+  -- f : X =%+> D >@ (Y >+< X)
+  -- f = !%+ \x => (?dd <| ?efff ** ?f_bwd)
 
   namespace Morphism
     ||| Action on morphisms
     public export
-    (>@) : {0 c1, d1, c2, d2 : AddCont} ->
-      (c1 =%> d1) -> (c2 =%> d2) -> (c1 >@ c2) =%> (d1 >@ d2)
-    (>@) f g = !%+ \(s <| idx) => (f.fwd s <| g.fwd . idx . f.bwd s **
+    (>+@) : c1 =%+> d1 ->
+      c2 =%+> d2 ->
+      c1 >+@ c2 =%+> d1 >+@ d2
+    (>+@) f g = !%+ \(s <| idx) => (f.fwd s <| g.fwd . idx . f.bwd s **
       map (\(dp ** dp2) => (f.bwd s dp ** g.bwd (idx (f.bwd s dp)) dp2)))
 
 
@@ -223,16 +203,17 @@ namespace MonoidalClosure
   public export
   InternalLensAdditive : AddCont -> AddCont -> AddCont
   InternalLensAdditive c d = MkAddCont
-    ((l : c =%> d) !> List (Path (lensInputs l)))
+    ((l : c =%+> d) !> List (Path (lensInputs l)))
     @{MkI $ \_ => listIsMonoid}
 
   public export
-  curry : {c : AddCont} -> (c >< d) =%> e -> c =%> (InternalLensAdditive d e)
+  curry : {c : AddCont} -> (c >< d) =%+> e -> c =%+> (InternalLensAdditive d e)
   curry f = !%+ \x => (!%+ \y => (f.fwd (x, y) ** snd . f.bwd (x, y)) **
     \l => foldr (\(y ** b') => c.Plus x (fst (f.bwd (x, y) b'))) (c.Zero x) l)
 
   public export
-  uncurry : {c : AddCont} -> c =%> (InternalLensAdditive d e) -> (c >< d) =%> e
+  uncurry : {c : AddCont} ->
+    c =%+> (InternalLensAdditive d e) -> (c >< d) =%+> e
   uncurry f = !%+ \(x, y) => ((f.fwd x).fwd y **
     \e' => (f.bwd x [(y ** e')], (f.fwd x).bwd y e'))
 
@@ -267,13 +248,13 @@ List c = MkAddCont
 
 namespace Morphism
   public export
-  bww : {0 c, d : AddCont} -> (f : c =%> d) -> (cs : List c.Shp) ->
+  bww : (f : c =%+> d) -> (cs : List c.Shp) ->
     All (d.Pos) (f.fwd <$> cs) -> All (c .Pos) cs
   bww f [] [] = []
   bww f (c :: cs) (a :: as) = (f.bwd c a) :: bww f cs as
 
   public export
-  List : {0 c, d : AddCont} -> (c =%> d) -> (List c) =%> (List d)
+  List : c =%+> d -> List c =%+> List d
   List f = !%+ \cs => (f.fwd <$> cs ** bww f cs)
 
 -- duoidal and distribute have been moved to Additive.Morphism.Instances
@@ -290,9 +271,9 @@ public export
 
 namespace Morphism
   public export
-  (<!>) : {0 c, d : AddCont} -> (f : Type -> Type) -> Functor f =>
-    (c =%> d) ->
-    ((f <!> c) =%> (f <!> d))
+  (<!>) : (f : Type -> Type) -> Functor f =>
+    c =%+> d ->
+    (f <!> c) =%> (f <!> d)
   (<!>) f l = !% \x => (l.fwd x ** ((l.bwd x) <$>) )
 
   public export infixr 9 <!>

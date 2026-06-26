@@ -119,7 +119,7 @@ positionsCont = sh <| id
 ||| The `index` field of an extension defines a "getter" for a container
 ||| This is the container setter
 public export
-set : {0 c : Cont} -> InterfaceOnPositions c Eq =>
+set : InterfaceOnPositions c Eq =>
   (e : Ext c x) -> c.Pos (shapeExt e) -> x -> Ext c x
 set {c=(s !> p)} @{MkI _} (sh <| contentAt) i x
   = sh <| updateAt contentAt (i, x)

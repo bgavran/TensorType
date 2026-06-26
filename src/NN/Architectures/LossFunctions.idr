@@ -18,7 +18,7 @@ import Data.Para
 ||| Loss function alias
 public export
 Loss : AddCont -> {default (Const Double) l : AddCont} -> Type
-Loss c = (c >< c) =%> l
+Loss c = (c >< c) =%+> l
 
 namespace Combinators
   ||| Combinator for pairing up loss functions
@@ -26,11 +26,11 @@ namespace Combinators
   pairLossFunctions : {y, z : AddCont} ->
     {l : Type} -> Num l =>
     Loss y {l=Const l} -> Loss z {l=Const l} -> Loss (y >< z) {l=Const l}
-  pairLossFunctions loss1 loss2 = swapMiddle %>> (loss1 >< loss2) %>> Sum
+  pairLossFunctions loss1 loss2 = swapMiddle %+>> (loss1 >< loss2) %+>> sum
 
   public export
   lossSame : {a, b : AddCont} ->
-    ((a >+< b) >< (a >+< b)) =%> ((a >< a) >+< (b >< b))
+    (a >+< b) >< (a >+< b) =%+> (a >< a) >+< (b >< b)
   lossSame = !%+ \case
     (Left x1, Left x2) => (Left (x1, x2) ** id)
     (Right y1, Right y2) => (Right (y1, y2) ** id)
@@ -40,17 +40,17 @@ namespace Combinators
   pairLossCoproduct : {y, z : AddCont} ->
     {l : Type} -> Num l =>
     Loss y {l=Const l} -> Loss z {l=Const l} -> Loss (y >+< z) {l=Const l}
-  pairLossCoproduct l1 l2 = lossSame %>> (l1 >+< l2) %>> elim
+  pairLossCoproduct l1 l2 = lossSame %+>> (l1 >+< l2) %+>> elim
 
   public export
   composeLossFunctions : {y, z, l : AddCont} ->
-    Loss y {l} -> Loss z {l} -> Loss (y >@ z) {l}
-  composeLossFunctions loss1 loss2 = let tt = loss1 >@ loss2
+    Loss y {l} -> Loss z {l} -> Loss (y >+@ z) {l}
+  composeLossFunctions loss1 loss2 = let tt = loss1 >+@ loss2
                                      in ?composeLossFunctions_rhs
 
   public export
   sequenceLossFunctions : {y, z : AddCont} ->
-    Loss y {l} -> Loss z {l} -> Loss (y >@ z) {l}
+    Loss y {l} -> Loss z {l} -> Loss (y >+@ z) {l}
   sequenceLossFunctions loss1 loss2 = !%+ \(x1, x2) => ?asdf
 
   public export
@@ -64,7 +64,7 @@ namespace Combinators
     in (p1 :: ls, p2 :: rs)
 
   public export
-  zipLists : {y : AddCont} -> (List y) >< (List y) =%> List (y >< y)
+  zipLists : {y : AddCont} -> (List y) >< (List y) =%+> List (y >< y)
   zipLists = !%+ \(l1, l2) => (zip l1 l2 ** zipListsBwd l1 l2)
 
   -- TODO here it can be that we pair different types together!
@@ -105,20 +105,20 @@ SquaredError = Additive.Morphism.Instances.SquaredDifference
 public export
 Sum : {n : Axis} -> IsCubical n => Num a =>
   TensorMonoid n.cont =>
-  Const (Tensor [n] a) =%> Const (Tensor [] a)
+  Const (Tensor [n] a) =%+> Const (Tensor [] a)
 Sum @{MkIsCubical _ n} = !%+ \t => (># reduce t ** \a' => fill (#> a'))
 
 public export
 Div : {a : Type} -> Num a => Fractional a =>
   (divBy : a) ->
-  (Const (Tensor [] a)) =%> (Const (Tensor [] a))
+  (Const (Tensor [] a)) =%+> (Const (Tensor [] a))
 Div divBy = !%+ \x => (x <&> (/ divBy) ** \x' => x' <&> (/ divBy))
 
 public export
 MeanSquaredError : IsCubical n => TensorMonoid n.cont =>
   {a : Type} -> Num a => Neg a => Fractional a => Cast Nat a =>
   Loss (Const (Tensor [n] a)) {l=Const (Tensor [] a)}
-MeanSquaredError @{MkIsCubical _ n} = SquaredError %>> Sum %>> Div (cast n)
+MeanSquaredError @{MkIsCubical _ n} = SquaredError %+>> Sum %+>> Div (cast n)
 
 public export
 SoftargmaxCrossEntropyLogits : {n : Nat} -> Loss (Simplex n)

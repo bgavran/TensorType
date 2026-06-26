@@ -163,5 +163,5 @@ ContUniverse = (_ : (s : Type ** s -> Type)) !> Void
 ||| Given a natural number `n`, this is a container whose shape represents a 
 ||| distribution over `n` choices, and its position represents the choice made.
 public export
-Sample : Nat -> Cont
-Sample n = Const2 (Dist n) (Fin n)
+Dist : Nat -> Cont
+Dist n = Const2 (Dist n) (Fin n)

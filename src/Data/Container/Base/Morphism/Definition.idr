@@ -43,7 +43,7 @@ namespace DependentLenses
 
   public export
   (%!) : c =%> d -> (x : c.Shp) -> (y : d.Shp ** (d.Pos y -> c.Pos x))
-  (%!) (!% f) x = f x
+  (%!) (!% f) = f
 
   ||| See fwd of `DChart`
   public export

@@ -33,6 +33,14 @@ public export
 TrivialPos : Type -> AddCont
 TrivialPos a = Const a (Unit ** %search)
 
+||| Additive variant of the `Dist`  container. Shape is the type of 
+||| distributions over `n` choices, and position the *list* of choices made
+||| Note the similarities and differences with `Simplex`
+public export
+Dist : Nat -> AddCont
+Dist n = !! (Dist n)
+
+
 namespace NumConst
   ||| Like above, but where backward part is same as forward one
   ||| Also arises from Num instance

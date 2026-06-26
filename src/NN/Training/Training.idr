@@ -39,13 +39,13 @@ b) use monadic lenses
 ||| optimisation is both the final parameter and the state of the optimiser
 public export
 optimiseStep : {p, l, e : AddCont} -> InterfaceOnPositions l Num =>
-  (f : p =%> (e >@ l)) ->
+  (f : p =%+> e >+@ l) ->
   (handleEffect : Costate (IO <!> e)) ->
   (optimiser : Optimiser p stateTy) ->
   Costate (IO <!> (Const (p.Shp, stateTy)))
 optimiseStep f handleEffect (MkOptimiser opt _ _) = 
-  let closeFunction : p =%> e 
-      closeFunction = f %>> (id >@ constantOne) %>> rightUnit
+  let closeFunction : p =%+> e 
+      closeFunction = f %+>> (id >+@ constantOne) %+>> rightUnit
   in (IO <!> opt) %>> (IO <!> closeFunction) %>> handleEffect
 
 ||| Evaluates a the forward pass of some effectful lens
@@ -66,7 +66,7 @@ optimise : {p, l, e : AddCont} -> InterfaceOnPositions l Num =>
   {default 100 printEvery : Nat} ->
   {default Nothing customInitParam : Maybe p.Shp} ->
   Show p.Shp => Show l.Shp => Show stateTy =>
-  (f : p =%> e >@ l) ->
+  (f : p =%+> e >+@ l) ->
   (handleEffect : Costate (IO <!> e)) ->
   (opt : Optimiser p stateTy) ->
   (numSteps : Nat) ->
@@ -86,18 +86,18 @@ optimise f handleEffect opt numSteps = do
     (fromCostate $ evalFw (f.fwd . opt.fwd) handleEffect)
 
 ||| Given
-||| a) a parametric lens `f : x >< p =%> y`
-||| b) a loss function `loss : y >< y =%> l`
-||| builds an effectful lens `p =%> l`
+||| a) a parametric lens `f : x >< p =%+> y`
+||| b) a loss function `loss : y >< y =%+> l`
+||| builds an effectful lens `p =%+> l`
 public export
 buildSupervisedLearningSystem : Num l.Shp => IsFlat l =>
   (f : ParaAddDLens x y) ->
   (loss : Loss y {l=l}) ->
-  ((GetParam f) =%> (pushDown (x >< y)) >@ l)
+  (GetParam f) =%+> (pushDown (x >< y)) >+@ l
 buildSupervisedLearningSystem (MkPara p f) loss =
-  let rebracket : ((x >< y) >< p) =%> ((x >< p) >< y)
-      rebracket = assocL %>> (id >< swap) %>> assocR
-  in pushIntoContinuation {d=x><y} (rebracket %>> (f >< id) %>> loss)
+  let rebracket : ((x >< y) >< p) =%+> ((x >< p) >< y)
+      rebracket = assocL %+>> (id >< swap) %+>> assocR
+  in pushIntoContinuation {d=x><y} (rebracket %+>> (f >< id) %+>> loss)
 
 
 namespace WithEffect
@@ -109,7 +109,7 @@ namespace WithEffect
   ||| evaluation
   public export
   totalLoss : Show l.Shp => Num l.Shp =>
-    (f : ParaAddDLens x (e >@ y)) ->
+    (f : ParaAddDLens x (e >+@ y)) ->
     (loss : Loss y {l=l}) ->
     (p : (GetParam f).Shp) ->
     (handleEffect : Costate (IO <!> e)) ->
@@ -126,7 +126,7 @@ namespace WithEffect
   public export
   averageLoss :  {n : Nat} ->
     Show l.Shp => Num l.Shp => Fractional l.Shp => Cast Nat l.Shp =>
-    (f : ParaAddDLens x (e >@ y)) ->
+    (f : ParaAddDLens x (e >+@ y)) ->
     (loss : Loss y {l=l}) ->
     (p : (GetParam f).Shp) ->
     (handleEffect : Costate (IO <!> e)) ->
@@ -138,7 +138,7 @@ namespace WithEffect
   ||| Eval a model and loss with specific parameters, in the presence of an effect
   public export
   evalWithLoss : Show x.Shp => Show y.Shp => Show l.Shp =>
-    (f : ParaAddDLens x (e >@ y)) ->
+    (f : ParaAddDLens x (e >+@ y)) ->
     (loss : Loss y {l=l}) ->
     (p : (GetParam f).Shp) ->
     (handleEffect : Costate (IO <!> e)) ->
@@ -155,7 +155,7 @@ namespace WithEffect
   ||| Eval a model with specific parameters, in the presence of an effect
   public export
   eval : Show x.Shp => Show y.Shp =>
-    (f : ParaAddDLens x (e >@ y)) ->
+    (f : ParaAddDLens x (e >+@ y)) ->
     (p : (GetParam f).Shp) ->
     (handleEffect : Costate (IO <!> e)) ->
     Costate (IO <!> (Const2 (Vect n x.Shp) Unit))
@@ -170,9 +170,9 @@ namespace WithEffect
 namespace WithoutEffect
   public export
   trivialEffect : {y : AddCont} ->
-    ParaAddDLens x y -> ParaAddDLens x (Scalar >@ y)
+    ParaAddDLens x y -> ParaAddDLens x (Scalar >+@ y)
   trivialEffect (MkPara p f) = MkPara p
-    (f %>> leftUnitInv)
+    (f %+>> leftUnitInv)
 
   public export
   handleTrivial : Costate (IO <!> Additive.Object.Instances.Scalar)
@@ -186,7 +186,7 @@ namespace WithoutEffect
     (p : (GetParam f).Shp) ->
     Costate (IO <!> (Const2 (Vect n x.Shp) Unit))
   eval (MkPara pCont f) p
-    = eval {e=Scalar} (MkPara pCont (f %>> leftUnitInv)) p handleTrivial
+    = eval {e=Scalar} (MkPara pCont (f %+>> leftUnitInv)) p handleTrivial
 
   public export
   averageLoss :  {y : AddCont} -> {n : Nat} ->
@@ -196,7 +196,7 @@ namespace WithoutEffect
     (p : (GetParam f).Shp) ->
     Costate (IO <!> (Const2 (Vect n (x.Shp, y.Shp)) l.Shp))
   averageLoss (MkPara pCont f) loss p = averageLoss {e=Scalar}
-    (MkPara pCont (f %>> leftUnitInv))
+    (MkPara pCont (f %+>> leftUnitInv))
     loss
     p
     handleTrivial

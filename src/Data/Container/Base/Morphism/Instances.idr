@@ -24,67 +24,6 @@ import Data.Num
 import Data.Layout
 import Misc
 
-namespace State
-  ||| "State" as defined in https://arxiv.org/abs/2403.13001 and open games 
-  |||
-  |||       ┌─────────────┐
-  |||       │             ├──► (x : c.Shp)
-  |||       │    State    │
-  |||       │             ├◄── c.Pos x
-  |||       └─────────────┘
-  public export
-  State : Cont -> Type
-  State c = Scalar =%> c
-
-  ||| Given a shape of any container, state can be defined
-  public export
-  toState : (x : c.Shp) -> State c
-  toState x = !% \() => (x ** \_ => ())
-
-  public export
-  fromState : State c -> c.Shp
-  fromState f = f.fwd ()
-
-  public export
-  mapState : State c ->
-    c =%> d ->
-    State d
-  mapState s f = s %>> f
-
-namespace Costate
-  ||| "Costate" as defined in https://arxiv.org/abs/2403.13001 and open games 
-  |||
-  |||                  ┌─────────────┐
-  |||  (x : c.Shp)  ──►┤             │
-  |||                  │   Costate   │
-  |||     c.Pos x   ◄──┤             │
-  |||                  └─────────────┘
-  public export
-  Costate : Cont -> Type
-  Costate c = c =%> Scalar
-
-  public export
-  toCostate : ((x : c.Shp) -> c.Pos x) -> Costate c
-  toCostate s = !% \x => (() ** \() => s x)
-
-  public export
-  fromCostate : Costate c -> (x : c.Shp) -> c.Pos x
-  fromCostate f x = f.bwd x ()
-
-  public export
-  mapCostate : Costate d ->
-    c =%> d ->
-    Costate c
-  mapCostate s f = f %>> s
-  
-public export
-fromNapCostateToState : Costate (Nap c.Shp) -> State c
-fromNapCostateToState f = toState (f.bwd () ())
-
-public export
-fromStateToNapCostate : State c -> Costate (Nap c.Shp)
-fromStateToNapCostate f = toCostate f.fwd
-
 ||| If we model the idea of a container (S !> P) as a box
 |||  ┌──────┐
 |||  │ s:S  │
@@ -172,6 +111,17 @@ namespace CompositionProduct
   rightUnitInv : c =%> c >@ Scalar
   rightUnitInv = !% \s => (s <| const () ** fst)
 
+  public export
+  assocL : (a >@ b) >@ c =%> a >@ (b >@ c)
+  assocL = !% \((aShp <| f) <| g) =>
+    (aShp <| \aPos => f aPos <| \bPos => g (aPos  ** bPos) ** \(aPos ** bPos ** cPos) => ((aPos ** bPos) ** cPos))
+
+  public export
+  assocR : a >@ (b >@ c) =%> (a >@ b) >@ c
+  assocR = !% \(aShp <| f) => ((aShp <| shapeExt . f) <| \(aPos ** bPos) =>
+    index (f aPos) bPos **
+      \((aPos ** bPos) ** cPos) => (aPos ** (bPos ** cPos)))
+
 namespace Coproduct
   public export
   elim : c >+< c =%> c
@@ -253,6 +203,73 @@ namespace CompositionTensorInteraction
   distribute f = (rightUnitInv >< id {c=e >@ g})
                %>> duoidal {d = Scalar}
                %>> (f >@ leftUnit)
+
+
+namespace State
+  ||| "State" as defined in https://arxiv.org/abs/2403.13001 and open games 
+  |||
+  |||       ┌─────────────┐
+  |||       │             ├──► (x : c.Shp)
+  |||       │    State    │
+  |||       │             ├◄── c.Pos x
+  |||       └─────────────┘
+  public export
+  State : Cont -> Type
+  State c = Scalar =%> c
+
+  ||| Given a shape of any container, state can be defined
+  public export
+  toState : (x : c.Shp) -> State c
+  toState x = !% \() => (x ** \_ => ())
+
+  public export
+  fromState : State c -> c.Shp
+  fromState f = f.fwd ()
+
+  public export
+  mapState : State c ->
+    c =%> d ->
+    State d
+  mapState s f = s %>> f
+
+namespace Costate
+  ||| "Costate" as defined in https://arxiv.org/abs/2403.13001 and open games 
+  |||
+  |||                  ┌─────────────┐
+  |||  (x : c.Shp)  ──►┤             │
+  |||                  │   Costate   │
+  |||     c.Pos x   ◄──┤             │
+  |||                  └─────────────┘
+  public export
+  Costate : Cont -> Type
+  Costate c = c =%> Scalar
+
+  public export
+  toCostate : ((x : c.Shp) -> c.Pos x) -> Costate c
+  toCostate s = !% \x => (() ** \() => s x)
+
+  public export
+  fromCostate : Costate c -> (x : c.Shp) -> c.Pos x
+  fromCostate f x = f.bwd x ()
+
+  public export
+  mapCostate : Costate d ->
+    c =%> d ->
+    Costate c
+  mapCostate s f = f %>> s
+
+  public export
+  pairCostate : Costate c -> Costate d -> Costate (c >< d)
+  pairCostate f g = (f >< g) %>> leftUnit {c=Scalar} %>> id
+  
+public export
+fromNapCostateToState : Costate (Nap c.Shp) -> State c
+fromNapCostateToState f = toState (f.bwd () ())
+
+public export
+fromStateToNapCostate : State c -> Costate (Nap c.Shp)
+fromStateToNapCostate f = toCostate f.fwd
+
 
 
 ||| Wraps a dependent lens `c =%> d`
@@ -552,7 +569,7 @@ maybeToList = !% \b => case b of
 
 public export
 Sample : MonadSample m => {n : Nat} -> IsSucc n =>
-  (m <!> Sample n) =%> Scalar
+  (m <!> Dist n) =%> Scalar
 Sample = toCostate sample
 
 -- TODO here maybe need to uncomment during merge?

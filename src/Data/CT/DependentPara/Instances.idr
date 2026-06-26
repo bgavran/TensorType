@@ -116,7 +116,7 @@ namespace ParametricFunctions
     (\_ => p)
     (\(x ** p') => f (x, p'))
 
-namespace ParametricDependentLenses
+namespace ParametricDependentLenses -- also additive ones
   ||| DParametric dependent lenses
   ||| Not really used in this repo
   public export
@@ -136,11 +136,11 @@ namespace ParametricDependentLenses
   a =\\==> b = ParaAddDLens a b
 
   public export
-  trivialParam : {0 a, b : AddCont} -> (a =%> b) -> a =\\==> b
+  trivialParam : a =%+> b -> a =\\==> b
   trivialParam f = MkPara
     Scalar
     (!%+ \(x, ()) =>
-      let (y ** ky) = (%!) f x
+      let (y ** ky) = (%!+) f x
       in (y ** \y' => (ky y', ())))
 
   public export
@@ -153,7 +153,7 @@ namespace ParametricDependentLenses
 
   public export
   toHomRepresentation : (f : ParaAddDLens a b) ->
-    (GetParam f) =%> InternalLensAdditive a b
+    (GetParam f) =%+> InternalLensAdditive a b
   toHomRepresentation (MkPara pType f) = !%+ \p =>
     (!%+ \a => (f.fwd (a, p) ** \b' => fst (f.bwd (a, p) b')) **
       \l => foldr (\(a ** b') => pType.Plus p (snd (f.bwd (a, p) b'))) (pType.Zero p) l)
@@ -182,10 +182,11 @@ namespace DependentParametricDependentLenses
   a =\\=> b = DParaAddDLens a b
   
   public export
-  trivialParam : {0 a, b : AddCont} -> (a =%> b) -> a =\\=> b
+  trivialParam : a =%+> b -> a =\\=> b
   trivialParam f = MkPara
     (\_ => Scalar)
-    (!% !% \(x ** ()) => let (y ** ky) = (%!) f x in (y ** \y' => (ky y', ())))
+    (!% !% \(x ** ()) => let (y ** ky) = (%!+) f x
+                         in (y ** \y' => (ky y', ())))
 
   public export
   id : a =\\=> a
@@ -211,12 +212,12 @@ namespace DependentParametricDependentLenses
   ||| a non-dependent (constant) parameter.
   public export
   data IsNotDependent : DParaAddDLens a b -> Type where
-    MkNonDep : (p : AddCont) -> (f : DPair a (const p) =%> b) ->
+    MkNonDep : (p : AddCont) -> (f : DPair a (const p) =%+> b) ->
       IsNotDependent {a=a} {b=b} (MkPara (\_ => p) f)
   
   public export
   GetNonDep : (pf : DParaAddDLens a b) ->
-    IsNotDependent pf => (pc : AddCont ** DPair a (const pc) =%> b)
+    IsNotDependent pf => (pc : AddCont ** DPair a (const pc) =%+> b)
   GetNonDep _ @{MkNonDep pc f} = (pc ** f)
 
   public export
@@ -227,7 +228,7 @@ namespace DependentParametricDependentLenses
   public export
   toHomRepresentation : (pf : DParaAddDLens a b) ->
     IsNotDependent pf =>
-    GetParam pf =%> (InternalLensAdditive a b)
+    GetParam pf =%+> (InternalLensAdditive a b)
   toHomRepresentation (MkPara (const pc) f) @{MkNonDep pc f}
     = !%+ \p => (!%+ \x => (f.fwd (x ** p) ** \b' => fst (f.bwd (x ** p) b')) ** \l => foldr (\(x ** b') => pc.Plus p (snd (f.bwd (x ** p) b'))) (pc.Zero p) l)
 
@@ -240,13 +241,12 @@ namespace DependentParametricDependentLenses
   ||| Convert a morphism from product container to one from DPair
   ||| This witnesses the isomorphism (a >< p) ≅ DPair a (const p)
   public export
-  fromNonDepProduct : {0 a, p, b : AddCont} ->
-    (a >< p) =%> b -> DPair a (const p) =%> b
-  fromNonDepProduct f = !%+ \(x ** p') => (%!) f (x, p')
+  fromNonDepProduct : (a >< p) =%+> b -> DPair a (const p) =%+> b
+  fromNonDepProduct f = !%+ \(x ** p') => (%!+) f (x, p')
 
   public export
   binaryOpToPara : {p : AddCont} ->
-    (a >< p) =%> b -> a =\\==> b
+    (a >< p) =%+> b -> a =\\==> b
   binaryOpToPara f = MkPara p f
 
   %hide Data.Container.Base.Morphism.Definition.DependentLenses.(=%>)
