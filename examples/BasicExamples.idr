@@ -145,12 +145,6 @@ treeExample2 : Tensor ["myTree" ~> BinTree] Double
 treeExample2 = ># Node 5 (Leaf 100) (Leaf 4)
 
 
-listEx : List' (Tensor ["myTree" ~> BinTree] Double)
-listEx = ># [ treeExample1, treeExample2 ]
-
-vectEx : Vect' 2 (Vect' 3 Double)
-vectEx = ># [ ># [1, 2, 3], ># [4, 5, 6.000290940000203] ]
-
 {--------------------
 Perhaps surpisingly, all linear algebra operations follow smoothly. The example below is the _dot product of trees_. The fact that these trees don't have the same number of elements is irrelevant; what matters is that the container defining them (`BinTree`) is the same.
 --------------------}
