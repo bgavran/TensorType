@@ -1,5 +1,7 @@
 module Data.ComMonoid
 
+import public Data.Num
+
 %hide Prelude.Semigroup
 %hide Prelude.Monoid
 
@@ -13,23 +15,12 @@ record ComMonoid (a : Type) where
 
 %hint
 public export
-doubleIsMonoid : ComMonoid Double
-doubleIsMonoid = MkComMonoid (+) 0
-
-%hint
-public export
-unitIsMonoid : ComMonoid Unit
-unitIsMonoid = MkComMonoid (\(), () => ()) ()
-
-%hint
-public export
 numIsMonoid : Num a => ComMonoid a
 numIsMonoid = MkComMonoid (+) 0
 
 public export
 listIsMonoid : ComMonoid (List a)
 listIsMonoid = MkComMonoid (++) []
-
 
 %hint
 public export
