@@ -19,11 +19,11 @@ Simplex n = MkAddCont $ (_ : Dist n) !> (Tensor [TTInternalName ~~> n] Double)
 
 public export
 MulParametric : {a : Type} -> Num a => ParaAddDLens (Const a) (Const a)
-MulParametric = binaryOpToPara {p=Const a} Mul
+MulParametric = binaryOpToPara {p=Const a} mul
 
 public export
 AddParametric : {a : Type} -> Num a => ParaAddDLens (Const a) (Const a)
-AddParametric = binaryOpToPara {p=Const a} Sum
+AddParametric = binaryOpToPara {p=Const a} sum
 
 public export
 AffineParametric : {a : Type} -> Num a => ParaAddDLens (Const a) (Const a)
@@ -53,7 +53,7 @@ coproductPair : {a, b, c, d : AddCont} ->
   ParaAddDLens (a >+< b) (c >+< d)
 coproductPair (MkPara p f) (MkPara q g) = MkPara
   (p >< q)
-  (coprodDistrOverTensor %>> (f >+< g))
+  (coprodDistrOverTensor %+>> (f >+< g))
 
 public export
 parallelTensor2 : {a, b: Type} -> Num a => Num b => {axisName : String} ->
@@ -63,8 +63,8 @@ parallelTensor2 : {a, b: Type} -> Num a => Num b => {axisName : String} ->
 parallelTensor2 (MkPara pCont f) = MkPara
   (pCont >< pCont)
   (!%+ \(x, (p, q)) =>
-    let (b1 ** kf) = (%!) f (x @@ [0], p)
-        (b2 ** kg) = (%!) f (x @@ [1], q)
+    let (b1 ** kf) = (%!+) f (x @@ [0], p)
+        (b2 ** kg) = (%!+) f (x @@ [1], q)
     in (># [b1, b2] ** \bs' =>
       let (x1', p') = kf (bs' @@ [0])
           (x2', q') = kg (bs' @@ [1])
@@ -78,9 +78,9 @@ parallelTensor3 : {a, b : Type} -> Num a => Num b => {axisName : AxisName} ->
 parallelTensor3 (MkPara pCont f) = MkPara
   (pCont >< pCont >< pCont)
   (!%+ \(x, (p, q, r)) =>
-    let (b1 ** kf) = (%!) f (x @@ [0], p)
-        (b2 ** kg) = (%!) f (x @@ [1], q)
-        (b3 ** kh) = (%!) f (x @@ [2], r)
+    let (b1 ** kf) = (%!+) f (x @@ [0], p)
+        (b2 ** kg) = (%!+) f (x @@ [1], q)
+        (b3 ** kh) = (%!+) f (x @@ [2], r)
     in (># [b1, b2, b3] ** \bs' =>
       let (x1', p') = kf (bs' @@ [0])
           (x2', q') = kg (bs' @@ [1])
@@ -99,8 +99,8 @@ sameFromTensor2 (MkPara pCont f) = MkPara
   (pCont >< pCont)
   (!%+ \(x, (p, q)) =>
     let val = x @@ [0]
-        (b1 ** kf) = (%!) f (val, p)
-        (b2 ** kg) = (%!) f (val, q)
+        (b1 ** kf) = (%!+) f (val, p)
+        (b2 ** kg) = (%!+) f (val, q)
     in (># [b1, b2] ** \bs' =>
       let (x1', p') = kf (bs' @@ [0])
           (x2', q') = kg (bs' @@ [1])
@@ -116,9 +116,9 @@ sameFromTensor3 (MkPara pCont f) = MkPara
   (pCont >< pCont >< pCont)
   (!%+ \(x, (p, q, r)) =>
     let val = x @@ [0]
-        (b1 ** kf) = (%!) f (val, p)
-        (b2 ** kg) = (%!) f (val, q)
-        (b3 ** kh) = (%!) f (val, r)
+        (b1 ** kf) = (%!+) f (val, p)
+        (b2 ** kg) = (%!+) f (val, q)
+        (b3 ** kh) = (%!+) f (val, r)
     in (># [b1, b2, b3] ** \bs' =>
       let (x1', p') = kf (bs' @@ [0])
           (x2', q') = kg (bs' @@ [1])
@@ -138,7 +138,7 @@ sameFromTensor (MkPara pCont f) = MkPara
   (!%+ \(x, psShapes) =>
     let val = x @@ [0]
         outAndBw = runIdentity $ dTraverse
-            (\p => Id $ (%!) f (val, p))
+            (\p => Id $ (%!+) f (val, p))
             (allToVect psShapes)
         out = mapPropertyRelevant (\_, (y ** bw) => y) outAndBw
         bw = mapPropertyRelevant (\_, (y ** bw) => bw) outAndBw
@@ -153,8 +153,8 @@ sameFrom : {a : AddCont} -> ParaAddDLens a b ->
 sameFrom (MkPara p f) (MkPara q g) = MkPara
   (p >< q)
   (!%+ \(x, (p, q)) =>
-    let (b ** kf) = (%!) f (x, p)
-        (c ** kg) = (%!) g (x, q)
+    let (b ** kf) = (%!+) f (x, p)
+        (c ** kg) = (%!+) g (x, q)
     in ((b, c) ** \(b', c') =>
       let (x'1, p') = kf b'
           (x'2, q') = kg c'
@@ -168,8 +168,8 @@ sameFromConst : {a, b, c : Type} -> Num a => Num b => Num c =>
 sameFromConst (MkPara p f) (MkPara q g) = MkPara
   (p >< q)
   (!%+ \(x, (p, q)) =>
-    let (b ** kf) = (%!) f (x, p)
-        (c ** kg) = (%!) g (x, q)
+    let (b ** kf) = (%!+) f (x, p)
+        (c ** kg) = (%!+) g (x, q)
     in ((b, c) ** \(b', c') =>
       let (x'1, p') = kf b'
           (x'2, q') = kg c'
@@ -183,9 +183,9 @@ sameFrom3 : {a : AddCont} -> ParaAddDLens a b ->
 sameFrom3 (MkPara p f) (MkPara q g) (MkPara r h) = MkPara
   (p >< q >< r)
   (!%+ \(x, (p, q, r)) =>
-    let (b ** kf) = (%!) f (x, p)
-        (c ** kg) = (%!) g (x, q)
-        (d ** kh) = (%!) h (x, r)
+    let (b ** kf) = (%!+) f (x, p)
+        (c ** kg) = (%!+) g (x, q)
+        (d ** kh) = (%!+) h (x, r)
     in ((b, c, d) ** \(b', c', d') =>
       let (x'1, p') = kf b'
           (x'2, q') = kg c'
@@ -201,9 +201,9 @@ sameFromConst3 : {a, b, c, d : Type} -> Num a => Num b => Num c => Num d =>
 sameFromConst3 (MkPara p f) (MkPara q g) (MkPara r h) = MkPara
   (p >< q >< r)
   (!%+ \(x, (p, q, r)) =>
-    let (b ** kf) = (%!) f (x, p)
-        (c ** kg) = (%!) g (x, q)
-        (d ** kh) = (%!) h (x, r)
+    let (b ** kf) = (%!+) f (x, p)
+        (c ** kg) = (%!+) g (x, q)
+        (d ** kh) = (%!+) h (x, r)
     in ((b, c, d) ** \(b', c', d') =>
       let (x'1, p') = kf b'
           (x'2, q') = kg c'

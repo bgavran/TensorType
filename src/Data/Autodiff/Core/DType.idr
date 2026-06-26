@@ -1,7 +1,6 @@
 module Data.Autodiff.Core.DType
 
-import Data.Container
-import Data.Autodiff.AdditiveContainer
+import Data.Container.Additive
 
 ||| Wrapper around an additive container exposing its shape at the type level
 ||| Given `a`, we think of `D a` as evidence of it being differentiable
@@ -31,7 +30,7 @@ T (MkTangent c) = c.Pos
 {-------------------------------
 Concrete instances
 All of these are annotated with the `%hint` pragma as we do not want the user
-to manually have to supply the underlying monoid structure during
+to manually have to supply the underlying monoid structure
 -------------------------------}
 
 %hint
@@ -53,8 +52,8 @@ unitTangent = MkD (\_ => ())
 %hint
 public export
 pairTangent : D a -> D b -> D (a, b)
-pairTangent (MkTangent (MkAddCont (_ !> posA) @{MkI}))
-            (MkTangent (MkAddCont (_ !> posB) @{MkI}))
+pairTangent (MkTangent (MkAddCont (_ !> posA) @{MkI ca}))
+            (MkTangent (MkAddCont (_ !> posB) @{MkI cb}))
   = MkD $ \ss => (posA (fst ss), posB (snd ss))
 
 ||| Similar to `VectAddCont`, except `VectAddCont` is heterogeneous vectors

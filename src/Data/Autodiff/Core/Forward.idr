@@ -1,7 +1,7 @@
 module Data.Autodiff.Core.Forward
 
 import Data.Tensor
-import Data.Autodiff.AdditiveContainer
+import Data.Container.Additive
 import Data.Autodiff.Core.DType
 
 ||| Forward differentiable functions, modelled as dependent charts

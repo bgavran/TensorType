@@ -105,6 +105,7 @@ namespace Vect
     allPosPlus {cs=c::_} (s :: ss) (l :: ls) (r :: rs)
       = plus (UMon c s) l r :: allPosPlus ss ls rs
 
+    public export
     allPosNeutral : {cs : Vect n AddCont} ->
       (s : All (.Shp) cs) ->
       AllPos s
