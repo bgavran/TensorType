@@ -38,5 +38,5 @@ jobs:
           pack --no-prompt install tensortype
           cd examples
           pack --no-prompt install tensortype-examples
-          pack test tensortype
+          HEDGEHOG_COLOR=1 pack test tensortype
 

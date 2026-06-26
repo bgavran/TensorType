@@ -214,7 +214,7 @@ tensor5DExpected = """
   """
 
  
-public export
+export
 cubicalTensorGroup : Group
 cubicalTensorGroup = MkGroup "Cubical tensor printing"
   [ ("Print vector ", property1 $ show tensorVector === tensorVectorExpected) 
@@ -281,6 +281,7 @@ longVector2Expected = """
    288.0 289.0 290.0 291.0 292.0 293.0 294.0 295.0 296.0 297.0 298.0 299.0]
   """
 
+export
 longTensorsGroup : Group
 longTensorsGroup = MkGroup "Long tensors printing"
   [ ("Print long vector", property1 $ show longVector === longVectorExpected)
@@ -302,6 +303,7 @@ matrixDecimal2Expected = """
    [    40.0     50.0     60.0     70.0     80.0]]
   """
 
+export
 cubicalTensorsDecimalGroup : Group
 cubicalTensorsDecimalGroup = MkGroup "Cubical tensors decimal printing"
   [ ("Print vector decimal", property1 $ show vectorDecimal === vectorDecimalExpected)
@@ -471,6 +473,7 @@ treeExample8Expected = """
   └─ ·
   """
 
+export
 treeTensorsGroup : Group
 treeTensorsGroup = MkGroup "Tree tensors printing"
   [ ("Print tree example 1", property1 $ show treeExample1 === treeExample1Expected)
@@ -546,6 +549,7 @@ listExample5Expected = """
    ╚══════╝   ]
   """
 
+export
 listTensorsGroup : Group
 listTensorsGroup = MkGroup "List tensors printing"
   [ ("Print list example 1", property1 $ show listExample1 === listExample1Expected)
@@ -553,13 +557,3 @@ listTensorsGroup = MkGroup "List tensors printing"
   , ("Print list example 3", property1 $ show listExample3 === listExample3Expected)
   , ("Print list example 4", property1 $ show listExample4 === listExample4Expected)
   , ("Print list example 5", property1 $ show listExample5 === listExample5Expected) ]
-
-
-public export
-runTests : IO ()
-runTests = test
-  [ cubicalTensorGroup
-  , longTensorsGroup
-  , cubicalTensorsDecimalGroup
-  , treeTensorsGroup
-  , listTensorsGroup ]
