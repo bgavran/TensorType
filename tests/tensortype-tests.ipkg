@@ -19,7 +19,8 @@ depends = tensortype
 -- modules to install
 modules = Display2D.Instances
         , Display2D.Expected
-        , Interfaces.Interfaces
+        , Tensor.Interfaces
+        , Tensor.Indexing
         , Main
 
 -- main file (i.e. file to load at REPL)

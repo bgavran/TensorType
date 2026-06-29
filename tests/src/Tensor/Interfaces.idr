@@ -1,4 +1,4 @@
-module Interfaces.Interfaces
+module Tensor.Interfaces
 
 import Hedgehog
 
@@ -31,3 +31,11 @@ export
 interfaceTests : Group
 interfaceTests = MkGroup "Interface tests"
   [ ("Interface tests", property1 success) ]
+
+
+
+-- todo testing for various other interfaces
+-- eq (this should especially be done for pure containers, and things involving Ext)
+-- foldable
+-- traversable
+-- fromConcrete (as well as valdiation that the roundtrip answer is same)
