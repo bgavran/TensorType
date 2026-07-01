@@ -1,6 +1,4 @@
-pack build
+pack --no-prompt install tensortype
 cd examples
-pack build
-cd ../tests
-pack build
+pack --no-prompt install tensortype-examples
 HEDGEHOG_COLOR=1 pack test tensortype
