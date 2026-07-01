@@ -16,12 +16,16 @@ export typebind infixr 0 !>
 
 %name Cont c, c', c''
 
-||| Thought of as a choice of a shape, and a sequence of choices one
-||| needs to make to reach a particular position. 
-||| For contianers that are not defined as fixpoints, this "choices" are not
-||| made using container machinery, but directly in Idris
-||| Nonetheless, even for `List`, to define a value of `Fin n` we have to 
-||| recursively go through a "path"
+public export
+DPair : Cont -> Type
+DPair c = (x : c.Shp ** c.Pos x)
+
+||| Synonym for `DPair`. The idea is that we can think of a sigma type of 
+||| a container as a a choice of a shape, and a sequence of choices
+||| (the "path") to reach a particular position.
+||| This isn't as easily seen for containers not defined as fixpoints, where
+||| these "choices" are not made using container machinery, but directly in 
+||| Idris. But for n-ary containers this becomes more apparent
 public export
 Path : Cont -> Type
-Path c = (x : c.Shp ** c.Pos x)
+Path = DPair

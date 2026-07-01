@@ -148,13 +148,13 @@ namespace CompositionProduct
   namespace Morphism
     ||| Action on morphisms
     public export
-    (>@) : (c1 =%> d1) -> (c2 =%> d2) -> (c1 >@ c2) =%> (d1 >@ d2)
+    (>@) : c1 =%> d1 -> c2 =%> d2 -> c1 >@ c2 =%> d1 >@ d2
     (>@) f g = !% \(s <| idx) => (f.fwd s <| g.fwd . idx . f.bwd s **
       \(dp ** dp2) => (f.bwd s dp ** g.bwd (idx (f.bwd s dp)) dp2))
 
     ||| Action on morphisms for diagrammatic composition
     public export
-    (@>) : (c1 =%> c2) -> (d1 =%> d2) -> (c1 @> d1) =%> (c2 @> d2)
+    (@>) : c1 =%> c2 -> d1 =%> d2 -> c1 @> d1 =%> c2 @> d2
     (@>) f g = !% \(s <| idx) => (g.fwd s <| f.fwd . idx . g.bwd s **
       \(dp ** dp2) => (g.bwd s dp ** f.bwd (idx (g.bwd s dp)) dp2))
 
@@ -174,9 +174,7 @@ namespace MonoidalClosure
   ||| The set of positions is the inputs to the lens
   public export
   InternalLens : Cont -> Cont -> Cont
-  InternalLens c d
-    = (f : c =%> d)
-      !> (xx : c.Shp ** d.Pos ((f.fwd xx)))
+  InternalLens c d = (f : c =%> d) !> DPair (lensInputs f)
 
   public export
   curry : (c >< d) =%> e -> c =%> (InternalLens d e)
@@ -223,6 +221,10 @@ pureBw : Monad m => m <!> c =%> c
 pureBw = !% \x => (x ** pure)
 
 public export
+joinBw : Monad m => m <!> c =%> m <!> (m <!> c)
+joinBw = !% \x => (x ** join)
+
+public export
 sumBw : InterfaceOnPositions c ComMonoid => c =%> !! c
 sumBw @{MkI i} = !% \x => (x ** sum @{i x})
 
@@ -243,7 +245,8 @@ namespace CartesianClosure
   CartesianClosure : Cont -> Cont -> Cont
   CartesianClosure c d
     = (f : (Maybe <!> c) =%> d)
-      !> (x : c.Shp ** y' : d.Pos (f.fwd x) ** IsNothing (f.bwd x y'))
+        !> (x : c.Shp ** y' : d.Pos (f.fwd x) ** IsNothing (f.bwd x y'))
+      -- !> (xy' : DPair (lensInputs f) ** IsNothing (f.bwd (fst xy') (snd xy'))) 
   
 
   public export

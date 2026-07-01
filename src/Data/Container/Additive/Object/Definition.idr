@@ -38,45 +38,33 @@ public export
 (.Zero) : (c : AddCont) -> (s : c.Shp) -> c.Pos s
 (.Zero) c s = neutral (UMon c s)
 
-||| Can be represented as a derivative
-||| See Data.Container.Base.Object.Definition.Path
+||| Given a container `c`, i.e. a`c.Shp`-indexed family of sets, it is 
+||| straightforward to compute the coproduct of this family/its Sigma type:
+||| It is simply the type of dependent pairs `(s : c.Shp ** c.Pos s)`.
+|||
+||| But given an additive container, i.e. a `c.Shp`-indexed family of 
+||| *commutative monoids*, its coproduct / Sigma type is a bit tricky:
+||| Despite the fact that we have a monoid structure on every `c.Pos s`, we
+||| cannot naively use the type of dependent pairs `(s : c.Shp ** c.Pos s)` as
+||| the base set. This is because it doesn't form a monoid: we cannot add 
+||| `(s1 ** p1)` and `(s2 ** p2)` when `s1 ≠ s2` as `p1` and `p2` have 
+||| different types.
+|||
+||| Instead, we add them *formally*. We can use the free monoid construction on
+||| this dependent pair, and quotient it out by certain relations. Specifically,
+||| we use the base set `List (x : c.Shp ** c.Pos x)` quotiented out by:
+||| 1) Permutation (the list order should not matter)
+||| 2) `(s, 0) : xs = xs` (pairs where output is zero can be dropped)
+||| 3) `(s, p1) : (s, p2) : xs` = (s, p1 + p2) : xs` (same-shape entires add)
+|||
+||| We don't enforce these properties here, but instead need to check that all
+||| maps consuming this type preserve them. 
+|||
+||| Abstractly, we can state the following:
+||| * the Pi type of additive containers is inherited from ordinary containers
+||| * When `c.Shp` is finite, Pi and Sigma type of additive containers coincide
+|||   (i.e. in the finitary case, product and coproduct coincide)
+||| * When `c.Shp` is not finite, Sigma type is the subtype of Pi type, with finite support
 public export
-Path : AddCont -> Type
-Path c = (x : c.Shp ** c.Pos x)
-
-
-||| With an ordinary container `c`, the Pi and Sigma type simple are the 
-||| dependent function ((s : c.Shp) -> c.Pos s) and the dependent pair
-||| ((s : c.Shp ** c.Pos s)) type: they rely on the (co)product in Set.
-||| When the container is additive, the Pi and Sigma type rely on the 
-||| (co)product in the category ComMon. Here Pi stays the same, but Sigma
-||| ends up being a subtype of the Pi type, with finite support. This means that
-||| in the finitary case, product and coproduct coincide.
-|||
-||| This is a complicated way of saying something simple:
-||| The Sigma type, as inherited from Set, is not a monoid. This is because,
-||| despite the fact that `c` gives us a monoid structure on every `c.Pos s`, we
-||| still can't add `(s1 ** p1)` and `(s2 ** p2)` when `s1 ≠ s2` as
-||| `p1` and `p2` have different types. At best, we could do it if `c.Shp` was
-||| a monoid, and `c.Pos` was somehow laxly preserving the monoid structure.
-|||
-||| Instead, we need to use the Pi type representation: ((s : c.Shp) -> c.Pos s)
-||| whose monoid structure is given pointwise. When `c.Shp` is an infinite type,
-||| we need to ensure that the map above has finite support. Carrying this 
-||| explicit support data together with the function is very fiddly
-|||
-||| It turns out that there is a pragmatic representation of the coproduct:
-||| simply as a list of pairs `(s, p)` where `p : c.Pos s` such that:
-||| 1) The list order doesn't matter (we need to quotient it out by permutation)
-||| 2) Pairs where output is zero can be dropped, i.e. `(s, 0) : xs = xs`
-||| 3) Same-shape entires add: `(s, p1) : (s, p2) : xs` = (s, p1 + p2) : xs`
-||| That is, all maps that consume this type have to preserve these properties.
-|||
-||| It turns out that this works surprisingly well, and helps us be performant
-||| especially when dealing with autodiff.
-|||
-||| In other words, any dependent pairs that want to be a monoid should ask
-||| themselves if they're instead a list of input-output pairs.
-public export
-CoprodMon : AddCont -> ComMonoid
-CoprodMon c = (List (Path c) ** listIsMonoid)
+DPair : AddCont -> Type
+DPair c = List (DPair (UC c))

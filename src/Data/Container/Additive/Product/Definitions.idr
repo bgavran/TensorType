@@ -173,16 +173,6 @@ namespace Composition
   public export
   (>+@) : AddCont -> AddCont -> AddCont
   c >+@ d = !! (UC c >@ UC d)
-  -- c >@ d = !! (UC c >@ (List (UC d)))
-  
-  -- public export
-  -- X : AddCont
-  -- Y : AddCont
-  -- D : AddCont
-  
-  
-  -- f : X =%+> D >@ (Y >+< X)
-  -- f = !%+ \x => (?dd <| ?efff ** ?f_bwd)
 
   namespace Morphism
     ||| Action on morphisms
@@ -197,13 +187,11 @@ namespace Composition
 ||| Coincides with cartesian closure
 namespace MonoidalClosure
   ||| Internal hom in the category of additive lenses
-  ||| Using CoprodMon makes this more elegant, but requires making Additive
-  ||| instances for `=%>`, `lensInputs` and a few other things
-  ||| Can't be written directly in terms of `InternalLens`
+  ||| Closely related to the internal hom in the category of ordinary containers
   public export
   InternalLensAdditive : AddCont -> AddCont -> AddCont
   InternalLensAdditive c d = MkAddCont
-    ((l : c =%+> d) !> List (Path (lensInputs l)))
+    ((l : c =%+> d) !> DPair (lensInputs l))
     @{MkI $ \_ => listIsMonoid}
 
   public export
