@@ -67,4 +67,4 @@ public export
 ||| * When `c.Shp` is not finite, Sigma type is the subtype of Pi type, with finite support
 public export
 DPair : AddCont -> Type
-DPair c = List (DPair (UC c))
+DPair c = Bag (DPair (UC c))

@@ -192,7 +192,7 @@ namespace MonoidalClosure
   InternalLensAdditive : AddCont -> AddCont -> AddCont
   InternalLensAdditive c d = MkAddCont
     ((l : c =%+> d) !> DPair (lensInputs l))
-    @{MkI $ \_ => listIsMonoid}
+    @{MkI $ \_ => bagIsMonoid}
 
   public export
   curry : {c : AddCont} -> (c >< d) =%+> e -> c =%+> (InternalLensAdditive d e)
@@ -203,7 +203,7 @@ namespace MonoidalClosure
   uncurry : {c : AddCont} ->
     c =%+> (InternalLensAdditive d e) -> (c >< d) =%+> e
   uncurry f = !%+ \(x, y) => ((f.fwd x).fwd y **
-    \e' => (f.bwd x [(y ** e')], (f.fwd x).bwd y e'))
+    \e' => (f.bwd x (MkBag [(y ** e')]), (f.fwd x).bwd y e'))
 
 public export
 allIsComonoidPlus : {c : AddCont} ->

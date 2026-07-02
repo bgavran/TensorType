@@ -84,6 +84,7 @@ modules = Data.Container.Base
         , Data.Functor.Algebra
         , Data.Num
         , Data.ComMonoid
+        , Data.Bag
         , Data.ScientificNotation
 
         , Data.Autodiff.Ops
@@ -114,6 +115,7 @@ modules = Data.Container.Base
         , NN.Training.Examples.LinearRegression
 
         , Misc
+        , TensorType
 
 -- main file (i.e. file to load at REPL)
 -- main =

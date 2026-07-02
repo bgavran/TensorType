@@ -1,6 +1,7 @@
 module Data.ComMonoid
 
 import public Data.Num
+import public Data.Bag
 
 %hide Prelude.Semigroup
 %hide Prelude.Monoid
@@ -21,6 +22,10 @@ numIsMonoid = MkComMonoid (+) 0
 public export
 listIsMonoid : ComMonoid (List a)
 listIsMonoid = MkComMonoid (++) []
+
+public export
+bagIsMonoid : ComMonoid (Bag a)
+bagIsMonoid = MkComMonoid (++) (MkBag [])
 
 %hint
 public export

@@ -135,14 +135,14 @@ namespace CompositionProduct
   public export
   (>@) : Cont -> Cont -> Cont
   c >@ d = (ex : Ext c d.Shp) !>
-           (DPair (c.Pos (shapeExt ex)) (d.Pos . index ex))
-           -- (cp : c.Pos (shapeExt ex) ** d.Pos (index ex cp))
+           DPair ((cp : c.Pos (shapeExt ex)) !> d.Pos (index ex cp))
 
   ||| Diagrammatic composition of containers, i.e. swapped order of composition
   public export
   (@>) : Cont -> Cont -> Cont
   c @> d = (ex : Ext d c.Shp) !>
-           (DPair (d.Pos (shapeExt ex)) (c.Pos . index ex))
+           DPair ((dp : d.Pos (shapeExt ex)) !> c.Pos (index ex dp))
+           -- (DPair (d.Pos (shapeExt ex)) (c.Pos . index ex))
            -- (dp : d.Pos (shapeExt ex) ** c.Pos (index ex dp))
 
   namespace Morphism
@@ -237,6 +237,17 @@ coproductBang = !% \case
 public export
 tensorBang : Applicative m => m <!> (c >< d) =%> (m <!> c) >< (m <!> d)
 tensorBang = !% \(x, y) => ((x, y) ** \(mx', my') => [| (mx', my') |])
+
+public export
+compositionBang : Monoid d.Shp => !! (c >@ d) =%> (!! c) >@ (!! d)
+compositionBang = !% \(cShp <| cPosTodShp) => (cShp <| ?extract **
+  \(ma ** mb) => do
+    ?fifif)
+
+public export
+compositionBangBack : Monad m => (m <!> c) >@ (m <!> d) =%> m <!> (c >@ d)
+compositionBangBack = !% \ex => (shapeExt ex <| (index ex) . pure **
+  \mdp => ?hmm)
 
 ||| Closure with respect to the Cartesian product
 namespace CartesianClosure
