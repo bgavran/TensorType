@@ -57,12 +57,6 @@ softargmax = MkPara
 
 
 -- `Control.Monad.Distribution` and softargmax should probably be merged?
--- todo this is missing beause of a show instance for tensors
--- needs an assert total because it goes through tensors
 public export
 {i : Nat} -> Show (Dist i) where
-  show (MkDist xs) = assert_total $ 
-    show (softargmaxImpl {i="softmaxTemp" ~~> i} (># xs))
-
-inpp : Tensor ["ieva" ~~> 3] Double
-inpp = ># [1000, 999, 998]
+  show (MkDist xs) = show (softargmaxImpl {i="softmaxTemp" ~~> i} (># xs))
