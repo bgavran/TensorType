@@ -2,6 +2,7 @@ module Data.ScientificNotation
 
 import Data.List
 import Data.Nat
+import Data.Num
 import Data.String
 
 import Misc
@@ -205,3 +206,11 @@ ScientificDisplay Nat where
   showSci n = case cast n < sciUpperM of
     True => show n -- builtin `Show` never uses scientific notation
     False => showAsScientific n
+
+public export
+ScientificDisplay Unit where
+  showSci () = "()"
+
+public export
+ScientificDisplay a => ScientificDisplay b => ScientificDisplay (a, b) where
+  showSci (x, y) = "(\{showSci x}, \{showSci y})"

@@ -12,6 +12,7 @@ import Data.Vect.Quantifiers
 import Decidable.Equality
 import Decidable.Equality.Core
 import Data.List
+import Data.String
 
 %hide Builtin.infixr.(#)
 %hide Data.Vect.Quantifiers.All.index
@@ -680,6 +681,35 @@ public export
 index : (i : Fin k) -> Vect.Quantifiers.All.All p ts -> p (Vect.index i ts)
 index FZ (x :: xs) = x
 index (FS j) (x :: xs) = index j xs
+
+namespace TerminalStyling
+  public export
+  ansi : (code : String) -> String -> String
+  ansi code s = pre ++ code ++ "m" ++ s ++ pre ++ "0m"
+    where
+      pre : String
+      pre = singleton (chr 27) ++ "["
+  
+  public export
+  dim : String -> String
+  dim = ansi "2"
+  
+  public export
+  bold : String -> String
+  bold = ansi "1"
+  
+  public export
+  cyan : String -> String
+  cyan = ansi "36"
+  
+  public export
+  yellow : String -> String
+  yellow = ansi "33"
+  
+  public export
+  green : String -> String
+  green = ansi "32"
+
 
 
 {-

@@ -1,10 +1,13 @@
 module NN.Utils
 
 import Data.Nat
+import Data.String
+import Data.ScientificNotation
 import Misc
 
 public export
-runActionUntilMaxSteps : Show p => Show l =>
+runActionUntilMaxSteps : ScientificDisplay p =>
+  ScientificDisplay l =>
   {default 100 printEvery : Nat} ->
   (action : p -> IO p) ->
   (maxSteps : Nat) ->
@@ -16,15 +19,20 @@ runActionUntilMaxSteps action maxSteps currStep currVal lossIO
     True => do
       runIf (currStep `mod` printEvery == 0 || currStep < 10) $ do
         loss <- lossIO currVal
-        putStrLn "Current step: \{show currStep}, loss: \{show (loss)}"
-        -- putStrLn "Current step: \{show currStep}, value: \{show currVal}, loss: \{show (loss)}"
+        putStrLn "  \{dim "step"} \{bold (padLeft stepWidth ' ' (show currStep))} \{dim "│ loss"} \{yellow (showSci loss)}"
       result <- action currVal
       runActionUntilMaxSteps {printEvery=printEvery} action maxSteps (assert_smaller currStep (currStep + 1)) result lossIO
     False => do
       loss <- lossIO currVal
-      -- putStrLn "Max steps (\{show maxSteps}) reached. Final loss: \{show (loss)}"
-      putStrLn "--------------------------------------------------"
-      putStrLn "Max steps (\{show maxSteps}) reached. Final loss: \{show (loss)}."
-      putStrLn "Final parameter values: \{show currVal}."
-      putStrLn "--------------------------------------------------"
+      putStrLn rule
+      putStrLn "  \Max steps (\{bold (show maxSteps)}) reached."
+      putStrLn "  \{dim "Final loss:     "} \{yellow (showSci loss)}"
+      putStrLn "  \{dim "Final params:   "} \{cyan (showSci currVal)}"
+      putStrLn rule
       pure currVal
+  where
+    stepWidth : Nat
+    stepWidth = length (show maxSteps)
+
+    rule : String
+    rule = dim (String.replicate 50 '─')

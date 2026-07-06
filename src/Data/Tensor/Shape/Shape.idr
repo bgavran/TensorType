@@ -136,7 +136,7 @@ rename : (shape : TensorShape rank) ->
   TensorShape rank
 rename [] _ _ = []
 rename (a :: as) axisName newAxisName
-  = (::) (applyWhen (axisName == a.name) (flip rename newAxisName) a) (rename as axisName newAxisName) @{believe_me "consistentAfterRenaming"}
+  = (::) (applyWhen (axisName == a.name) (flip rename newAxisName) a) (rename as axisName newAxisName) @{believe_me "consistentAfterRenaming_believe_me"}
 
 namespace RenameByIndex
   ||| to get rid of believe_me this might need to be put in a mutual block too
@@ -307,6 +307,53 @@ namespace Unique
       = let cProof = consistentAfterRemoving a as toRemove
         in a :: removeAxis toRemove as
 
+    ||| After removing the (unique) axis name `toRemove`, said name no longer
+    ||| appears in the shape
+    public export
+    removedNotElem : {rank : Nat} ->
+      (toRemove : AxisName) -> (as : TensorShape (S rank)) ->
+      (uElem : UniqueElem toRemove as) =>
+      NotElem toRemove (removeAxis toRemove as)
+    removedNotElem _ (_ :: _) @{Here @{_} @{tNotElem}} = tNotElem
+    removedNotElem toRemove (_ :: as) @{There @{ItIsSucc} @{_} @{neqRm}}
+      = NotInNonEmpty neqRm @{removedNotElem toRemove as} _
+
+    ||| A name absent from a shape is still absent after removing an axis
+    public export
+    notElemAfterRemoving : {rank : Nat} ->
+      (x : AxisName) -> (as : TensorShape (S rank)) ->
+      NotElem x as ->
+      (toRemove : AxisName) ->
+      (uElem : UniqueElem toRemove as) =>
+      NotElem x (removeAxis toRemove as)
+    notElemAfterRemoving _ (_ :: _) (NotInNonEmpty _ @{notElemTail} _) _ @{Here}
+      = notElemTail
+    notElemAfterRemoving x (_ :: as) (NotInNonEmpty neqX @{notElemTail} _) toRemove @{There @{ItIsSucc}}
+      = NotInNonEmpty neqX @{notElemAfterRemoving x as notElemTail toRemove} _
+
+    ||| A name different from `toRemove` that appears in a shape still appears
+    ||| after the removal, and indexes the same container
+    public export
+    indexAfterRemoving : {rank : Nat} ->
+      (x : AxisName) -> (as : TensorShape (S rank)) ->
+      (e : Elem x as) ->
+      (toRemove : AxisName) ->
+      (uElem : UniqueElem toRemove as) =>
+      (neq : IsNo (decEq x toRemove)) =>
+      (e' : Elem x (removeAxis toRemove as)
+        ** index (removeAxis toRemove as) x = index as x)
+    indexAfterRemoving _ ((_ ~> _) :: _) (Here @{_} @{Refl}) _ @{Here @{Refl}} @{neq}
+      = absurd @{UninhabitedIsNoRefl} neq
+    indexAfterRemoving _ (_ :: _) (There @{_} @{elemTail}) _ @{Here}
+      = (elemTail ** Refl)
+    indexAfterRemoving _ (_ :: _) (Here @{_} @{eqPrf}) _ @{There @{ItIsSucc}}
+      = (Here @{_} @{eqPrf} ** Refl)
+    indexAfterRemoving x (ax :: as) (There @{_} @{elemTail}) toRemove @{There @{ItIsSucc}}
+      = let (e' ** prfIdx) = indexAfterRemoving x as elemTail toRemove
+        in (There @{consistentAfterRemoving ax as toRemove} {elem = e'} ** prfIdx)
+
+    ||| Proof that an axis `a` is consistent with `as` after removing the axis 
+    ||| name `toRemove` from `as`
     public export
     consistentAfterRemoving : {rank : Nat} ->
       (a : Axis) -> (as : TensorShape (S rank)) ->
@@ -314,7 +361,16 @@ namespace Unique
       (toRemove : AxisName) ->
       (uElem : UniqueElem toRemove as) =>
       a `ConsistentWith` (removeAxis toRemove as)
-    consistentAfterRemoving = believe_me "consistentAfterRemoving" 
+    consistentAfterRemoving a as @{cw} toRemove with (decEq a.name toRemove)
+      _ | Yes eqPrf
+          = NewAxis (rewrite eqPrf in removedNotElem toRemove as)
+      _ | No contra = case cw of
+            NewAxis notElem =>
+              NewAxis (notElemAfterRemoving a.name as notElem toRemove)
+            ExistingAxis e prf =>
+              let (e' ** prfIdx) = indexAfterRemoving a.name as e toRemove
+                                     {neq = proofIneqIsNo contra}
+              in ExistingAxis e' (rewrite prfIdx in prf)
     
 notElemExample1 : NotElem "i" ["g" ~> List, "j" ~> BinTree]
 notElemExample1 = %search

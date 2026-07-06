@@ -2,8 +2,8 @@ module NN.Training.Training
 
 import Data.Tensor
 import Data.Container.Additive as Additive
-import NN.Optimisers.Definition
-import NN.Optimisers.Instances
+import public Data.ScientificNotation
+import NN.Optimisers
 import NN.Architectures.LossFunctions
 
 import NN.Utils
@@ -65,7 +65,7 @@ public export
 optimise : {p, l, e : AddCont} -> InterfaceOnPositions l Num =>
   {default 100 printEvery : Nat} ->
   {default Nothing customInitParam : Maybe p.Shp} ->
-  Show p.Shp => Show l.Shp => Show stateTy =>
+  ScientificDisplay p.Shp => ScientificDisplay l.Shp => ScientificDisplay stateTy =>
   (f : p =%+> e >+@ l) ->
   (handleEffect : Costate (IO <!> e)) ->
   (opt : Optimiser p stateTy) ->
@@ -137,7 +137,7 @@ namespace WithEffect
   
   ||| Eval a model and loss with specific parameters, in the presence of an effect
   public export
-  evalWithLoss : Show x.Shp => Show y.Shp => Show l.Shp =>
+  evalWithLoss : ScientificDisplay x.Shp => ScientificDisplay y.Shp => ScientificDisplay l.Shp =>
     (f : ParaAddDLens x (e >+@ y)) ->
     (loss : Loss y {l=l}) ->
     (p : (GetParam f).Shp) ->
@@ -148,13 +148,13 @@ namespace WithEffect
         evalFWithLoss (x, yTrue) = do
           yPred <- fromCostate (evalFw f.fwd handleEffect) (x, p)
           let lossVal = loss.fwd (yPred, yTrue)
-          putStrLn "Input: \{show x}, Predicted: \{show yPred}, Loss: \{show lossVal}"
+          putStrLn "Input: \{showSci x}, Predicted: \{showSci yPred}, Loss: \{showSci lossVal}"
     _ <- traverse evalFWithLoss testData
     pure ()
   
   ||| Eval a model with specific parameters, in the presence of an effect
   public export
-  eval : Show x.Shp => Show y.Shp =>
+  eval : ScientificDisplay x.Shp => ScientificDisplay y.Shp =>
     (f : ParaAddDLens x (e >+@ y)) ->
     (p : (GetParam f).Shp) ->
     (handleEffect : Costate (IO <!> e)) ->
@@ -163,7 +163,7 @@ namespace WithEffect
     let evalF : x.Shp -> IO ()
         evalF x = do
           yPred <- fromCostate (evalFw f.fwd handleEffect) (x, p)
-          putStrLn "Input: \{show x}, Predicted: \{show yPred}"
+          putStrLn "Input: \{showSci x}, Predicted: \{showSci yPred}"
     _ <- traverse evalF testData
     pure ()
 
@@ -181,7 +181,7 @@ namespace WithoutEffect
 
   ||| Eval a model with specific parameters
   public export
-  eval : {y : AddCont} -> Show x.Shp => Show y.Shp =>
+  eval : {y : AddCont} -> ScientificDisplay x.Shp => ScientificDisplay y.Shp =>
     (f : ParaAddDLens x y) ->
     (p : (GetParam f).Shp) ->
     Costate (IO <!> (Const2 (Vect n x.Shp) Unit))

@@ -3,6 +3,7 @@ module Data.Container.Base.TreeUtils
 import Decidable.Equality
 import Language.Reflection
 import Derive.Prelude
+import Data.Finite
 
 import Data.Container.Base.Object.Definition
 import Data.Container.Base.Extension.Definition
@@ -95,6 +96,14 @@ namespace BinaryTrees
     %runElab deriveIndexed "BinTreePosNode" [Eq, Show]
 
     public export
+    {b : BinTreeShape} -> Finite (BinTreePosNode b) where
+      values {b = LeafS} = []
+      values {b = (NodeS l r)} =
+        let tl = GoLeft <$> values {a=BinTreePosNode l}
+            tr = GoRight <$> values {a=BinTreePosNode r}
+        in tl ++ [AtNode] ++ tr
+
+    public export
     MOrd (BinTreePosNode b) where
       mcompare AtNode AtNode = Just EQ
       mcompare (GoLeft b1) (GoLeft b2) = mcompare b1 b2
@@ -115,6 +124,15 @@ namespace BinaryTrees
       GoRight : {l, r : BinTreeShape} -> BinTreePosLeaf r -> BinTreePosLeaf (NodeS l r)
 
     %runElab deriveIndexed "BinTreePosLeaf" [Eq, Show]
+
+    ||| Assumes a choice of traversal
+    public export
+    {b : BinTreeShape} -> Finite (BinTreePosLeaf b) where
+      values {b = LeafS} = [AtLeaf]
+      values {b = (NodeS l r)} =
+        let tl = GoLeft <$> values {a=BinTreePosLeaf l}
+            tr = GoRight <$> values {a=BinTreePosLeaf r}
+        in tl ++ tr
 
     public export
     MOrd (BinTreePosLeaf b) where

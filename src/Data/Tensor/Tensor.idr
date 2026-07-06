@@ -7,6 +7,7 @@ import public Data.Vect.Elem -- for proofs about AxesConsistent
 import Data.DPair
 import public Decidable.Equality
 import public Data.Fin.Split
+import public Data.Finite
 
 import public Data.Container.Base
 import public Data.Container.Applicative
@@ -183,14 +184,14 @@ namespace NestedTensorUtils
   ||| but it requires non-erased `c` and `cs`
   public export
   extractTopExt : {0 cs : TensorShape rank} ->
-    ConsistentWith c cs =>
+    (0 _ : ConsistentWith c cs) =>
     Tensor (c :: cs) a -> Ext c.cont (Tensor cs a)
   extractTopExt (MkT (sh <| ind))
     = shapeExt sh <| \p => MkT $ index sh p <| \p' => ind (p ** p')
   
   public export
   embedTopExt : {0 cs : TensorShape rank} ->
-    ConsistentWith c cs =>
+    (0 _ : ConsistentWith c cs) =>
     Ext c.cont (Tensor cs a) -> Tensor (c :: cs)  a
   embedTopExt e =
     let tp = GetT . index e
@@ -208,13 +209,13 @@ namespace NestedTensorUtils
 
   public export
   toNestedTensor : {0 cs : TensorShape rank} ->
-    ConsistentWith c cs =>
+    (0 _ : ConsistentWith c cs) =>
     Tensor (c :: cs) a -> Tensor [c] (Tensor cs a)
   toNestedTensor = extToVector . extractTopExt
 
   public export
   fromNestedTensor : {0 cs : TensorShape rank} ->
-    ConsistentWith c cs =>
+    (0 _ : ConsistentWith c cs) =>
     Tensor [c] (Tensor cs a) -> Tensor (c :: cs) a
   fromNestedTensor = embedTopExt . vectorToExt 
 
@@ -222,7 +223,7 @@ namespace NestedTensorUtils
   public export
   tensorMapFirstAxis : {0 c : Axis} ->
     {0 cs : TensorShape k} -> {0 ds : TensorShape k'} ->
-    (ccs : c `ConsistentWith` cs) => (cds : c `ConsistentWith` ds) =>
+    (0 ccs : c `ConsistentWith` cs) => (0 cds : c `ConsistentWith` ds) =>
     (f : Tensor cs a -> Tensor ds a) ->
     Tensor (c :: cs) a -> Tensor (c :: ds) a
   tensorMapFirstAxis f = fromNestedTensor . map f . toNestedTensor
@@ -233,7 +234,7 @@ namespace NestedTensorUtils
   public export
   (<-$>) : {c : Axis} ->
     {0 cs : TensorShape k} -> {0 ds : TensorShape k'} ->
-    ConsistentWith c cs => ConsistentWith c ds =>
+    (0 _ : ConsistentWith c cs) => (0 _ : ConsistentWith c ds) =>
     (f : Tensor cs a -> Tensor ds a) ->
     Tensor (c :: cs) a -> Tensor (c :: ds) a
   (<-$>) = tensorMapFirstAxis
@@ -634,7 +635,19 @@ namespace TensorInstances
       reduceSingleAxis {shape = (ax :: as)} toReduce t @{There @{ItIsSucc}} @{_ :: _} {isFinite=isFinite}
         = tensorMapFirstAxis {cds=consistentAfterRemoving ax as toReduce}
             (\t' => reduceSingleAxis toReduce t' {isFinite=isFinite}) t
-
+      
+      -- temporary
+      public export
+      reduceAxis : {rank : Nat} ->
+        {shape : TensorShape (S rank)} ->
+        (toReduce : AxisName) ->
+        (uElem : UniqueElem toReduce shape) =>
+        (t : Tensor shape a) ->
+        AllC TensorMonoid shape =>
+        Num a =>
+        (isFinite : IsFinite (index shape toReduce)) =>
+        Tensor (Unique.removeAxis toReduce shape) a
+      reduceAxis = reduceSingleAxis
 
       -- ||| Takes in a tensor `t` and an axis name which we want to reduce along.
       -- ||| Returns a new tensor with all occurences of this axis summed over, 
@@ -1414,10 +1427,17 @@ namespace SetterGetter
     index (index (extractTopExt t) i) is
 
   public export infixr 9 @@
+  public export infixr 9 ^.
+
   public export
   (@@) : {shape : TensorShape rank} ->
     (t : Tensor shape a) -> Index shape t -> a
   (@@) = index
+
+  public export
+  (^.) : {shape : TensorShape rank} ->
+    (t : Tensor shape a) -> Index shape t -> a
+  (^.) = index
 
   public export 
   set : {shape : TensorShape rank} ->

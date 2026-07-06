@@ -1,6 +1,7 @@
 module NN.Architectures
 
 import public Data.Para
+import public Data.Container.Additive
 
 import public NN.Architectures.Activations
 import public NN.Architectures.Softargmax

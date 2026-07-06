@@ -87,6 +87,7 @@ modules = Data.Container.Base
         , Data.Bag
         , Data.ScientificNotation
 
+        , Data.Autodiff
         , Data.Autodiff.Ops
 
         , Control.Monad.Distribution
@@ -109,9 +110,10 @@ modules = Data.Container.Base
         , NN.Optimisers.Definition
         , NN.Optimisers.Instances
 
+        , NN.Training
         , NN.Training.Training
-        , NN.Utils
         , NN.Training.DataLoader
+        , NN.Utils
         , NN.Training.Examples.LinearRegression
 
         , Misc

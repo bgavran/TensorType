@@ -3,18 +3,10 @@ module NN.Training.Examples.LinearRegression
 import System.Random
 
 import Data.Tensor
-import Data.Container.Additive
-import NN.Optimisers.Definition
-import NN.Optimisers.Instances
-import NN.Training.Training
-import NN.Training.DataLoader
-import NN.Utils
-import Data.Autodiff.Ops
-import Control.Monad.Identity
-import NN.Architectures.LossFunctions
-
-import Data.Para
-
+import NN.Architectures
+import NN.Optimisers
+import NN.Training
+import Data.Autodiff
 
 public export
 exampleInputs : Vect 5 Double
@@ -33,12 +25,13 @@ linearRegression : (f : ParaAddDLens (Const Double) (Const Double)) ->
   Neg (GetParam f).Shp => Fractional (GetParam f).Shp =>
   Sqrt (GetParam f).Shp =>
   Random (GetParam f).Shp =>
-  FromDouble (GetParam f).Shp => Show (GetParam f).Shp =>
+  FromDouble (GetParam f).Shp => ScientificDisplay (GetParam f).Shp =>
   (isFlat : IsFlat (GetParam f)) =>
   (numSteps : Nat) ->
   IO ()
 linearRegression f@(MkPara (MkAddCont (Const p)) _)
   {isFlat = MkIsFlat p @{mon}} numSteps = do
+  putStrLn "Training a linear regression model..."
   trainData <- linearRegressionDataLoader
   testDataLoader <- makeDataLoader [20, 50, 100] (pure . groundTruth)
   pTrained <- fst <$> optimise
@@ -49,7 +42,7 @@ linearRegression f@(MkPara (MkAddCont (Const p)) _)
     numSteps
   fromCostate (eval f pTrained) (snd $ inputs testDataLoader)
   avgLoss <- fromCostate (averageLoss f SquaredDifference pTrained) (dataset testDataLoader)
-  putStrLn "Average loss: \{show avgLoss}"
+  putStrLn "Average loss: \{showSci avgLoss}"
 
 {- 
 public export
