@@ -129,13 +129,17 @@ namespace CategoricalCoproduct
       Right y => (Right (g.fwd y) ** g.bwd y)
 
 namespace CompositionProduct
+  ||| Container used to produce the position type in the compositon product
+  public export
+  positionCont : (c, d : Cont) -> Ext c d.Shp -> Cont
+  positionCont c d ex = (cp : c.Pos (shapeExt ex)) !> d.Pos (index ex cp)
+  
   ||| Composition of containers making Ext (c >@ d) = (Ext c) . (Ext d)
   ||| Non-symmetric in general, and not in diagrammatic order
   ||| Monoid with Scalar
   public export
   (>@) : Cont -> Cont -> Cont
-  c >@ d = (ex : Ext c d.Shp) !>
-           DPair ((cp : c.Pos (shapeExt ex)) !> d.Pos (index ex cp))
+  c >@ d = (ex : Ext c d.Shp) !> DPair (positionCont c d ex)
 
   ||| Diagrammatic composition of containers, i.e. swapped order of composition
   public export
@@ -202,16 +206,26 @@ namespace Morphism
 
 
 public export prefix 9 !!
+public export prefix 9 !*
+
 ||| BANG. List on positions, always has a monoid structure
 public export
 (!!) : Cont -> Cont
 (!!) = (List <!>)
+
+public export
+(!*) : Cont -> Cont
+(!*) = (Bag <!>)
 
 
 namespace Morphism
   public export
   (!!) : c =%> d -> !! c =%> !! d
   (!!) = (List <!>)
+
+  public export
+  (!*) : c =%> d -> !* c =%> !* d
+  (!*) = (Bag <!>)
   
 
 ||| Turn a banged container into a container
@@ -225,7 +239,7 @@ joinBw : Monad m => m <!> c =%> m <!> (m <!> c)
 joinBw = !% \x => (x ** join)
 
 public export
-sumBw : InterfaceOnPositions c ComMonoid => c =%> !! c
+sumBw : InterfaceOnPositions c ComMonoid => c =%> Bag <!> c
 sumBw @{MkI i} = !% \x => (x ** sum @{i x})
 
 public export
@@ -288,6 +302,10 @@ namespace CartesianClosure
 public export
 List : Cont -> Cont
 List c = (ss : List c.Shp) !> All c.Pos ss
+
+public export
+Bag : Cont -> Cont
+Bag c = (ss : Bag c.Shp) !> All c.Pos ss
 
 namespace Morphism
   public export

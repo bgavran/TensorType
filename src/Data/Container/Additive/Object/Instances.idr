@@ -38,7 +38,7 @@ TrivialPos a = Const a (Unit ** %search)
 ||| Note the similarities and differences with `Simplex`
 public export
 Dist : Nat -> AddCont
-Dist n = !! (Dist n)
+Dist n = !* (Dist n)
 
 
 namespace NumConst

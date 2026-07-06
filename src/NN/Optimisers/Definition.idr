@@ -30,8 +30,7 @@ record Optimiser
   (stateTy : Type)
   where
   constructor MkOptimiser
-  ||| Notably, this is an ordinary dependent lens, not an additive one
-  opt : (Const paramCont.Shp >< Const stateTy) =%> UC paramCont
+  opt : Const paramCont.Shp >< Const stateTy =%> UC paramCont
   ||| Procedure for initialising parameters
   initParam : IO paramCont.Shp
   ||| Procedure for initialising state

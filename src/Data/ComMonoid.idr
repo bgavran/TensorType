@@ -37,7 +37,7 @@ pairIsMonoid @{MkComMonoid plusA neutralA} @{MkComMonoid plusB neutralB}
 
 
 public export
-sum : ComMonoid a => List a -> a
+sum : ComMonoid a => Bag a -> a
 sum @{mon} = foldr (plus mon) (neutral mon)
 
 

@@ -130,21 +130,26 @@ namespace Coproduct
       ((shapes : Any (.Shp) xs) !> AnyShpPos shapes)
       @{MkI anyShpPosComMonoid}
 
-||| Bang operator: list on positions, always has a monoid structure
-||| Note, this is different than the above operator which is a monoid on lists
-||| of dependent pairs. This one is not.
-public export
-(!!) : Cont -> AddCont
-(!!) c = MkAddCont
-  (List <!> c)
-  @{MkI $ \_ => listIsMonoid}
+-- ||| Bang operator: list on positions, making them a free commutative monoid
+-- public export
+-- (!!) : Cont -> AddCont
+-- (!!) c = MkAddCont
+--   (List <!> c)
+--   @{MkI $ \_ => listIsMonoid}
 
-export prefix 9 !!
+public export
+(!*) : Cont -> AddCont
+(!*) c = MkAddCont
+  (Bag <!> c)
+  @{MkI $ \_ => bagIsMonoid}
+
+
+export prefix 9 !*
 
 ||| Similar to `Nap`
 public export
 pushDown : Type -> AddCont
-pushDown b = !! (Nap b)
+pushDown b = !* (Nap b)
 
 
 namespace Composition
@@ -169,10 +174,19 @@ namespace Composition
   --      reindexAlongPlus l r cPosToDShp l' r'))
   --    (c.Zero cShp ** d.Zero $ cPosToDShp $ c.Zero cShp)}}
 
+  ||| Container used to produce the position type in the composition product
+  public export
+  positionCont : (c, d : AddCont) -> Ext c d.Shp -> AddCont
+  positionCont c d ex = MkAddCont
+    (positionCont (UC c) (UC d) ex)
+    @{MkI $ \cp => UMon d (index ex cp)}
+
   ||| Composition
   public export
   (>+@) : AddCont -> AddCont -> AddCont
-  c >+@ d = !! (UC c >@ UC d)
+  c >+@ d = MkAddCont
+    ((ex : Ext c d.Shp) !> DPair (positionCont c d ex))
+    @{MkI $ \s => bagIsMonoid}
 
   namespace Morphism
     ||| Action on morphisms
@@ -205,45 +219,84 @@ namespace MonoidalClosure
   uncurry f = !%+ \(x, y) => ((f.fwd x).fwd y **
     \e' => (f.bwd x (MkBag [(y ** e')]), (f.fwd x).bwd y e'))
 
-public export
-allIsComonoidPlus : {c : AddCont} ->
-  (s : List c.Shp) ->
-  All c.Pos s -> All c.Pos s -> All c.Pos s
-allIsComonoidPlus [] [] [] = []
-allIsComonoidPlus (s :: ss) (l :: ls) (r :: rs) =
-  c.Plus s l r :: allIsComonoidPlus ss ls rs
+namespace ListAllComMonoid
+  public export
+  allIsComMonoidPlus : {c : AddCont} ->
+    (s : List c.Shp) ->
+    All c.Pos s -> All c.Pos s -> All c.Pos s
+  allIsComMonoidPlus [] [] [] = []
+  allIsComMonoidPlus (s :: ss) (l :: ls) (r :: rs) =
+    c.Plus s l r :: allIsComMonoidPlus ss ls rs
+  
+  public export
+  allIsComMonoidNeutral : {c : AddCont} ->
+    (s : List c.Shp) ->
+    All c.Pos s
+  allIsComMonoidNeutral [] = []
+  allIsComMonoidNeutral (s :: ss) = c.Zero s :: allIsComMonoidNeutral ss
+  
+  public export
+  allIsComMonoid : {c : AddCont} ->
+    (s : List c.Shp) ->
+    ComMonoid (All c.Pos s)
+  allIsComMonoid s = MkComMonoid (allIsComMonoidPlus s) (allIsComMonoidNeutral s)
+
+namespace BagAllComonoid
+  public export
+  allIsComMonoidPlus : {c : AddCont} ->
+    (s : Bag c.Shp) ->
+    All c.Pos s -> All c.Pos s -> All c.Pos s
+  allIsComMonoidPlus (MkBag ul) l r = allIsComMonoidPlus ul l r
+  
+  public export
+  allIsComMonoidNeutral : {c : AddCont} ->
+    (s : Bag c.Shp) ->
+    All c.Pos s
+  allIsComMonoidNeutral (MkBag ul) = allIsComMonoidNeutral ul
+
+  public export
+  allIsComMonoid : {c : AddCont} ->
+    (s : Bag c.Shp) ->
+    ComMonoid (All c.Pos s)
+  allIsComMonoid s = MkComMonoid
+    (allIsComMonoidPlus s)
+    (allIsComMonoidNeutral s)
 
 public export
-allIsComonoidNeutral : {c : AddCont} ->
-  (s : List c.Shp) ->
-  All c.Pos s
-allIsComonoidNeutral [] = []
-allIsComonoidNeutral (s :: ss) = c.Zero s :: allIsComonoidNeutral ss
+Bag : AddCont -> AddCont
+Bag c = MkAddCont
+  (Bag (UC c))
+  @{MkI $ allIsComMonoid}
 
-public export
-allIsComonoid : {c : AddCont} ->
-  (s : List c.Shp) ->
-  ComMonoid (All c.Pos s)
-allIsComonoid s = MkComMonoid (allIsComonoidPlus s) (allIsComonoidNeutral s)
+-- namespace Morphism
+--   public export
+--   bww : (f : c =%+> d) -> (cs : Bag c.Shp) ->
+--     All (d.Pos) (f.fwd <$> cs) -> Bag (c .Pos) cs
+--   bww f [] [] = []
+--   bww f (c :: cs) (a :: as) = (f.bwd c a) :: bww f cs as
+-- 
+--   public export
+--   List : c =%+> d -> Bagw c =%+> Bag d
+--   List f = !%+ \cs => (f.fwd <$> cs ** bww f cs)
 
 -- Not exactly a product
 public export
 List : AddCont -> AddCont
 List c = MkAddCont
   (List (UC c))
-  @{MkI allIsComonoid}
+  @{MkI allIsComMonoid}
 
 
-namespace Morphism
-  public export
-  bww : (f : c =%+> d) -> (cs : List c.Shp) ->
-    All (d.Pos) (f.fwd <$> cs) -> All (c .Pos) cs
-  bww f [] [] = []
-  bww f (c :: cs) (a :: as) = (f.bwd c a) :: bww f cs as
-
-  public export
-  List : c =%+> d -> List c =%+> List d
-  List f = !%+ \cs => (f.fwd <$> cs ** bww f cs)
+-- namespace Morphism
+--   public export
+--   bww : (f : c =%+> d) -> (cs : List c.Shp) ->
+--     All (d.Pos) (f.fwd <$> cs) -> All (c .Pos) cs
+--   bww f [] [] = []
+--   bww f (c :: cs) (a :: as) = (f.bwd c a) :: bww f cs as
+-- 
+--   public export
+--   List : c =%+> d -> List c =%+> List d
+--   List f = !%+ \cs => (f.fwd <$> cs ** bww f cs)
 
 -- duoidal and distribute have been moved to Additive.Morphism.Instances
 
@@ -284,7 +337,7 @@ namespace BangAddCont
 ||| to use it.
 public export
 PreparedChoice : {n : Nat} -> Vect n Cont -> AddCont
-PreparedChoice xs = !! (AllAny xs)
+PreparedChoice xs = !* (AllAny xs)
 
 namespace ConvexCombProduct
   ||| Container whose shapes are distributions, positions their gradients.

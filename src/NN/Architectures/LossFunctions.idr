@@ -18,7 +18,7 @@ import Data.Para
 ||| Loss function alias
 public export
 Loss : AddCont -> {default (Const Double) l : AddCont} -> Type
-Loss c = (c >< c) =%+> l
+Loss y = y >< y =%+> l
 
 namespace Combinators
   ||| Combinator for pairing up loss functions
@@ -57,8 +57,8 @@ namespace Combinators
   zipListsBwd : {y : AddCont} ->
     (l1, l2 : List y.Shp) ->
     All (y >< y).Pos (zip l1 l2) -> (All y.Pos l1, All y.Pos l2)
-  zipListsBwd [] l2 [] = ([], allIsComonoidNeutral l2)
-  zipListsBwd (s1 :: ss1) [] [] = (allIsComonoidNeutral (s1 :: ss1), [])
+  zipListsBwd [] l2 [] = ([], allIsComMonoidNeutral l2)
+  zipListsBwd (s1 :: ss1) [] [] = (allIsComMonoidNeutral (s1 :: ss1), [])
   zipListsBwd (s1 :: ss1) (s2 :: ss2) ((p1, p2) :: rest) =
     let (ls, rs) = zipListsBwd ss1 ss2 rest
     in (p1 :: ls, p2 :: rs)

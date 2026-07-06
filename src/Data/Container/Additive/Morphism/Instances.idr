@@ -10,6 +10,7 @@ import Data.ComMonoid
 import Data.Num
 import Data.Container.Additive.Object.Definition
 import Data.Container.Additive.Object.Instances
+import Data.Container.Additive.Extension.Definition
 import Data.Container.Additive.Morphism.Definition
 import Data.Container.Additive.Product.Definitions
 import Data.Container.Additive.Properties.Definitions
@@ -42,19 +43,19 @@ import Misc
 |||  │ s:S  │
 |||  └──────┘
 |||     Ps
-||| For additive containers we need to take the free monoid
+||| For additive containers we need to take the free commutative monoid
 public export
 pushDown : AddCont -> AddCont
-pushDown c = !! pushDown (UC c)
+pushDown c = !* pushDown (UC c)
 
 public export
-pushIntoContinuationList : {p : AddCont} -> {0 d, l : AddCont} ->
+pushIntoContinuationBag : {p : AddCont} -> {0 d, l : AddCont} ->
   d >< p =%+> l ->
-  p =%+> (pushDown d) >+@ (List l)
-pushIntoContinuationList f = !%+ \param => (() <|
-  \ds => ds <&> (\dShp => f.fwd (dShp, param)) **
-    \ll => sum @{UMon p param} (ll >>=
-      \(ds ** grads) => extractPGrads param ds grads))
+  p =%+> (pushDown d) >+@ (Bag l)
+pushIntoContinuationBag f = !%+ \param => (() <|
+  map (\dShp => f.fwd (dShp, param)) **
+    \ll => sum @{UMon p param} $ ll >>=
+      \(ds ** grads) => extractPGradsBag param ds grads)
   where
     extractPGrads : (param : p.Shp) ->
       (ds : List d.Shp) ->
@@ -64,14 +65,22 @@ pushIntoContinuationList f = !%+ \param => (() <|
     extractPGrads param (dShp :: ds) (grad :: grads) =
       snd (f.bwd (dShp, param) grad) :: extractPGrads param ds grads
 
+    extractPGradsBag : (param : p.Shp) ->
+      (ds : Bag d.Shp) ->
+      All l.Pos ((\dShp => f.fwd (dShp, param)) <$> ds) ->
+      Bag (p.Pos param)
+    extractPGradsBag param (MkBag dsl) grads
+      = MkBag $ extractPGrads param dsl grads
+
+
 public export
 pushIntoContinuation : {p : AddCont} -> (flat : IsFlat l) => Num l.Shp =>
   (f : d >< p =%+> l) ->
   (p =%+> (pushDown d) >+@ l)
-pushIntoContinuation {flat = MkIsFlat _} f = !%+ \param => (() <|
+pushIntoContinuation {flat = MkIsFlat lp} f = !%+ \param => (() <|
   \ds => sum @{numIsMonoid} ((\dShp => f.fwd (dShp, param)) <$> ds) **
-    \ll => sum @{UMon p param} (ll >>=
-      \(ds ** grad) => (\dShp => snd (f.bwd (dShp, param) grad)) <$> ds))
+    \bb => sum @{UMon p param} (bb >>=
+      \(ds ** grad) => ds <&> (\dShp => snd (f.bwd (dShp, param) grad))))
 
 ||| This is also the categorical product since our containers are additive
 namespace HancockTensorProduct
@@ -140,12 +149,33 @@ namespace CompositionProduct
   ||| Left unit inverse: c =%+> Scalar >+@ c
   public export
   leftUnitInv : {c : AddCont} -> c =%+> Scalar >+@ c
-  leftUnitInv = !% sumBw @{mon c} %>> !! leftUnitInv
+  leftUnitInv = !% sumBw @{mon c} %>> (Bag <!> leftUnitInv)
 
   ||| Right unit inverse: c =%+> c >@ I
   public export
   rightUnitInv : {c : AddCont} -> c =%+> c >+@ Scalar
-  rightUnitInv = !% sumBw @{mon c} %>> !! rightUnitInv
+  rightUnitInv = !% sumBw @{mon c} %>> (Bag <!> rightUnitInv)
+
+  public export
+  assocL : (a >+@ b) >+@ c =%+> a >+@ (b >+@ c)
+  assocL = !%+ \((aShp <| f) <| g) =>
+    (aShp <| \aPos => f aPos <| \bPos => g (MkBag [(aPos ** bPos)]) **
+      \ll => join $ ll <&> \(aPos ** lbc) =>
+        lbc <&> \(bPos ** cPos) => (MkBag [(aPos ** bPos)] ** cPos))
+
+  ||| Associator, "un-flatten" direction. NOT definable as a total lens in
+  ||| general: the forward would have to produce the target's outer index
+  ||| `g : List (aPos ** bPos) -> c.Shp`, i.e. collapse a whole list of
+  ||| (a,b)-positions into a single c-shape. All we have is one c-shape per
+  ||| element (`index (f aPos) bPos`), and c-shapes carry no monoid/default,
+  ||| so the empty-list case has no answer. This is the precise sense in which
+  ||| the free composition product is only laxly (one-directionally) associative.
+  public export
+  assocR : a >+@ (b >+@ c) =%+> (a >+@ b) >+@ c
+  assocR = !%+ \(aShp <| f) => (((aShp <| shapeExt . f) <|
+    \ll => let ff : (aPos : a.Pos aShp ** b.Pos (Ext.shapeExt $ f aPos)) -> c.Shp 
+               ff (aPos ** bPos) = index (f aPos) bPos
+           in ?llb) ** ?fififi)
 
 
 namespace Coproduct
@@ -255,11 +285,18 @@ bwSumList : {l : Type} -> ComMonoid l =>
 bwSumList [] d' = []
 bwSumList (x :: xs) d' = x :: bwSumList xs x
 
+public export
+bwSumBag : {l : Type} -> ComMonoid l =>
+  (xs : Bag l) ->
+  (d' : l) ->
+  All (const l) xs
+bwSumBag (MkBag xs) d' = bwSumList xs d'
+
 
 public export
 sumList : {l : Type} -> ComMonoid l =>
-  List (Const l) =%+> Const l
-sumList = !%+ \xs => (sum xs ** \d' => bwSumList xs d')
+  Bag (Const l) =%+> Const l
+sumList = !%+ \xs => (sum xs ** \d' => bwSumBag xs d')
 
 public export
 negate : Num a => Neg a =>
