@@ -16,8 +16,9 @@ authors = "Bruno Gavranovic"
 depends = tensortype
 
 -- modules to install
-modules = BasicExamples,
-          Attention
+modules = BasicExamples
+        , ApplicativeLinearAlgebra
+        , Attention
 
 -- main file (i.e. file to load at REPL)
 -- main =
