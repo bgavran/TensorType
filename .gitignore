@@ -2,6 +2,9 @@
 .env
 /scratchpad/
 
+/examples/build/
+/tests/build/
+
 # Idris build artifacts
 *.ibc
 *.o
