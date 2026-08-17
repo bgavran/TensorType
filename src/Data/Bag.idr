@@ -53,6 +53,7 @@ Foldable Bag where
 
 
 namespace Quantifiers
+  -- biproduct, because bag is finite
   public export
   All : (p : a -> Type) -> Bag a -> Type
   All p (MkBag xs) = All p xs
