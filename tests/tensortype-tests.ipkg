@@ -21,6 +21,8 @@ modules = Display2D.Instances
         , Display2D.Expected
         , Tensor.Interfaces
         , Tensor.Indexing
+        , Tensor.Axis
+        , Train.LinearRegression
         , Main
 
 -- main file (i.e. file to load at REPL)
