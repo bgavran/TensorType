@@ -2,9 +2,11 @@ module Data.Container.Additive.Extension.Definition
 
 import Data.Container.Base
 import Data.Container.Additive.Object.Definition
+import Data.ComMonoid
 
-||| If extension of a container is a functor Type -> Type, what is an extension
-||| of an additive container?
+||| A functor `AddCont -> [ComMon, Type]`
 public export
-Ext : AddCont -> Type -> Type
-Ext c x = Ext (UC c) x
+record Ext (0 c : AddCont) (y : ComMonoid) where
+  constructor (<|)
+  shapeExt : c.Shp
+  index : ComMonoidHomo (UMon c shapeExt) y

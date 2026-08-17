@@ -97,11 +97,11 @@ namespace HancockTensorProduct
 namespace CompositionProduct
   public export
   leftUnit : Scalar >@ c =%> c
-  leftUnit = !% \(() <| cShp) => (cShp () ** \c' => (() ** c'))
+  leftUnit = !% \ex => (index ex () ** \c' => (() ** c'))
 
   public export
   rightUnit : c >@ Scalar =%> c
-  rightUnit = !% \(s <| _) => (s ** \cp => (cp ** ()))
+  rightUnit = !% \ex => (shapeExt ex ** \cp => (cp ** ()))
 
   public export
   leftUnitInv : c =%> Scalar >@ c
@@ -109,17 +109,18 @@ namespace CompositionProduct
   
   public export
   rightUnitInv : c =%> c >@ Scalar
-  rightUnitInv = !% \s => (s <| const () ** fst)
+  rightUnitInv = !% \s => (s <| \_ => () ** fst)
 
   public export
   assocL : (a >@ b) >@ c =%> a >@ (b >@ c)
   assocL = !% \((aShp <| f) <| g) =>
-    (aShp <| \aPos => f aPos <| \bPos => g (aPos  ** bPos) ** \(aPos ** bPos ** cPos) => ((aPos ** bPos) ** cPos))
+    (aShp <| \aPos => f aPos <| \bPos => g (aPos  ** bPos) **
+      \(aPos ** bPos ** cPos) => ((aPos ** bPos) ** cPos))
 
   public export
   assocR : a >@ (b >@ c) =%> (a >@ b) >@ c
-  assocR = !% \(aShp <| f) => ((aShp <| shapeExt . f) <| \(aPos ** bPos) =>
-    index (f aPos) bPos **
+  assocR = !% \(aShp <| f) =>
+    ((aShp <| shapeExt . f) <| \(aPos ** bPos) => index (f aPos) bPos **
       \((aPos ** bPos) ** cPos) => (aPos ** (bPos ** cPos)))
 
 namespace Coproduct

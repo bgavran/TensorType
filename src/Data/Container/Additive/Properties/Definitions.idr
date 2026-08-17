@@ -8,15 +8,12 @@ import Data.ComMonoid
 ||| Convenience datatype storing the property that
 ||| an additive container `c` has an interface `i` on its positions
 public export
-data InterfaceOnPositions : (c : AddCont) -> (i : Type -> Type) -> Type where
-  ||| For every shape s the set of positions c.Pos s has that interface
-  MkI : ((s : c.Shp) -> i (c.Pos s)) -> InterfaceOnPositions c i
+InterfaceOnPositions : (c : AddCont) -> (i : Type -> Type) -> Type
+InterfaceOnPositions c = InterfaceOnPositions (UC c)
 
 
 
-namespace Flat
+namespace Const
   public export
-  data IsFlat : AddCont -> Type where
-    MkIsFlat : (p : Type) -> (mon : ComMonoid p) => IsFlat (MkAddCont (Const p))
-
-  --flatEq : IsFlat c => c = MkAddCont (Const c.Shp)
+  data IsConst : AddCont -> Type where
+    MkIsConst : (p : Type) -> (mon : ComMonoid p) => IsConst (MkAddCont (Const p))

@@ -48,18 +48,18 @@ namespace DependentLenses
   ||| See fwd of `DChart`
   public export
   (.fwd) : c =%> d -> c.Shp -> d.Shp
-  (.fwd) f x = ((%! f) x).fst
+  (.fwd) (!% f) x = (f x).fst
 
   public export
   (.bwd) : (f : c =%> d) -> (x : c.Shp) -> d.Pos (f.fwd x) -> c.Pos x
-  (.bwd) f x y' = ((%! f) x).snd y'
+  (.bwd) (!% f) x y' = (f x).snd y'
 
   ||| Composition of dependent lenses
   public export
   compDepLens : c =%> d -> d =%> e -> c =%> e
-  compDepLens (!% f) (!% g) = !% \x => let (y ** ky) = f x
-                                           (z ** kz) = g y
-                                       in (z ** ky . kz)
+  compDepLens f g = !% \x =>
+    (g.fwd (f.fwd x) ** (f.bwd x) . (g.bwd (f.fwd x)))
+
   public export
   (%>>) : c =%> d -> d =%> e -> c =%> e
   (%>>) = compDepLens
@@ -86,7 +86,7 @@ namespace DependentCharts
   |||
   |||                  ┌─────────────┐
   |||  (x : c.Shp)  ──►┤             ├──► (y : c.Shp)
-  |||                  │    lens     │
+  |||                  │    chart    │
   |||     c.Pos x   ──►┤             ├──► d.Pos y
   |||                  └─────────────┘
   public export

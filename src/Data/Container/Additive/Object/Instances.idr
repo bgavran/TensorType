@@ -9,41 +9,52 @@ import Data.Container.Additive.Object.Definition
 import Data.Container.Additive.Extension.Definition
 import Data.Container.Additive.Product.Definitions
 
-||| Scalar additive container
-||| This is equivalent to `!! UnitCont`
-||| Unit of the categorical product
+||| Constant (non-dependent) add. container, positions not dependent on shapes
+||| As a polynomial functor: F(Y) = aY^b
 public export
-Scalar : AddCont
-Scalar = MkAddCont Scalar
+Const2 : Type -> ComMonoid -> AddCont
+Const2 a (t ** m) = MkAddCont (Const2 a t) @{MkI $ \_ => m}
+
+namespace NumConst
+  ||| Constant additive container whose shapes and positions coincide
+  ||| Also arises from Num instance
+  public export
+  Const : (a : Type) -> (mon : ComMonoid a) => AddCont
+  Const a = Const2 a (a ** mon)
+
+||| Naperian additive container: a constant container with a single shape
+||| As a polynomial functor: F(Y) = Y^b
+public export
+Nap : ComMonoid -> AddCont
+Nap b = Const2 Unit b
+
+||| Flat additive container: a constant container with a single position
+||| As a polynomial functor: F(Y) = aY
+||| Notably, unlike with `Data.Container.Base`, there is no `Sharp`
+public export
+Flat : Type -> AddCont
+Flat a = Const2 a (Unit ** %search)
+
 
 ||| Empty additive container
-||| Unit of the coproduct
-||| Initial container
+||| As a polynomial functor: F(Y) = 0
+||| Initial additive container
 public export
 Empty : AddCont
 Empty = MkAddCont Empty @{MkI absurd}
 
-||| Constant additive container, positions not dependent on shapes
-||| Allows the backward part to be different than forward one
+
+||| Container of a single thing
+||| As a polynomial functor: F(Y) = U(Y) where U is forgetful functor
+||| Unit of the tensor product
 public export
-Const : Type -> ComMonoid -> AddCont
-Const a (t ** m) = MkAddCont (Const2 a t) @{MkI $ \_ => m}
+Scalar : AddCont
+Scalar = Nap (Nat ** %search)
 
+
+||| Additive container with a single shape and position
+||| As a polynomial functor F(Y) = 1
+||| Terminal additive container
 public export
-TrivialPos : Type -> AddCont
-TrivialPos a = Const a (Unit ** %search)
-
-||| Additive variant of the `Dist`  container. Shape is the type of 
-||| distributions over `n` choices, and position the *list* of choices made
-||| Note the similarities and differences with `Simplex`
-public export
-Dist : Nat -> AddCont
-Dist n = !* (Dist n)
-
-
-namespace NumConst
-  ||| Like above, but where backward part is same as forward one
-  ||| Also arises from Num instance
-  public export
-  Const : (a : Type) -> (mon : ComMonoid a) => AddCont
-  Const a = Const a (a ** mon)
+UnitCont : AddCont
+UnitCont = Const Unit

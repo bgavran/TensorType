@@ -30,6 +30,11 @@ public export
 UMon : (c : AddCont) -> (s : c.Shp) -> ComMonoid (c.Pos s)
 UMon c = GetInterface (mon c)
 
+namespace NotExposingType
+  public export
+  UMon : (c : AddCont) -> (s : c.Shp) -> ComMonoid
+  UMon c s = (c.Pos s ** UMon c s)
+
 public export
 (.Plus) : (c : AddCont) -> (s : c.Shp) -> c.Pos s -> c.Pos s -> c.Pos s
 (.Plus) c s = plus (UMon c s)
@@ -50,12 +55,12 @@ public export
 ||| `(s1 ** p1)` and `(s2 ** p2)` when `s1 ≠ s2` as `p1` and `p2` have 
 ||| different types.
 |||
-||| Instead, we add them *formally*. We can use the free monoid construction on
-||| this dependent pair, and quotient it out by certain relations. Specifically,
-||| we use the base set `List (x : c.Shp ** c.Pos x)` quotiented out by:
-||| 1) Permutation (the list order should not matter)
-||| 2) `(s, 0) : xs = xs` (pairs where output is zero can be dropped)
-||| 3) `(s, p1) : (s, p2) : xs` = (s, p1 + p2) : xs` (same-shape entires add)
+||| Instead, we add them *formally*. We can use the free commutative monoid 
+||| construction on this dependent pair, and quotient it out by certain 
+||| relations. Specifically, we use the base set `Bag (x : c.Shp ** c.Pos x)` 
+||| quotiented out by:
+||| 1) `(s, 0) : xs = xs` (pairs where output is zero can be dropped)
+||| 2) `(s, p1) : (s, p2) : xs` = (s, p1 + p2) : xs` (same-shape entires add)
 |||
 ||| We don't enforce these properties here, but instead need to check that all
 ||| maps consuming this type preserve them. 

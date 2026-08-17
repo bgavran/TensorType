@@ -38,6 +38,11 @@ extMap : c =%> d -> Ext c a -> Ext d a
 extMap f (sh <| index) = let (y ** ky) = (%!) f sh
                          in y <| (index . ky)
 
+||| Postfix version of extension
+public export
+(.ext) : c =%> d -> Ext c a -> Ext d a
+(.ext) = extMap
+
 
 namespace ExtProofs
   ||| Mapping over an extension preserves its shape 

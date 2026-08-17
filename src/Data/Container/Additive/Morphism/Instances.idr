@@ -27,155 +27,181 @@ import Misc
 %hide Base.Morphism.Instances.State.State
 %hide Base.Morphism.Instances.Costate.Costate
 
-
-||| If we model the idea of a container (S !> P) as a box
-|||  ┌──────┐
-|||  │ s:S  │
-|||  ├──────┤
-|||  │  Ps  │
-|||  └──────┘
-||| then `pushDown` is interpreted as pushing down the container,
-||| pruning anything that goes out of the box, and using `Unit` for
-||| anything new that appears:
-|||  ┌──────┐
-|||  │ Unit │
-|||  ├──────┤
-|||  │ s:S  │
-|||  └──────┘
-|||     Ps
-||| For additive containers we need to take the free commutative monoid
-public export
-pushDown : AddCont -> AddCont
-pushDown c = !* pushDown (UC c)
-
-public export
-pushIntoContinuationBag : {p : AddCont} -> {0 d, l : AddCont} ->
-  d >< p =%+> l ->
-  p =%+> (pushDown d) >+@ (Bag l)
-pushIntoContinuationBag f = !%+ \param => (() <|
-  map (\dShp => f.fwd (dShp, param)) **
-    \ll => sum @{UMon p param} $ ll >>=
-      \(ds ** grads) => extractPGradsBag param ds grads)
-  where
-    extractPGrads : (param : p.Shp) ->
-      (ds : List d.Shp) ->
-      All l.Pos ((\dShp => f.fwd (dShp, param)) <$> ds) ->
-      List (p.Pos param)
-    extractPGrads param [] [] = []
-    extractPGrads param (dShp :: ds) (grad :: grads) =
-      snd (f.bwd (dShp, param) grad) :: extractPGrads param ds grads
-
-    extractPGradsBag : (param : p.Shp) ->
-      (ds : Bag d.Shp) ->
-      All l.Pos ((\dShp => f.fwd (dShp, param)) <$> ds) ->
-      Bag (p.Pos param)
-    extractPGradsBag param (MkBag dsl) grads
-      = MkBag $ extractPGrads param dsl grads
-
+-- Not sure if we'll need these?
+-- public export
+-- pushIntoContinuationBag : {p : AddCont} -> {0 d, l : AddCont} ->
+--   d >< p =%+> l ->
+--   p =%+> (pushDown d) >+@ (Bag l)
+-- pushIntoContinuationBag f = !%+ \param => (() <|
+--   map (\dShp => f.fwd (dShp, param)) **
+--     \ll => sum @{UMon p param} $ ll >>=
+--       \(ds ** grads) => extractPGradsBag param ds grads)
+--   where
+--     extractPGrads : (param : p.Shp) ->
+--       (ds : List d.Shp) ->
+--       All l.Pos ((\dShp => f.fwd (dShp, param)) <$> ds) ->
+--       List (p.Pos param)
+--     extractPGrads param [] [] = []
+--     extractPGrads param (dShp :: ds) (grad :: grads) =
+--       snd (f.bwd (dShp, param) grad) :: extractPGrads param ds grads
+-- 
+--     extractPGradsBag : (param : p.Shp) ->
+--       (ds : Bag d.Shp) ->
+--       All l.Pos ((\dShp => f.fwd (dShp, param)) <$> ds) ->
+--       Bag (p.Pos param)
+--     extractPGradsBag param (MkBag dsl) grads
+--       = MkBag $ extractPGrads param dsl grads
+-- 
+-- 
 
 public export
-pushIntoContinuation : {p : AddCont} -> (flat : IsFlat l) => Num l.Shp =>
-  (f : d >< p =%+> l) ->
-  (p =%+> (pushDown d) >+@ l)
-pushIntoContinuation {flat = MkIsFlat lp} f = !%+ \param => (() <|
-  \ds => sum @{numIsMonoid} ((\dShp => f.fwd (dShp, param)) <$> ds) **
-    \bb => sum @{UMon p param} (bb >>=
-      \(ds ** grad) => ds <&> (\dShp => snd (f.bwd (dShp, param) grad))))
+pushIntoContinuation : {p : AddCont} ->
+  (f : d >*< p =%+> l) ->
+  (p =%+> (pushDown d.Shp) >-+@ l)
+pushIntoContinuation f = !%+ \param => (() <| \dShp => f.fwd (dShp, param) **
+    fromGenerators @{UMon p param}
+      (\(dShp ** grad) => snd (f.bwd (dShp, param) grad)))
 
-||| This is also the categorical product since our containers are additive
-namespace HancockTensorProduct
+||| Categorical product of additive containers
+||| On underlying containers computed as the hancock tensor product
+namespace CategoricalProduct
   public export
-  leftUnit : Scalar >< c =%+> c
+  leftUnit : UnitCont >*< c =%+> c
   leftUnit = !% leftUnit
   
   public export
-  rightUnit : c >< Scalar =%+> c
+  rightUnit : c >*< UnitCont =%+> c
   rightUnit = !% rightUnit
 
   public export
-  leftUnitInv : c =%+> Scalar >< c
+  leftUnitInv : c =%+> UnitCont >*< c
   leftUnitInv = !% leftUnitInv
   
   public export
-  rightUnitInv : c =%+> c >< Scalar
+  rightUnitInv : c =%+> c >*< UnitCont
   rightUnitInv = !% rightUnitInv
 
   public export
-  assocL : (a >< b) >< c =%+> a >< (b >< c)
+  assocL : (a >*< b) >*< c =%+> a >*< (b >*< c)
   assocL = !% assocL
 
   public export
-  assocR : a >< (b >< c) =%+> (a >< b) >< c
+  assocR : a >*< (b >*< c) =%+> (a >*< b) >*< c
   assocR = !% assocR
 
   public export
-  swap : a >< b =%+> b >< a
+  swap : a >*< b =%+> b >*< a
   swap = !% swap
 
   public export
-  swapMiddle : (c1 >< c2) >< (c3 >< c4) =%+> (c1 >< c3) >< (c2 >< c4)
+  swapMiddle : (c1 >*< c2) >*< (c3 >*< c4) =%+> (c1 >*< c3) >*< (c2 >*< c4)
   swapMiddle = !% swapMiddle
 
   ||| These do not exist for ordinary containers!
   ||| Here we need `c` not to be erased since we're using its monoid structure
   public export
-  copy : {c : AddCont} -> c =%+> c >< c
+  copy : {c : AddCont} -> c =%+> c >*< c
   copy = !%+ \x => ((x, x) ** uncurry (c.Plus x))
   
   public export
   pairMaps : {c : AddCont} ->
     c =%+> d ->
     c =%+> e ->
-    c =%+> d >< e
-  pairMaps f g = copy %+>> (f >< g)
+    c =%+> d >*< e
+  pairMaps f g = copy %+>> (f >*< g)
   
   public export
-  projLeft : {d : AddCont} -> c >< d =%+> c
+  projLeft : {d : AddCont} -> c >*< d =%+> c
   projLeft = !%+ \(x, y) => (x ** \x' => (x', d.Zero y))
   
   public export
-  projRight : {c : AddCont} -> c >< d =%+> d
+  projRight : {c : AddCont} -> c >*< d =%+> d
   projRight = !%+ \(x, y) => (y ** \y' => (c.Zero x, y'))
 
-namespace CompositionProduct
+||| Structure maps of the left action `>-+@` of `(Cont, >@, Scalar)` on AddCont
+||| They generally use the following components:
+||| * `pureBw` : a position becomes the singleton bag containing it
+||| * `sumBw` : a bag of positions is added up using their monoid structure
+||| * `joinBwComp` : nested bags of positions are flattened
+namespace CompositionProductAction
+  ||| Backwards pass is ComMon-homomorphism on the nose
   public export
-  leftUnit : Scalar >+@ c =%+> c
-  leftUnit = !% pureBw %>> leftUnit
+  unitor : {c : AddCont} -> c =%+> Scalar >-+@ c
+  unitor = !% (sumBw @{mon c} %>> (Bag <!> leftUnitInv))
+
+  ||| Backwards map is a ComMon-homomorphism only through the quotient
+  public export
+  unitorInv : Scalar >-+@ c =%+> c
+  unitorInv = !% ((Bag <!> leftUnit) %>> pureBw)
 
   public export
-  rightUnit : c >+@ Scalar =%+> c
-  rightUnit = !% pureBw %>> rightUnit
+  multiplicator : (m >-+@ (n >-+@ c)) =%+> ((m >@ n) >-+@ c)
+  multiplicator = !% (Bag <!> ((id >@ pureBw {c = n >@ UC c}) %>> assocR))
 
-  ||| Left unit inverse: c =%+> Scalar >+@ c
+  public export
+  multiplicatorInv : ((m >@ n) >-+@ c) =%+> (m >-+@ (n >-+@ c))
+  multiplicatorInv = !% ((Bag <!> assocL) %>> joinBwComp {d = n >@ UC c})
+
+||| `!*` and `- >-+@ Scalar` are isomorphic: they're both right adjoint to 
+||| `UC`.  They are two presentations of the same free commutative monoid on
+||| positions: `!*` stores a bag of positions directly, while `- >-+@ Scalar` 
+||| stores generators tagged with `Nat` multiplicities.
+namespace CompositionActionBang
+  ||| Read each position as the generator it is, with multiplicity one
+  public export
+  actionToFree : {0 e : Cont} -> e >-+@ Scalar =%+> !* e
+  actionToFree = !%+ \ex => (shapeExt ex ** map (\mp => (mp ** 1)))
+
+  ||| Expand each generator into as many copies as its multiplicity says
+  public export
+  freeToAction : {0 e : Cont} -> !* e =%+> e >-+@ Scalar
+  freeToAction = !%+ \x => (x <| \_ => () ** fromGenerators @{bagIsMonoid}
+    (\(mp ** n) => scale @{bagIsMonoid} n (pure mp)))
+
+||| Structure maps of the left-skew monoidal product `>+@` on AddCont
+||| These definitions follow Theorem 3.1 in https://arxiv.org/abs/2506.06847
+namespace SkewCompositionProduct
+  ||| Hom-set isomorphism of the adjunction, which is the general purpose
+  ||| `addContTranspose` read through the isomorphism above
+  public export
+  adjR : {c : AddCont} -> UC c =%> m -> c =%+> m >-+@ Scalar
+  adjR f = addContTranspose f %+>> freeToAction
+
+  ||| Inverse of the hom-set isomorphism of the adjunction
+  public export
+  adjL : c =%+> m >-+@ Scalar -> UC c =%> m
+  adjL g = addContTransposeInv (g %+>> actionToFree)
+
+  public export
+  epsilon : UC Scalar =%> Scalar
+  epsilon = adjL (unitor {c = Scalar})
+
+  public export
+  leftUnit : {c : AddCont} -> Scalar >+@ c =%+> c
+  leftUnit = (epsilon >-+@ id) %+>> unitorInv
+
+  public export
+  rightUnit : {c : AddCont} -> c =%+> c >+@ Scalar
+  rightUnit = adjR id
+
+  public export
+  associator : {b : AddCont} -> (a >+@ b) >+@ c =%+> a >+@ (b >+@ c)
+  associator = (adjL ((id >-+@ SkewCompositionProduct.rightUnit {c = b})
+    %+>> multiplicator {c = Scalar}) >-+@ id) %+>> multiplicatorInv 
+
+  {-
+  Beyond skew structure, only `leftUnitInv` exists, rightUnitInv and assocR do not.
+
+  leftUnitInv is also not inverse to leftUnit. We only have
+  `leftUnitInv %+>> leftUnit = id`, but not the other way around.
+
+  The right associator is not definable because the forward  part involves the
+  the function `g : List (aPos ** bPos) -> c.Shp` which would have to collapse
+  a whole list of of positions into a single shape
+  -}
   public export
   leftUnitInv : {c : AddCont} -> c =%+> Scalar >+@ c
-  leftUnitInv = !% sumBw @{mon c} %>> (Bag <!> leftUnitInv)
-
-  ||| Right unit inverse: c =%+> c >@ I
-  public export
-  rightUnitInv : {c : AddCont} -> c =%+> c >+@ Scalar
-  rightUnitInv = !% sumBw @{mon c} %>> (Bag <!> rightUnitInv)
-
-  public export
-  assocL : (a >+@ b) >+@ c =%+> a >+@ (b >+@ c)
-  assocL = !%+ \((aShp <| f) <| g) =>
-    (aShp <| \aPos => f aPos <| \bPos => g (MkBag [(aPos ** bPos)]) **
-      \ll => join $ ll <&> \(aPos ** lbc) =>
-        lbc <&> \(bPos ** cPos) => (MkBag [(aPos ** bPos)] ** cPos))
-
-  ||| Associator, "un-flatten" direction. NOT definable as a total lens in
-  ||| general: the forward would have to produce the target's outer index
-  ||| `g : List (aPos ** bPos) -> c.Shp`, i.e. collapse a whole list of
-  ||| (a,b)-positions into a single c-shape. All we have is one c-shape per
-  ||| element (`index (f aPos) bPos`), and c-shapes carry no monoid/default,
-  ||| so the empty-list case has no answer. This is the precise sense in which
-  ||| the free composition product is only laxly (one-directionally) associative.
-  public export
-  assocR : a >+@ (b >+@ c) =%+> (a >+@ b) >+@ c
-  assocR = !%+ \(aShp <| f) => (((aShp <| shapeExt . f) <|
-    \ll => let ff : (aPos : a.Pos aShp ** b.Pos (Ext.shapeExt $ f aPos)) -> c.Shp 
-               ff (aPos ** bPos) = index (f aPos) bPos
-           in ?llb) ** ?fififi)
+  leftUnitInv = unitor %+>> (toState () >-+@ id)
 
 
 namespace Coproduct
@@ -183,21 +209,21 @@ namespace Coproduct
   elim : c >+< c =%+> c
   elim = !% elim
 
-public export
-duoidal : (c >+@ d) >< (e >+@ f) =%+> (c >< e) >+@ (d >< f)
-duoidal = !%+ \((sc <| idxC), (se <| idxE)) =>
-  ((sc, se) <| \(cp, ep) => (idxC cp, idxE ep) **
-    \ll => ((\((cp, ep) ** (dp, fp)) => (cp ** dp)) <$> ll,
-            (\((cp, ep) ** (dp, fp)) => (ep ** fp)) <$> ll))
-
+-- public export
+-- duoidal : (c >+@ d) >< (e >+@ f) =%+> (c >< e) >+@ (d >< f)
+-- duoidal = !%+ \((sc <| idxC), (se <| idxE)) =>
+--   ((sc, se) <| \(cp, ep) => (idxC cp, idxE ep) **
+--     \ll => ((\((cp, ep) ** (dp, fp)) => (cp ** dp)) <$> ll,
+--             (\((cp, ep) ** (dp, fp)) => (ep ** fp)) <$> ll))
 
 public export
 coprodDistrOverTensor : {q, p : AddCont} ->
-  (a >+< b) >< (p >< q) =%+> (a >< p) >+< (b >< q)
+  (a >+< b) >*< (p >*< q) =%+> (a >*< p) >+< (b >*< q)
 coprodDistrOverTensor = !%+ \case
   (Left a, (p, _)) => (Left (a, p) ** \(a', p') => (a', (p', q.Zero _)))
   (Right b, (_, q)) => (Right (b, q) ** \(b', q') => (b', (p.Zero _, q')))
 
+{-
 ||| Not an isomorphism, arising from duoidal structure between >@ and ><
 public export
 rebracketcomptensor: {y : AddCont} -> (e >+@ y) >< y =%+> e >+@ (y >< y)
@@ -221,9 +247,13 @@ extractEffect = (leftUnitInv >< (id {c=e >+@ f}))
             %+>> duoidal {c=Scalar}
             %+>> (leftUnit >+@ (id {c=d><f}))
 
+-}
 
+||| References for State
+||| Bruno's PhD thesis: https://arxiv.org/abs/2403.13001
+||| Towards Foundations of Cat. Cybernetics: https://arxiv.org/abs/2105.06332
 namespace State
-  ||| "State" as defined in https://arxiv.org/abs/2403.13001 and open games 
+  ||| State here differers for the one in `Cont`, because `Scalar` is different
   |||
   |||       ┌─────────────┐
   |||       │             ├──► (x : c.Shp)
@@ -236,15 +266,17 @@ namespace State
 
   public export
   toState : (x : c.Shp) -> State c
-  toState x = !% toState x
+  toState x = ?somethingInterestingHmm
   
-  public export
-  fromState : State c -> c.Shp
-  fromState f = f.fwd ()
+  -- public export
+  -- fromState : State c -> c.Shp
+  -- fromState f = f.fwd ()
 
+||| References for Costate
+||| Bruno's PhD thesis: https://arxiv.org/abs/2403.13001
+||| Towards Foundations of Cat. Cybernetics: https://arxiv.org/abs/2105.06332
 namespace Costate
-  ||| "Costate" as defined in https://arxiv.org/abs/2403.13001 and open games 
-  |||
+  ||| Costate here differs from the one in `Cont`, because `Scalar` is different
   |||                  ┌─────────────┐
   |||  (x : c.Shp)  ──►┤             │
   |||                  │   Costate   │
@@ -255,15 +287,17 @@ namespace Costate
   Costate c = c =%+> Scalar
   
   public export
-  toCostate : ((x : c.Shp) -> c.Pos x) -> Costate c
-  toCostate s = !% toCostate s
-  
-  public export
-  fromCostate : Costate c -> (x : c.Shp) -> c.Pos x
-  fromCostate f x = f.bwd x ()
+  toCostate : {c : AddCont} ->
+    ((x : c.Shp) -> c.Pos x) -> Costate c
+  toCostate s = !%+ \x => (() ** \n => scale @{UMon c x} n (s x))
+
+  -- public export
+  -- fromCostate : Costate c -> (x : c.Shp) -> c.Pos x
+  -- fromCostate f x = f.bwd x ()
 
   public export
-  constantOne : InterfaceOnPositions c Num => Costate c
+  constantOne : {c : AddCont} ->
+    InterfaceOnPositions c Num => Costate c
   constantOne @{MkI p} = toCostate (\x => let numPos = p x in 1)
 
   public export
@@ -271,32 +305,23 @@ namespace Costate
   Delete = toCostate c.Zero
   
 
-  
 public export
 sum : Num a =>
-  (Const a >< Const a) =%+> Const a
+  (Const a >*< Const a) =%+> Const a
 sum = !%+ \(x1, x2) => (x1 + x2 ** \x' => (x', x'))
 
 public export
-bwSumList : {l : Type} -> ComMonoid l =>
+bwSumBag : {l : Type} ->
   (xs : List l) ->
   (d' : l) ->
   All (const l) xs
-bwSumList [] d' = []
-bwSumList (x :: xs) d' = x :: bwSumList xs x
+bwSumBag [] d' = []
+bwSumBag (x :: xs) d' = d' :: bwSumBag xs d'
 
 public export
-bwSumBag : {l : Type} -> ComMonoid l =>
-  (xs : Bag l) ->
-  (d' : l) ->
-  All (const l) xs
-bwSumBag (MkBag xs) d' = bwSumList xs d'
-
-
-public export
-sumList : {l : Type} -> ComMonoid l =>
-  Bag (Const l) =%+> Const l
-sumList = !%+ \xs => (sum xs ** \d' => bwSumBag xs d')
+sumBag : {l : Type} -> ComMonoid l =>
+  BagAll (Const l) =%+> Const l
+sumBag = !%+ \(MkBag xs) => (sum (MkBag xs) ** \d' => bwSumBag xs d')
 
 public export
 negate : Num a => Neg a =>
@@ -310,14 +335,14 @@ zero = !%+ \_ => (0 ** \_ => c.Zero _)
 
 public export
 mul : Num a =>
-  (Const a >< Const a) =%+> Const a
+  (Const a >*< Const a) =%+> Const a
 mul = !%+ \(x1, x2) => (x1 * x2 ** \x' => (x' * x2, x' * x1))
 
 ||| Mean squared error
 public export
 SquaredDifference : {a : Type} -> Num a => Neg a =>
-  (Const a >< Const a) =%+> (Const a)
-SquaredDifference = ((id {c=Const a}) >< negate) %+>> sum %+>> copy %+>> mul
+  (Const a >*< Const a) =%+> (Const a)
+SquaredDifference = ((id {c=Const a}) >*< negate) %+>> sum %+>> copy %+>> mul
 
 namespace Sample
   ||| Select a shape from All to produce an Any at the given index

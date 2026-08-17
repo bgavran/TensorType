@@ -23,6 +23,7 @@ public export infixr 3 ><  -- Hancock tensor product
 public export infixr 3 >*< -- categorical product
 public export infixr 3 >+< -- coproduct
 public export infixr 3 >+@  -- composition
+public export infixr 3 >-+@ -- composition action
 public export infixr 3 <%> 
 
 
@@ -36,28 +37,24 @@ underlying containers:
 * Categorical product of ordinary containers is not possible to define (positions do not form a monoid)
 * Hancock tensor product is possible to define, which becomes the categorical product
 * Coproduct is possible to define, and stays the coproduct
-* Composition product is possible to define, albeit it's slightly different
+* Composition product is very tricky, and becomes (left)-skew monoidal
 
 Notably, the forgetful functor AddCont -> Cont with hancock product on domain and categorical product on codomain is not monoidal in any sense: it is not strict, strong, lax nor oplax.
 
 -------------------------------------------------------------------------------}
 -------------------------------------------------------------------------------}
 
-||| Hancock tensor product here becomes the categorical product
-||| Monoid with Scalar
-namespace Product
+||| Categorical product of additive containers
+||| Monoid with UnitCont
+||| On underlying containers, this computes the hancock tensor product
+namespace CategoricalProduct
   ||| Binary version of product
   public export
-  (><) : AddCont -> AddCont -> AddCont
-  c >< d = MkAddCont (UC c >< UC d)
+  (>*<) : AddCont -> AddCont -> AddCont
+  c >*< d = MkAddCont (UC c >< UC d)
     @{MkI $ \sh => MkComMonoid (\l, r =>
       (c.Plus (fst sh) (fst l) (fst r), d.Plus (snd sh) (snd l) (snd r)))
       (c.Zero (fst sh), d.Zero (snd sh))}
-
-  ||| Can also use the product operator
-  public export
-  (>*<) : AddCont -> AddCont -> AddCont
-  (>*<) = (><)
 
   namespace List
     ||| N-ary version of hancock product
@@ -77,8 +74,8 @@ namespace Product
 
   namespace Morphism
     public export
-    (><) : (c1 =%+> d1) -> (c2 =%+> d2) -> (c1 >< c2) =%+> (d1 >< d2)
-    (><) f g = !%+ \(c, d) => ((f.fwd c, g.fwd d) **
+    (>*<) : (c1 =%+> d1) -> (c2 =%+> d2) -> (c1 >*< c2) =%+> (d1 >*< d2)
+    (>*<) f g = !%+ \(c, d) => ((f.fwd c, g.fwd d) **
       \(c', d') => (f.bwd c c', g.bwd d d'))
 
   ||| Dependent pair type for additive containers
@@ -96,9 +93,19 @@ namespace Product
       (neutral (UMon pc ps), neutral (UMon (qc ps) qs))}
 
 
+||| Non-categorical product of additive containers
+||| Does not have an expression in terms of ordinary containers, because it uses
+||| the tensor product of commutative monoids
+||| Monoid with Scalar
+namespace TensorProduct
+  -- TODO
+  -- (><) : AddCont -> AddCont -> AddCont
+  -- c >< d = MkAddCont (UC c >< UC d)
+
+
 ||| Same as in ordinary containers
 ||| Monoid with Empty
-namespace Coproduct
+namespace CategoricalCoproduct
   ||| Coproduct
   public export
   (>+<) : AddCont -> AddCont -> AddCont
@@ -130,95 +137,8 @@ namespace Coproduct
       ((shapes : Any (.Shp) xs) !> AnyShpPos shapes)
       @{MkI anyShpPosComMonoid}
 
--- ||| Bang operator: list on positions, making them a free commutative monoid
--- public export
--- (!!) : Cont -> AddCont
--- (!!) c = MkAddCont
---   (List <!> c)
---   @{MkI $ \_ => listIsMonoid}
 
-public export
-(!*) : Cont -> AddCont
-(!*) c = MkAddCont
-  (Bag <!> c)
-  @{MkI $ \_ => bagIsMonoid}
-
-
-export prefix 9 !*
-
-||| Similar to `Nap`
-public export
-pushDown : Type -> AddCont
-pushDown b = !* (Nap b)
-
-
-namespace Composition
-  -- Cannot be defined naively!
-  --public export
-  --reindexAlongPlus : {c, d : AddCont} ->
-  --  {s : c.Shp} ->
-  --  (l, r : c.Pos s) ->
-  --  (reindex : c.Pos s -> d.Shp) ->
-  --  (l' : d.Pos (reindex l)) ->
-  --  (r' : d.Pos (reindex r)) ->
-  --  d.Pos (reindex (c.Plus s l r))
-  --reindexAlongPlus l r reindex l' r' = ?reindexAlongPlus_rhs
-  
-  
-  --||| Composition
-  --public export
-  --(>@) : AddCont -> AddCont -> AddCont
-  --c >@ d = MkAddCont (UC c >@ UC d)
-  --  @{MkI @{\(cShp <| cPosToDShp) => MkComMonoid
-  --    (\(l ** l'), (r ** r') => (c.Plus cShp l r **
-  --      reindexAlongPlus l r cPosToDShp l' r'))
-  --    (c.Zero cShp ** d.Zero $ cPosToDShp $ c.Zero cShp)}}
-
-  ||| Container used to produce the position type in the composition product
-  public export
-  positionCont : (c, d : AddCont) -> Ext c d.Shp -> AddCont
-  positionCont c d ex = MkAddCont
-    (positionCont (UC c) (UC d) ex)
-    @{MkI $ \cp => UMon d (index ex cp)}
-
-  ||| Composition
-  public export
-  (>+@) : AddCont -> AddCont -> AddCont
-  c >+@ d = MkAddCont
-    ((ex : Ext c d.Shp) !> DPair (positionCont c d ex))
-    @{MkI $ \s => bagIsMonoid}
-
-  namespace Morphism
-    ||| Action on morphisms
-    public export
-    (>+@) : c1 =%+> d1 ->
-      c2 =%+> d2 ->
-      c1 >+@ c2 =%+> d1 >+@ d2
-    (>+@) f g = !%+ \(s <| idx) => (f.fwd s <| g.fwd . idx . f.bwd s **
-      map (\(dp ** dp2) => (f.bwd s dp ** g.bwd (idx (f.bwd s dp)) dp2)))
-
-
-||| Coincides with cartesian closure
-namespace MonoidalClosure
-  ||| Internal hom in the category of additive lenses
-  ||| Closely related to the internal hom in the category of ordinary containers
-  public export
-  InternalLensAdditive : AddCont -> AddCont -> AddCont
-  InternalLensAdditive c d = MkAddCont
-    ((l : c =%+> d) !> DPair (lensInputs l))
-    @{MkI $ \_ => bagIsMonoid}
-
-  public export
-  curry : {c : AddCont} -> (c >< d) =%+> e -> c =%+> (InternalLensAdditive d e)
-  curry f = !%+ \x => (!%+ \y => (f.fwd (x, y) ** snd . f.bwd (x, y)) **
-    \l => foldr (\(y ** b') => c.Plus x (fst (f.bwd (x, y) b'))) (c.Zero x) l)
-
-  public export
-  uncurry : {c : AddCont} ->
-    c =%+> (InternalLensAdditive d e) -> (c >< d) =%+> e
-  uncurry f = !%+ \(x, y) => ((f.fwd x).fwd y **
-    \e' => (f.bwd x (MkBag [(y ** e')]), (f.fwd x).bwd y e'))
-
+-- Is All really a ComMonoid for List?
 namespace ListAllComMonoid
   public export
   allIsComMonoidPlus : {c : AddCont} ->
@@ -241,7 +161,7 @@ namespace ListAllComMonoid
     ComMonoid (All c.Pos s)
   allIsComMonoid s = MkComMonoid (allIsComMonoidPlus s) (allIsComMonoidNeutral s)
 
-namespace BagAllComonoid
+namespace BagAllComMonoid
   public export
   allIsComMonoidPlus : {c : AddCont} ->
     (s : Bag c.Shp) ->
@@ -262,62 +182,61 @@ namespace BagAllComonoid
     (allIsComMonoidPlus s)
     (allIsComMonoidNeutral s)
 
-public export
-Bag : AddCont -> AddCont
-Bag c = MkAddCont
-  (Bag (UC c))
-  @{MkI $ allIsComMonoid}
-
--- namespace Morphism
---   public export
---   bww : (f : c =%+> d) -> (cs : Bag c.Shp) ->
---     All (d.Pos) (f.fwd <$> cs) -> Bag (c .Pos) cs
---   bww f [] [] = []
---   bww f (c :: cs) (a :: as) = (f.bwd c a) :: bww f cs as
--- 
---   public export
---   List : c =%+> d -> Bagw c =%+> Bag d
---   List f = !%+ \cs => (f.fwd <$> cs ** bww f cs)
-
--- Not exactly a product
-public export
-List : AddCont -> AddCont
-List c = MkAddCont
-  (List (UC c))
-  @{MkI allIsComMonoid}
-
-
--- namespace Morphism
---   public export
---   bww : (f : c =%+> d) -> (cs : List c.Shp) ->
---     All (d.Pos) (f.fwd <$> cs) -> All (c .Pos) cs
---   bww f [] [] = []
---   bww f (c :: cs) (a :: as) = (f.bwd c a) :: bww f cs as
--- 
---   public export
---   List : c =%+> d -> List c =%+> List d
---   List f = !%+ \cs => (f.fwd <$> cs ** bww f cs)
-
--- duoidal and distribute have been moved to Additive.Morphism.Instances
-
-||| In general, we'll want to instantiate `f` with `IO`, and in that case
-||| it'll never be the case that the set of positions is additive
-||| Hence we just overload the operator here, and return an ordinary container
-||| Edit,later: Hmm, but sometimes there is a need to return an additive cont, 
-||| for instance in leftUnitInv in additive morphism instances...
-||| See below
-public export
-(<!>) : (f : Type -> Type) -> AddCont -> Cont
-(<!>) f c = (f <!> (UC c))
-
-namespace Morphism
+namespace FunctorsOnAddCont
   public export
-  (<!>) : (f : Type -> Type) -> Functor f =>
-    c =%+> d ->
-    (f <!> c) =%> (f <!> d)
-  (<!>) f l = !% \x => (l.fwd x ** ((l.bwd x) <$>) )
+  BagAll : AddCont -> AddCont
+  BagAll c = MkAddCont
+    (BagAll (UC c))
+    @{MkI $ allIsComMonoid}
 
-  public export infixr 9 <!>
+  namespace Morphism
+    -- public export
+    -- bwww : (f : c =%+> d) -> (cs : Bag c.Shp) ->
+    --   All (d.Pos) (f.fwd <$> cs) -> All (c .Pos) cs
+    -- bwww f (MkBag []) [] = []
+    -- bwww f (MkBag (c :: cs)) (a :: as) = (f.bwd c a) :: bwww  ?oo ?tt ?heiii 
+
+    --   public export
+    --   List : c =%+> d -> Bagw c =%+> Bag d
+    --   List f = !%+ \cs => (f.fwd <$> cs ** bww f cs)
+
+  public export
+  ListAll : AddCont -> AddCont
+  ListAll c = MkAddCont
+    (ListAll (UC c))
+    @{MkI allIsComMonoid}
+  
+  -- namespace Morphism
+  --   public export
+  --   bww : (f : c =%+> d) -> (cs : List c.Shp) ->
+  --     All (d.Pos) (f.fwd <$> cs) -> All (c .Pos) cs
+  --   bww f [] [] = []
+  --   bww f (c :: cs) (a :: as) = (f.bwd c a) :: bww f cs as
+  -- 
+  --   public export
+  --   List : c =%+> d -> List c =%+> List d
+  --   List f = !%+ \cs => (f.fwd <$> cs ** bww f cs)
+
+-- ||| In general, we'll want to instantiate `f` with `IO`, and in that case
+-- ||| it'll never be the case that the set of positions is additive
+-- ||| Hence we just overload the operator here, and return an ordinary container
+-- ||| Edit,later: Hmm, but sometimes there is a need to return an additive cont, 
+-- ||| for instance in leftUnitInv in additive morphism instances...
+-- ||| See below
+-- ||| TODO perhaps the distinguishing aspect here is whether `f` is a commutative
+-- ||| monoid homomorphism
+-- public export
+-- (<!>) : (f : Type -> Type) -> AddCont -> Cont
+-- (<!>) f c = (f <!> (UC c))
+-- 
+-- namespace Morphism
+--   public export
+--   (<!>) : (f : Type -> Type) -> Functor f =>
+--     c =%+> d ->
+--     (f <!> c) =%> (f <!> d)
+--   (<!>) f l = !% \x => (l.fwd x ** map (l.bwd x))
+-- 
+--   public export infixr 9 <!>
 
 namespace BangAddCont
   ||| Here we use join?
@@ -325,9 +244,97 @@ namespace BangAddCont
   (<!>) : {m : Type -> Type} -> Monad m => AddCont -> AddCont
   (<!>) c = MkAddCont ?heheh {mon=(MkI ?eiiix)}
   
+  -- public export
+  -- ipList : {0 c : AddCont} -> InterfaceOnPositions (List <!> c) ComMonoid
+  -- ipList = MkI $ \_ => listIsMonoid
+
+export prefix 9 !*
+
+||| Right adjoint of the free-forgetful adjunction between Cont and AddCont
+||| Left adjoint us the `UC` function
+public export
+(!*) : Cont -> AddCont
+(!*) c = MkAddCont
+  (Bag <!> c)
+  @{MkI $ \_ => bagIsMonoid}
+
+namespace Morphism
   public export
-  ipList : {0 c : AddCont} -> InterfaceOnPositions (List <!> c) ComMonoid
-  ipList = MkI $ \_ => listIsMonoid
+  (!*) : c =%> d -> !* c =%+> !* d
+  (!*) f = (!%) (Bag <!> f)
+
+||| Forward direction of the hom-set isomorphism
+public export
+addContTranspose : {c : AddCont} -> UC c =%> d -> c =%+> !* d
+addContTranspose f = !% (sumBw @{mon c} %>> Bag <!> f)
+
+||| Backward direction of the hom-set isomorphism
+public export
+addContTransposeInv : c =%+> !* d -> UC c =%> d
+addContTransposeInv f = ULens f %>> pureBw
+
+namespace CompositionAction
+  ||| Container used to produce the position type in the composition product
+  public export
+  positionCont : {c : Cont} -> {d : AddCont} -> Ext c d.Shp -> AddCont
+  positionCont ex = MkAddCont
+    ((cp : c.Pos (shapeExt ex)) !> d.Pos (index ex cp))
+    @{MkI $ \s => UMon d (index ex s)}
+
+  ||| Action of a container on an additive container
+  public export
+  (>-+@) : Cont -> AddCont -> AddCont
+  c >-+@ d = MkAddCont
+    ((ex : Ext c d.Shp) !> DPair (positionCont {d=d} ex))
+    @{MkI $ \s => bagIsMonoid}
+
+  namespace Morphism
+    ||| Action on morphisms
+    public export
+    (>-+@) : c1 =%> d1 ->
+      c2 =%+> d2 ->
+      c1 >-+@ c2 =%+> d1 >-+@ d2
+    (>-+@) f g = !%+ \ex =>
+      (f.fwd (shapeExt ex) <| g.fwd . (index ex) . f.bwd (shapeExt ex) **
+        map (\(dp ** dp2) => (f.bwd (shapeExt ex) dp **
+          g.bwd ((index ex) (f.bwd (shapeExt ex) dp)) dp2)))
+
+namespace CompositionProduct
+  ||| Composition product of additive containers
+  ||| Not fully monoidal, but left-skew monoidal
+  ||| TODO add one extra argument
+  public export
+  (>+@) : AddCont -> AddCont -> AddCont
+  c >+@ d = (UC c) >-+@ d
+
+  namespace Morphism
+    ||| Action on morphisms
+    public export
+    (>+@) : c1 =%+> d1 ->
+      c2 =%+> d2 ->
+      c1 >+@ c2 =%+> d1 >+@ d2
+    (>+@) f g = ULens f >-+@ g
+
+
+namespace CartesianClosure
+  ||| Internal hom in the category of additive lenses
+  ||| Closely related to the internal hom in the category of ordinary containers
+  public export
+  InternalLensAdditive : AddCont -> AddCont -> AddCont
+  InternalLensAdditive c d = MkAddCont
+    ((l : c =%+> d) !> DPair (lensInputs l))
+    @{MkI $ \_ => bagIsMonoid}
+
+  public export
+  curry : {c : AddCont} -> (c >*< d) =%+> e -> c =%+> (InternalLensAdditive d e)
+  curry f = !%+ \x => (!%+ \y => (f.fwd (x, y) ** snd . f.bwd (x, y)) **
+    \l => foldr (\(y ** b') => c.Plus x (fst (f.bwd (x, y) b'))) (c.Zero x) l)
+
+  public export
+  uncurry : {c : AddCont} ->
+    c =%+> (InternalLensAdditive d e) -> (c >*< d) =%+> e
+  uncurry f = !%+ \(x, y) => ((f.fwd x).fwd y **
+    \e' => (f.bwd x (MkBag [(y ** e')]), (f.fwd x).bwd y e'))
 
 
 ||| Must produce all shapes (branches), expects a response from any subset of
@@ -363,7 +370,7 @@ namespace ConvexCombProduct
   ||| - Empty list is the neutral element
   public export
   ConvexComb : {n : Nat} -> Vect n Cont -> AddCont
-  ConvexComb xs = Simplex n >< PreparedChoice xs
+  ConvexComb xs = Simplex n >*< PreparedChoice xs
 
 
   namespace Additive

@@ -36,7 +36,13 @@ sample (MkDataLoader datasetSize dataset) = do
   n <- sample (uniform {i=datasetSize})
   pure (index n dataset)
 
+||| The container used to store data for a supervised learning system
+||| Single shape, positions are (input, output) pairs
+public export
+SupervisedData : (input, output : Type) -> Cont
+SupervisedData input output = pushDown (input, output)
+
 public export
 handleData : DataLoader x y ->
-  Costate (IO <!> pushDown (x, y))
-handleData dataLoader = toCostate $ \() => sample dataLoader <&> pure
+  Costate (IO <!> SupervisedData x y)
+handleData dataLoader = toCostate $ \() => sample dataLoader

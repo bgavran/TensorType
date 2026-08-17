@@ -3,10 +3,10 @@ module NN.Training.Examples.LinearRegression
 import System.Random
 
 import Data.Tensor
+import Data.Autodiff
 import NN.Architectures
 import NN.Optimisers
 import NN.Training
-import Data.Autodiff
 
 public export
 exampleInputs : Vect 5 Double
@@ -26,16 +26,18 @@ linearRegression : (f : ParaAddDLens (Const Double) (Const Double)) ->
   Sqrt (GetParam f).Shp =>
   Random (GetParam f).Shp =>
   FromDouble (GetParam f).Shp => ScientificDisplay (GetParam f).Shp =>
-  (isFlat : IsFlat (GetParam f)) =>
+  (isFlat : IsConst (GetParam f)) =>
   (numSteps : Nat) ->
-  IO ()
+  {default 1000 printEvery : Nat} ->
+  IO Double
 linearRegression f@(MkPara (MkAddCont (Const p)) _)
-  {isFlat = MkIsFlat p @{mon}} numSteps = do
+  {isFlat = MkIsConst p @{mon}} numSteps = do
   putStrLn "Training a linear regression model..."
   trainData <- linearRegressionDataLoader
   testDataLoader <- makeDataLoader [20, 50, 100] (pure . groundTruth)
   pTrained <- fst <$> optimise
-    {l=Const Double, e=pushDown (Const Double >< Const Double)}
+    {printEvery=printEvery}
+    {l=Const Double, e=SupervisedData Double Double}
     (buildSupervisedLearningSystem f SquaredDifference)
     (handleData trainData)
     (GDMomentum {pType=(GetParam f).Shp})
@@ -43,6 +45,12 @@ linearRegression f@(MkPara (MkAddCont (Const p)) _)
   fromCostate (eval f pTrained) (snd $ inputs testDataLoader)
   avgLoss <- fromCostate (averageLoss f SquaredDifference pTrained) (dataset testDataLoader)
   putStrLn "Average loss: \{showSci avgLoss}"
+  pure avgLoss
+
+
+
+
+
 
 {- 
 public export

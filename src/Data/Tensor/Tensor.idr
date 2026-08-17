@@ -115,39 +115,6 @@ namespace RenameByIndex
     (sym $ RenameByIndex.renamePreservesConts shape axisIndex newAxisName)
     t
 
-namespace SomeTesting
-  public export
-  BatchSize : Axis
-  BatchSize =  "batchSize" ~> Vect 32
-  
-  SeqLen : Axis
-  SeqLen = "seqLen" ~> List
-  
-  FeatureSize : Axis
-  FeatureSize = "featureSize" ~> Vect 128
-  
-  BatchSizeNew : Axis
-  BatchSizeNew = "batchSize" ~> Vect 13
-  
-  testBinding0 : Tensor [] Double
-  
-  testBinding1 : Tensor [SeqLen] Double
-  
-  testBinding12 : Tensor [SeqLen, SeqLen] Double
-  
-  testBinding2 : Tensor [BatchSize, SeqLen] Double
-  
-  testBinding3 : Tensor [BatchSize, SeqLen, FeatureSize] Double
-  
-  testBinding4 : Tensor [BatchSize, SeqLen, FeatureSize, FeatureSize] Double
-  
-  failing
-    ||| This fails because the same name here refers to two different sizes
-    failBinding1 : Tensor [BatchSize, BatchSizeNew] Double
-  
-    ||| Same here 
-    failBinding2 : Tensor [BatchSize, rename SeqLen "batchSize"] Double
-
 public export
 Functor (Tensor shape) where
   map f (MkT t) = MkT $ map f t
@@ -614,7 +581,7 @@ namespace TensorInstances
     -- ||| implemented after `dot`
     namespace ReduceAxis
 
-      ||| Reduces a tensor along an axis appearing only once in the shape
+      ||| Reduces a tensor along an axis appearing only once in the shape.
       ||| In the presence of multiple axes (at least in the Naperian case) we
       ||| first have to transpose them to the front, and then diagonalise.
       ||| Using `IsFinite` instead of `Algebra` because `IsFinite` allows us to

@@ -62,7 +62,7 @@ namespace CategoricalProduct
 
 ||| Non-categorical product of containers, often also called
 ||| 'Hancock' (Scotland), 'Dirichlet' (Spivak), or 'Tensor product' (various)
-||| Monoid with CUnit
+||| Monoid with Scalar
 ||| It holds that `Ext (c1 >< c2) a = (Ext c1) ⊗ (Ext c2)` where
 ||| `⊗` is the day convolution product of functors.
 namespace HancockTensorProduct
@@ -102,7 +102,7 @@ namespace HancockTensorProduct
 ||| Coproduct of containers
 ||| Monoid with Empty
 ||| It holds that `Ext (c1 >+< c2) a = (Ext c1) + (Ext c2)` where
-||| `+` is the pointwise product of functors.
+||| `+` is the pointwise cproduct of functors.
 namespace CategoricalCoproduct
   ||| Binary version of coproduct
   public export
@@ -131,15 +131,15 @@ namespace CategoricalCoproduct
 namespace CompositionProduct
   ||| Container used to produce the position type in the compositon product
   public export
-  positionCont : (c, d : Cont) -> Ext c d.Shp -> Cont
-  positionCont c d ex = (cp : c.Pos (shapeExt ex)) !> d.Pos (index ex cp)
+  positionCont : {c, d : Cont} -> Ext c d.Shp -> Cont
+  positionCont ex = (cp : c.Pos (shapeExt ex)) !> d.Pos (index ex cp)
   
   ||| Composition of containers making Ext (c >@ d) = (Ext c) . (Ext d)
   ||| Non-symmetric in general, and not in diagrammatic order
   ||| Monoid with Scalar
   public export
   (>@) : Cont -> Cont -> Cont
-  c >@ d = (ex : Ext c d.Shp) !> DPair (positionCont c d ex)
+  c >@ d = (ex : Ext c d.Shp) !> DPair (positionCont ex)
 
   ||| Diagrammatic composition of containers, i.e. swapped order of composition
   public export
@@ -153,8 +153,9 @@ namespace CompositionProduct
     ||| Action on morphisms
     public export
     (>@) : c1 =%> d1 -> c2 =%> d2 -> c1 >@ c2 =%> d1 >@ d2
-    (>@) f g = !% \(s <| idx) => (f.fwd s <| g.fwd . idx . f.bwd s **
-      \(dp ** dp2) => (f.bwd s dp ** g.bwd (idx (f.bwd s dp)) dp2))
+    (>@) f g = !% \ex =>
+      (f.fwd (shapeExt ex) <| g.fwd . (index ex) . f.bwd (shapeExt ex) **
+      \(dp ** dp2) => (f.bwd (shapeExt ex) dp ** g.bwd ((index ex) (f.bwd (shapeExt ex) dp)) dp2))
 
     ||| Action on morphisms for diagrammatic composition
     public export
@@ -190,6 +191,39 @@ namespace MonoidalClosure
   uncurry f = !% \(x, y) => ((f.fwd x).fwd y **
     \e' => (f.bwd x (y ** e'), (f.fwd x).bwd y e'))
 
+
+namespace FunctorsOnCont
+  public export
+  ListAll : Cont -> Cont
+  ListAll c = (ss : List c.Shp) !> All c.Pos ss
+
+  public export
+  ListAny : Cont -> Cont
+  ListAny c = (ss : List c.Shp) !> Any c.Pos ss
+  
+  public export
+  BagAll : Cont -> Cont
+  BagAll c = (ss : Bag c.Shp) !> All c.Pos ss
+  
+  public export
+  unitBag : c =%> BagAll c
+  unitBag = !% \x => (MkBag [x] ** qq)
+    where qq : List.Quantifiers.All.All (c .Pos) [x] -> c .Pos x
+          qq [y] = y
+  
+  namespace Morphism
+    public export
+    bww : (f : c =%> d) -> (cs : List c.Shp) ->
+      All (d.Pos) (f.fwd <$> cs) -> All (c .Pos) cs
+    bww f [] [] = []
+    bww f (c :: cs) (a :: as) = (f.bwd c a) :: bww f cs as
+  
+    public export
+    List : c =%> d -> ListAll c =%> ListAll d
+    List f = !% \cs => (f.fwd <$> cs ** bww f cs)
+
+
+
 public export infixr 9 <!>
 ||| If `f` is a monad, then `f <!> -` is a comonad, and vice versa
 public export
@@ -202,21 +236,22 @@ namespace Morphism
   (<!>) : (f : Type -> Type) -> Functor f =>
     c =%> d ->
     f <!> c =%> f <!> d
-  f <!> l = !% \x => (l.fwd x ** ((l.bwd x) <$>) )
+  f <!> l = !% \x => (l.fwd x ** map (l.bwd x))
 
 
 public export prefix 9 !!
 public export prefix 9 !*
 
+||| Comonad of the adjunction between Cont and Cont_Mon
 ||| BANG. List on positions, always has a monoid structure
 public export
 (!!) : Cont -> Cont
 (!!) = (List <!>)
 
+||| Comonad of the adjunction between Cont and AddCont
 public export
 (!*) : Cont -> Cont
 (!*) = (Bag <!>)
-
 
 namespace Morphism
   public export
@@ -230,6 +265,7 @@ namespace Morphism
 
 ||| Turn a banged container into a container
 ||| Requires pure on the backward pass
+||| At `m = Bag` this is the counit of `UC -| !*`, i.e. `addContTransposeInv id`
 public export
 pureBw : Monad m => m <!> c =%> c
 pureBw = !% \x => (x ** pure)
@@ -238,6 +274,21 @@ public export
 joinBw : Monad m => m <!> c =%> m <!> (m <!> c)
 joinBw = !% \x => (x ** join)
 
+public export
+compositionBangPos : Functor m => m <!> (c >@ d) =%> c >@ (m <!> d)
+compositionBangPos = !% \ex => (ex ** \(cp ** md) => (\dp => (cp ** dp)) <$> md)
+
+||| Composition product analogue of `joinBw`
+||| On the backward pass, it flattens an `m` of (position, `m` of positions) 
+||| pairs into a single `m` of full positions.
+public export
+joinBwComp : {0 c, d : Cont} -> {m : Type -> Type} -> Monad m =>
+  m <!> (c >@ d) =%> m <!> (c >@ (m <!> d))
+joinBwComp = joinBw {c = c >@ d} %>> (m <!> compositionBangPos)
+
+||| A bag of positions is added up using their monoid structure
+||| This is the underlying lens of the unit of `UC -| !*`, i.e. of
+||| `addContTranspose id`. 
 public export
 sumBw : InterfaceOnPositions c ComMonoid => c =%> Bag <!> c
 sumBw @{MkI i} = !% \x => (x ** sum @{i x})
@@ -296,29 +347,6 @@ namespace CartesianClosure
   public export
   apply : (CartesianClosure x y) >*< x =%> y
   apply = uncurry {d=x} id
-
-
--- Not exactly a product
-public export
-List : Cont -> Cont
-List c = (ss : List c.Shp) !> All c.Pos ss
-
-public export
-Bag : Cont -> Cont
-Bag c = (ss : Bag c.Shp) !> All c.Pos ss
-
-namespace Morphism
-  public export
-  bww : (f : c =%> d) -> (cs : List c.Shp) ->
-    All (d.Pos) (f.fwd <$> cs) -> All (c .Pos) cs
-  bww f [] [] = []
-  bww f (c :: cs) (a :: as) = (f.bwd c a) :: bww f cs as
-
-  public export
-  List : c =%> d -> List c =%> List d
-  List f = !% \cs => (f.fwd <$> cs ** bww f cs)
-
-
 
 
 ||| TODO Might be able to delete this and leave just the definition in Additive?

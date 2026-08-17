@@ -7,6 +7,7 @@ import NN.Optimisers
 import NN.Architectures.LossFunctions
 
 import NN.Utils
+import NN.Training.DataLoader
 import Data.Para
 
 {-------------------------------------------------------------------------------
@@ -38,17 +39,21 @@ b) use monadic lenses
 ||| The optimiser used is allowed to be stateful meaning the result of the
 ||| optimisation is both the final parameter and the state of the optimiser
 public export
-optimiseStep : {p, l, e : AddCont} -> InterfaceOnPositions l Num =>
-  (f : p =%+> e >+@ l) ->
+optimiseStep : {p, l : AddCont} -> {e : Cont} -> InterfaceOnPositions l Num =>
+  (f : p =%+> e >-+@ l) ->
   (handleEffect : Costate (IO <!> e)) ->
   (optimiser : Optimiser p stateTy) ->
   Costate (IO <!> (Const (p.Shp, stateTy)))
 optimiseStep f handleEffect (MkOptimiser opt _ _) = 
-  let closeFunction : p =%+> e 
-      closeFunction = f %+>> (id >+@ constantOne) %+>> rightUnit
-  in (IO <!> opt) %>> (IO <!> closeFunction) %>> handleEffect
+  let closeFunction : p =%+> !* e
+      closeFunction = f %+>> (id >-+@ constantOne) %+>> actionToFree
 
-||| Evaluates a the forward pass of some effectful lens
+      closeFunctionT : UC p =%> e -- transposed variant of closeFunction
+      closeFunctionT = addContTransposeInv closeFunction
+
+  in (IO <!> (opt %>> closeFunctionT)) %>> handleEffect
+
+||| Evaluates the forward pass of some effectful lens
 public export
 evalFw : {0 e : Cont} ->
   (f : a -> Ext e b) ->
@@ -62,11 +67,11 @@ evalFw f handleEffect = toCostate $ \ps => do
 ||| Iterates `optimiseStep` `numSteps` times, and logs the progress to the 
 ||| console
 public export
-optimise : {p, l, e : AddCont} -> InterfaceOnPositions l Num =>
+optimise : {p, l : AddCont} -> {e : Cont} -> InterfaceOnPositions l Num =>
   {default 100 printEvery : Nat} ->
   {default Nothing customInitParam : Maybe p.Shp} ->
   ScientificDisplay p.Shp => ScientificDisplay l.Shp => ScientificDisplay stateTy =>
-  (f : p =%+> e >+@ l) ->
+  (f : p =%+> e >-+@ l) ->
   (handleEffect : Costate (IO <!> e)) ->
   (opt : Optimiser p stateTy) ->
   (numSteps : Nat) ->
@@ -90,14 +95,13 @@ optimise f handleEffect opt numSteps = do
 ||| b) a loss function `loss : y >< y =%+> l`
 ||| builds an effectful lens `p =%+> l`
 public export
-buildSupervisedLearningSystem : Num l.Shp => IsFlat l =>
-  (f : ParaAddDLens x y) ->
+buildSupervisedLearningSystem : (f : ParaAddDLens x y) ->
   (loss : Loss y {l=l}) ->
-  (GetParam f) =%+> (pushDown (x >< y)) >+@ l
+  (GetParam f) =%+> SupervisedData x.Shp y.Shp >-+@ l
 buildSupervisedLearningSystem (MkPara p f) loss =
-  let rebracket : ((x >< y) >< p) =%+> ((x >< p) >< y)
-      rebracket = assocL %+>> (id >< swap) %+>> assocR
-  in pushIntoContinuation {d=x><y} (rebracket %+>> (f >< id) %+>> loss)
+  let rebracket : ((x >*< y) >*< p) =%+> ((x >*< p) >*< y)
+      rebracket = assocL %+>> (id >*< swap) %+>> assocR
+  in pushIntoContinuation {d=x>*<y} (rebracket %+>> (f >*< id) %+>> loss)
 
 
 namespace WithEffect
@@ -109,7 +113,7 @@ namespace WithEffect
   ||| evaluation
   public export
   totalLoss : Show l.Shp => Num l.Shp =>
-    (f : ParaAddDLens x (e >+@ y)) ->
+    (f : ParaAddDLens x (e >-+@ y)) ->
     (loss : Loss y {l=l}) ->
     (p : (GetParam f).Shp) ->
     (handleEffect : Costate (IO <!> e)) ->
@@ -126,7 +130,7 @@ namespace WithEffect
   public export
   averageLoss :  {n : Nat} ->
     Show l.Shp => Num l.Shp => Fractional l.Shp => Cast Nat l.Shp =>
-    (f : ParaAddDLens x (e >+@ y)) ->
+    (f : ParaAddDLens x (e >-+@ y)) ->
     (loss : Loss y {l=l}) ->
     (p : (GetParam f).Shp) ->
     (handleEffect : Costate (IO <!> e)) ->
@@ -138,7 +142,7 @@ namespace WithEffect
   ||| Eval a model and loss with specific parameters, in the presence of an effect
   public export
   evalWithLoss : ScientificDisplay x.Shp => ScientificDisplay y.Shp => ScientificDisplay l.Shp =>
-    (f : ParaAddDLens x (e >+@ y)) ->
+    (f : ParaAddDLens x (e >-+@ y)) ->
     (loss : Loss y {l=l}) ->
     (p : (GetParam f).Shp) ->
     (handleEffect : Costate (IO <!> e)) ->
@@ -155,7 +159,7 @@ namespace WithEffect
   ||| Eval a model with specific parameters, in the presence of an effect
   public export
   eval : ScientificDisplay x.Shp => ScientificDisplay y.Shp =>
-    (f : ParaAddDLens x (e >+@ y)) ->
+    (f : ParaAddDLens x (e >-+@ y)) ->
     (p : (GetParam f).Shp) ->
     (handleEffect : Costate (IO <!> e)) ->
     Costate (IO <!> (Const2 (Vect n x.Shp) Unit))
@@ -175,7 +179,7 @@ namespace WithoutEffect
     (f %+>> leftUnitInv)
 
   public export
-  handleTrivial : Costate (IO <!> Additive.Object.Instances.Scalar)
+  handleTrivial : Costate (IO <!> Scalar)
   handleTrivial = toCostate $ \() => pure ()
 
 
@@ -186,7 +190,7 @@ namespace WithoutEffect
     (p : (GetParam f).Shp) ->
     Costate (IO <!> (Const2 (Vect n x.Shp) Unit))
   eval (MkPara pCont f) p
-    = eval {e=Scalar} (MkPara pCont (f %+>> leftUnitInv)) p handleTrivial
+    = eval {e=Scalar} (MkPara pCont (f %+>> unitor)) p handleTrivial
 
   public export
   averageLoss :  {y : AddCont} -> {n : Nat} ->
@@ -196,7 +200,7 @@ namespace WithoutEffect
     (p : (GetParam f).Shp) ->
     Costate (IO <!> (Const2 (Vect n (x.Shp, y.Shp)) l.Shp))
   averageLoss (MkPara pCont f) loss p = averageLoss {e=Scalar}
-    (MkPara pCont (f %+>> leftUnitInv))
+    (MkPara pCont (f %+>> unitor))
     loss
     p
     handleTrivial

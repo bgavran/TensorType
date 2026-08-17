@@ -52,7 +52,7 @@ coproductPair : {a, b, c, d : AddCont} ->
   ParaAddDLens b d ->
   ParaAddDLens (a >+< b) (c >+< d)
 coproductPair (MkPara p f) (MkPara q g) = MkPara
-  (p >< q)
+  (p >*< q)
   (coprodDistrOverTensor %+>> (f >+< g))
 
 public export
@@ -61,7 +61,7 @@ parallelTensor2 : {a, b: Type} -> Num a => Num b => {axisName : String} ->
   ParaAddDLens (Const (Tensor [axisName ~~> 2] a))
                (Const (Tensor [axisName ~~> 2] b))
 parallelTensor2 (MkPara pCont f) = MkPara
-  (pCont >< pCont)
+  (pCont >*< pCont)
   (!%+ \(x, (p, q)) =>
     let (b1 ** kf) = (%!+) f (x @@ [0], p)
         (b2 ** kg) = (%!+) f (x @@ [1], q)
@@ -76,7 +76,7 @@ parallelTensor3 : {a, b : Type} -> Num a => Num b => {axisName : AxisName} ->
   ParaAddDLens (Const (Tensor [axisName ~~> 3] a))
                (Const (Tensor [axisName ~~> 3] b))
 parallelTensor3 (MkPara pCont f) = MkPara
-  (pCont >< pCont >< pCont)
+  (pCont >*< pCont >*< pCont)
   (!%+ \(x, (p, q, r)) =>
     let (b1 ** kf) = (%!+) f (x @@ [0], p)
         (b2 ** kg) = (%!+) f (x @@ [1], q)
@@ -96,7 +96,7 @@ sameFromTensor2 : {a, b : Type} -> Num a => Num b =>
   ParaAddDLens (Const (Tensor [axisName1 ~~> 1] a))
                (Const (Tensor [axisName2 ~~> 2] b))
 sameFromTensor2 (MkPara pCont f) = MkPara
-  (pCont >< pCont)
+  (pCont >*< pCont)
   (!%+ \(x, (p, q)) =>
     let val = x @@ [0]
         (b1 ** kf) = (%!+) f (val, p)
@@ -113,7 +113,7 @@ sameFromTensor3 : {a, b : Type} -> Num a => Num b =>
   ParaAddDLens (Const (Tensor [axisName1 ~~> 1] a))
                (Const (Tensor [axisName2 ~~> 3] b))
 sameFromTensor3 (MkPara pCont f) = MkPara
-  (pCont >< pCont >< pCont)
+  (pCont >*< pCont >*< pCont)
   (!%+ \(x, (p, q, r)) =>
     let val = x @@ [0]
         (b1 ** kf) = (%!+) f (val, p)
@@ -149,9 +149,9 @@ sameFromTensor (MkPara pCont f) = MkPara
 public export
 sameFrom : {a : AddCont} -> ParaAddDLens a b ->
   ParaAddDLens a c ->
-  ParaAddDLens a (b >< c)
+  ParaAddDLens a (b >*< c)
 sameFrom (MkPara p f) (MkPara q g) = MkPara
-  (p >< q)
+  (p >*< q)
   (!%+ \(x, (p, q)) =>
     let (b ** kf) = (%!+) f (x, p)
         (c ** kg) = (%!+) g (x, q)
@@ -166,7 +166,7 @@ sameFromConst : {a, b, c : Type} -> Num a => Num b => Num c =>
   ParaAddDLens (Const a) (Const c) ->
   ParaAddDLens (Const a) (Const (b, c))
 sameFromConst (MkPara p f) (MkPara q g) = MkPara
-  (p >< q)
+  (p >*< q)
   (!%+ \(x, (p, q)) =>
     let (b ** kf) = (%!+) f (x, p)
         (c ** kg) = (%!+) g (x, q)
@@ -179,9 +179,9 @@ public export
 sameFrom3 : {a : AddCont} -> ParaAddDLens a b ->
   ParaAddDLens a c ->
   ParaAddDLens a d ->
-  ParaAddDLens a (b >< c >< d)
+  ParaAddDLens a (b >*< c >*< d)
 sameFrom3 (MkPara p f) (MkPara q g) (MkPara r h) = MkPara
-  (p >< q >< r)
+  (p >*< q >*< r)
   (!%+ \(x, (p, q, r)) =>
     let (b ** kf) = (%!+) f (x, p)
         (c ** kg) = (%!+) g (x, q)
@@ -199,7 +199,7 @@ sameFromConst3 : {a, b, c, d : Type} -> Num a => Num b => Num c => Num d =>
   ParaAddDLens (Const a) (Const d) ->
   ParaAddDLens (Const a) (Const (b, c, d))
 sameFromConst3 (MkPara p f) (MkPara q g) (MkPara r h) = MkPara
-  (p >< q >< r)
+  (p >*< q >*< r)
   (!%+ \(x, (p, q, r)) =>
     let (b ** kf) = (%!+) f (x, p)
         (c ** kg) = (%!+) g (x, q)

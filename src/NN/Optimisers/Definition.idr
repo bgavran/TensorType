@@ -52,7 +52,7 @@ public export
 public export
 composeParallel : Optimiser pCont s ->
   Optimiser qCont t -> 
-  Optimiser (pCont >< qCont) (s, t)
+  Optimiser (pCont >*< qCont) (s, t)
 composeParallel (MkOptimiser o1 initP initS) (MkOptimiser o2 initQ initT) = MkOptimiser
   (!% \((p, q), (s, t)) => ((o1.fwd (p, s), o2.fwd (q, t)) **
     \(p', q') => let (pUpdated, sUpdated) = o1.bwd (p, s) p'

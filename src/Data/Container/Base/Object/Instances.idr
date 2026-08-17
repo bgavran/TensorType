@@ -53,6 +53,7 @@ Empty = (_ : Void) !> Void
 
 ||| Container of a single thing
 ||| As a polynomial functor: F(X) = X
+||| Unit of the tensor and composition product
 public export
 Scalar : Cont
 Scalar = (_ : Unit) !> Unit
@@ -165,3 +166,8 @@ ContUniverse = (_ : (s : Type ** s -> Type)) !> Void
 public export
 Dist : Nat -> Cont
 Dist n = Const2 (Dist n) (Fin n)
+
+||| Basically an alias for `Nap`
+public export
+pushDown : Type -> Cont
+pushDown = Nap

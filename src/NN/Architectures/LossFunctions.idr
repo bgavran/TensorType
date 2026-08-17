@@ -18,19 +18,19 @@ import Data.Para
 ||| Loss function alias
 public export
 Loss : AddCont -> {default (Const Double) l : AddCont} -> Type
-Loss y = y >< y =%+> l
+Loss y = y >*< y =%+> l
 
 namespace Combinators
   ||| Combinator for pairing up loss functions
   public export
   pairLossFunctions : {y, z : AddCont} ->
     {l : Type} -> Num l =>
-    Loss y {l=Const l} -> Loss z {l=Const l} -> Loss (y >< z) {l=Const l}
-  pairLossFunctions loss1 loss2 = swapMiddle %+>> (loss1 >< loss2) %+>> sum
+    Loss y {l=Const l} -> Loss z {l=Const l} -> Loss (y >*< z) {l=Const l}
+  pairLossFunctions loss1 loss2 = swapMiddle %+>> (loss1 >*< loss2) %+>> sum
 
   public export
   lossSame : {a, b : AddCont} ->
-    (a >+< b) >< (a >+< b) =%+> (a >< a) >+< (b >< b)
+    (a >+< b) >*< (a >+< b) =%+> (a >*< a) >+< (b >*< b)
   lossSame = !%+ \case
     (Left x1, Left x2) => (Left (x1, x2) ** id)
     (Right y1, Right y2) => (Right (y1, y2) ** id)
@@ -56,7 +56,7 @@ namespace Combinators
   public export
   zipListsBwd : {y : AddCont} ->
     (l1, l2 : List y.Shp) ->
-    All (y >< y).Pos (zip l1 l2) -> (All y.Pos l1, All y.Pos l2)
+    All (y >*< y).Pos (zip l1 l2) -> (All y.Pos l1, All y.Pos l2)
   zipListsBwd [] l2 [] = ([], allIsComMonoidNeutral l2)
   zipListsBwd (s1 :: ss1) [] [] = (allIsComMonoidNeutral (s1 :: ss1), [])
   zipListsBwd (s1 :: ss1) (s2 :: ss2) ((p1, p2) :: rest) =
@@ -64,7 +64,7 @@ namespace Combinators
     in (p1 :: ls, p2 :: rs)
 
   public export
-  zipLists : {y : AddCont} -> (List y) >< (List y) =%+> List (y >< y)
+  zipLists : {y : AddCont} -> (ListAll y) >*< (ListAll y) =%+> ListAll (y >*< y)
   zipLists = !%+ \(l1, l2) => (zip l1 l2 ** zipListsBwd l1 l2)
 
   -- TODO here it can be that we pair different types together!

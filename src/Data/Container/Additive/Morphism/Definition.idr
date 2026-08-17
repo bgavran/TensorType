@@ -8,10 +8,8 @@ export infixr 1 =%+> -- (closed) additive dependent lens
 export infixr 1 =&+> -- (closed) additive dependent chart
 export prefix 0 !% -- constructor the (closed) dependent lens
 export prefix 0 !& -- constructor the (closed) dependent chart
-export prefix 0 !: -- constructor the (closed) cartesian morphism
 public export prefix 0 %!
 public export prefix 0 &!
-public export prefix 0 :!
 public export prefix 0 !%+ -- constructor the additive closed dlens
 public export prefix 0 !&+ -- constructor the additive closed dlens
 export infixl 5 %+>> -- composition of dependent lenses
@@ -20,8 +18,8 @@ export infixl 5 &+>> -- composition of dependent charts
 namespace DependentLenses
   ||| Forward-backward morphism between additive containers
   ||| Analogous to `=%>`, but with an added `+` in syntax to denote additivity
-  ||| It should also encode the constraint that the backward part is a comonoid
-  ||| homomorphism. That is currently left out.
+  ||| It should also encode the constraint that the backward part is a
+  ||| commutative monoid homomorphism. That is currently left out.
   |||
   |||                  ┌─────────────┐
   |||  (x : c.Shp)  ──►┤             ├──► (y : c.Shp)
@@ -30,7 +28,7 @@ namespace DependentLenses
   |||                  └─────────────┘
   public export
   record (=%+>) (c, d : AddCont) where
-    constructor (!%) -- at the moment, we do not plan to use this constructor
+    constructor (!%)
     ULens : UC c =%> UC d
 
   ||| Analogous to `!%` for ordinary containers, allows us to construct the 
@@ -72,7 +70,6 @@ namespace DependentLenses
   |||                  ┌─────────────┐
   |||  (x : c.Shp)  ──►┤             ├──►
   |||                  │    lens     │
-  |||                  │             │
   |||               ◄──┤             ├◄── d.Pos (lens.fwd x)
   |||                  └─────────────┘
   public export
@@ -89,7 +86,7 @@ namespace DependentCharts
   |||
   |||                  ┌─────────────┐
   |||  (x : c.Shp)  ──►┤             ├──► (y : c.Shp)
-  |||                  │    lens     │
+  |||                  │    chart    │
   |||     c.Pos x   ──►┤             ├──► d.Pos y
   |||                  └─────────────┘
   public export
@@ -98,12 +95,14 @@ namespace DependentCharts
     UChart : UC c =&> UC d
 
   public export
-  (!&+) : {0 c, d : AddCont} -> c =&+> d -> (x : c.Shp) -> (y : d.Shp ** (c.Pos x -> d.Pos y))
-  (!&+) (!& f) = (&!) f
+  (!&+) : {0 c, d : AddCont} ->
+    ((x : c.Shp) -> (y : d.Shp ** (c.Pos x -> d.Pos y))) ->
+    c =&+> d
+  (!&+) f = (!&) ((!&) f)
 
   public export
-  (&!) : {0 c, d : AddCont} -> c =&+> d -> (x : c.Shp) -> (y : d.Shp ** (c.Pos x -> d.Pos y))
-  (&!) (!& f) = (&!) f
+  (&!+) : {0 c, d : AddCont} -> c =&+> d -> (x : c.Shp) -> (y : d.Shp ** (c.Pos x -> d.Pos y))
+  (&!+) (!& f) = (&!) f
 
   public export
   (.fwd) : {0 c, d : AddCont} -> c =&+> d -> c.Shp -> d.Shp
@@ -119,8 +118,8 @@ namespace DependentCharts
   compDepChart f g = (!&) (compDepChart (UChart f) (UChart g))
 
   public export
-  (&>>) : {0 c, d, e : AddCont} -> c =&+> d -> d =&+> e -> c =&+> e
-  (&>>) = compDepChart
+  (&+>>) : {0 c, d, e : AddCont} -> c =&+> d -> d =&+> e -> c =&+> e
+  (&+>>) = compDepChart
 
   public export
   id : {0 c : AddCont} -> c =&+> c

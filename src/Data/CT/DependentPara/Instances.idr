@@ -138,7 +138,7 @@ namespace ParametricDependentLenses -- also additive ones
   public export
   trivialParam : a =%+> b -> a =\\==> b
   trivialParam f = MkPara
-    Scalar
+    UnitCont
     (!%+ \(x, ()) =>
       let (y ** ky) = (%!+) f x
       in (y ** \y' => (ky y', ())))
@@ -161,7 +161,7 @@ namespace ParametricDependentLenses -- also additive ones
   public export
   composePara : a =\\==> b -> b =\\==> c -> a =\\==> c
   composePara (MkPara p f) (MkPara q g) = MkPara
-    (p >< q)
+    (p >*< q)
     (!%+ \(x, (ps, qs)) => 
       (g.fwd (f.fwd (x, ps), qs) ** \cPos =>
         let (bPos, qPos) = g.bwd (f.fwd (x, ps), qs) cPos
@@ -184,7 +184,7 @@ namespace DependentParametricDependentLenses
   public export
   trivialParam : a =%+> b -> a =\\=> b
   trivialParam f = MkPara
-    (\_ => Scalar)
+    (\_ => UnitCont)
     (!% !% \(x ** ()) => let (y ** ky) = (%!+) f x
                          in (y ** \y' => (ky y', ())))
 
@@ -241,12 +241,12 @@ namespace DependentParametricDependentLenses
   ||| Convert a morphism from product container to one from DPair
   ||| This witnesses the isomorphism (a >< p) ≅ DPair a (const p)
   public export
-  fromNonDepProduct : (a >< p) =%+> b -> DPair a (const p) =%+> b
+  fromNonDepProduct : (a >*< p) =%+> b -> DPair a (const p) =%+> b
   fromNonDepProduct f = !%+ \(x ** p') => (%!+) f (x, p')
 
   public export
   binaryOpToPara : {p : AddCont} ->
-    (a >< p) =%+> b -> a =\\==> b
+    (a >*< p) =%+> b -> a =\\==> b
   binaryOpToPara f = MkPara p f
 
   %hide Data.Container.Base.Morphism.Definition.DependentLenses.(=%>)

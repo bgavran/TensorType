@@ -43,8 +43,8 @@ namespace AddCont
   public export
   PairAddCont : DepAct AddDLens (Const {c=AddDLens})
   PairAddCont = MkDepAct $ \c => MkFunctor
-    (c ><)
-    (id ><)
+    (c >*<)
+    (id >*<)
 
   public export
   DPairAddCont : DepAct AddDLens (FamAddDLens {c=AddDLens})

@@ -33,7 +33,7 @@ GetInterface (MkI f) = f
 ||| A container is finite when for every shape the set of positions is finite.
 ||| Examples: vectors, lists, but also finite binary trees.
 ||| Note, provision of a finite instance for trees requires a choice of a tree
-||| traversal. (All of these choices isomorphic, but are necessary to make)
+||| traversal. (All of these choices are isomorphic, but necessary to make)
 public export
 IsFinite : Cont -> Type
 IsFinite c = InterfaceOnPositions c Finite
@@ -120,9 +120,9 @@ namespace Cubical
 
 
 namespace IsFoldable
-  ||| A container is foldable if `c ≃ List`
-  ||| That is, there ought to exist a dependent lens `c =%> List` and back
-  ||| Here we only encode one part of this
+  ||| A container is foldable if there exists a dependent lens `c =%> List`
+  ||| Notably, we do not require this to be an isomorphism. For instance, 
+  ||| binary trees are foldable, but not not isomorphic to lists.
   public export
   interface IsFoldable (0 c : Cont) where
     constructor MkIsFoldable
