@@ -5,6 +5,7 @@ import Hedgehog
 import Tensor.Interfaces
 import Tensor.Indexing
 import Tensor.Axis
+import Tensor.Softargmax
 import Display2D.Instances
 import Display2D.Expected
 import Train.LinearRegression
@@ -18,6 +19,7 @@ main = do
 
     , interfaceTests
     , axisTests
+    , softargmaxGroup
       
     , cubicalTensorGroup
     , longTensorsGroup
