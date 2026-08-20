@@ -17,7 +17,7 @@ ApplicativeRoseTreeNode = (t : RoseTreeShape c) !> RoseTreePosNode c t
 ||| Same as above, but with data stored at leaf
 public export
 ApplicativeRoseTreeLeaf : TensorMonoid c => Cont
-ApplicativeRoseTreeLeaf = (t : RoseTreeShape c) !> RoseTreePosNode c t
+ApplicativeRoseTreeLeaf = (t : RoseTreeShape c) !> RoseTreePosLeaf c t
 
 ||| Rose trees with data stored at both nodes and leaves
 public export

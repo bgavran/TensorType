@@ -71,7 +71,7 @@ indexFinProd ColumnMajor row col =
 public export
 splitFinProdDep : {n : Nat} -> (content : Fin n -> Nat) ->
   Fin (sum content) -> (i : Fin n ** Fin (content i))
-splitFinProdDep {n = 0} content x = ?shouldBeImpossibleToReach
+splitFinProdDep {n = 0} content x = absurd x
 splitFinProdDep {n = (S k)} content x = case splitSum x of
   Left y => (FZ ** y)
   Right y => let (i ** j) = splitFinProdDep (content . FS) y in (FS i ** j)

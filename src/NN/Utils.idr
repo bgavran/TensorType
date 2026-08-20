@@ -25,7 +25,7 @@ runActionUntilMaxSteps action maxSteps currStep currVal lossIO
     False => do
       loss <- lossIO currVal
       putStrLn rule
-      putStrLn "  \Max steps (\{bold (show maxSteps)}) reached."
+      putStrLn "  Max steps (\{bold (show maxSteps)}) reached."
       putStrLn "  \{dim "Final loss:     "} \{yellow (showSci loss)}"
       putStrLn "  \{dim "Final params:   "} \{cyan (showSci currVal)}"
       putStrLn rule
