@@ -1531,8 +1531,6 @@ namespace Slice
     --   tabulate = tensorTabulate
 
 
-
-
 public export
 treeExample1Test : Tensor ["myTree" ~> BinTree] Double
 treeExample1Test = ># Node 60 (Node 7 (Leaf (-42)) (Leaf 46)) (Leaf 2)

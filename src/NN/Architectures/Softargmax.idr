@@ -2,46 +2,11 @@ module NN.Architectures.Softargmax
 
 import Data.Tensor
 import Data.Para
-import Control.Monad.Distribution
 
-
-
-||| Numerically stable log-sum-exp operation
-||| LSE(x) = max(x) + log(Σᵢ exp(xᵢ - max(x)))
-||| See https://gregorygundersen.com/blog/2020/02/09/log-sum-exp/
-public export
-logSumExp : {i : Axis} -> Exp a => Ord a => Neg a =>
-  Foldable (Tensor [i]) =>
-  (allAlg : AllAlgebra [i] a) =>
-  Tensor [i] a -> Maybe a
-logSumExp t = do
-  c <- max t
-  pure $ c + log (reduce (t <&> (\x => exp $ x - c)))
-
-||| Log(softargmax(x)), but computationally efficient and numerically stable
-||| Used for computing cross-entropy loss
-||| Returns empty tensor for empty input
-public export
-logSoftargmax : {i : Axis} -> Exp a => Ord a => Neg a =>
-  Foldable (Tensor [i]) =>
-  (allAlg : AllAlgebra [i] a) =>
-  Tensor [i] a -> Tensor [i] a
-logSoftargmax t = case logSumExp t of
-  Just lse => t <&> (\x => x - lse) -- Non-empty: subtract LSE from each element
-  Nothing  => t                     -- t is empty
-
-||| Commonly known as 'softmax'
-||| When `temperature=0` it reduces to `argmax`
-public export
-softargmaxImpl : {i : Axis} -> Fractional a => Exp a => Ord a => Neg a =>
-  IsFoldable i .cont =>
-  (allAlg : AllAlgebra [i] a) =>
-  {default 1 temperature : a} ->
-  Tensor [i] a -> Tensor [i] a
-softargmaxImpl {temperature} t
-  = exp <$> logSoftargmax (t <&> (/ temperature))
+import public Data.Tensor.Softargmax
 
 ||| Softargmax as a parametric map, with temperature as a parameter
+||| The underlying implementation lives in `Data.Tensor.Softargmax`
 ||| TODO since distribution is an applicative functor (https://glaive-research.org/2025/02/11/Generalized-Transformers-from-Applicative-Functors.html)
 ||| is there a meaningful notion of the "distribution container"?
 ||| Is there a sense in which `Dist` is a functor on containers?
@@ -54,9 +19,3 @@ softargmax : {i : Axis} ->
 softargmax = MkPara 
   (\_ => a) -- temperature is the parameter
   (\(t ** temperature) => softargmaxImpl {temperature} t)
-
-
--- `Control.Monad.Distribution` and softargmax should probably be merged?
-public export
-{i : Nat} -> Show (Dist i) where
-  show (MkDist xs) = show (softargmaxImpl {i="softmaxTemp" ~~> i} (># xs))

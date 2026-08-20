@@ -15,7 +15,6 @@ import Data.Container.Base.Properties.Definitions
 
 import Data.Container.Base.Quantifiers
 
-import Control.Monad.Distribution
 import Data.ComMonoid
 
 import Misc
@@ -353,20 +352,6 @@ namespace CartesianClosure
 public export
 PreparedChoice : {n : Nat} -> Vect n Cont -> Cont
 PreparedChoice xs = !! (AllAny xs)
-
-
-namespace ConvexCombProduct
-  public export
-  Simplex : Nat -> Cont
-  Simplex n = (_ : Dist n) !> (Vect n Double)
-
-  ||| Probabilistic product of containers
-  ||| Convex combination of shapes, and a product of positions
-  ||| This is equivalent to the n-ary Hancock tensor product of containers, 
-  ||| together with a choice of a point inside an n-simplex
-  public export
-  ConvexComb : {n : Nat} -> (xs : Vect n Cont) -> Cont
-  ConvexComb xs = Simplex n >< PreparedChoice xs
 
 
 ||| Derivative of a container

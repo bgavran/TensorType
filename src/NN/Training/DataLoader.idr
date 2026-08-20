@@ -33,7 +33,7 @@ makeDataLoader xs groundTruthFn = do
 public export
 sample : DataLoader input output -> IO (input, output)
 sample (MkDataLoader datasetSize dataset) = do
-  n <- sample (uniform {i=datasetSize})
+  n <- sample (uniform {name="dataset"} {i=datasetSize})
   pure (index n dataset)
 
 ||| The container used to store data for a supervised learning system

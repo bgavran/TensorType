@@ -21,7 +21,7 @@ linearRegressionDataLoader : Monad m => m (DataLoader Double Double)
 linearRegressionDataLoader = makeDataLoader exampleInputs (pure . groundTruth)
 
 public export
-linearRegression : (f : ParaAddDLens (Const Double) (Const Double)) ->
+linearRegression : (f : ParaAddLens (Const Double) (Const Double)) ->
   Neg (GetParam f).Shp => Fractional (GetParam f).Shp =>
   Sqrt (GetParam f).Shp =>
   Random (GetParam f).Shp =>

@@ -14,8 +14,12 @@ record ComMonoid (a : Type) where
   plus : a -> a -> a
   neutral : a
 
+||| Every `Num` type is a commutative monoid under addition.
+|||
+||| Deliberately `export` and not `public export`. This is because this spawns
+||| a witness for every `Const a` with numeric `a`
 %hint
-public export
+export
 numIsMonoid : Num a => ComMonoid a
 numIsMonoid = MkComMonoid (+) 0
 

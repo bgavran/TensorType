@@ -64,6 +64,7 @@ modules = Data.Container.Base
         , Data.Tensor.Shape.Shape
         , Data.Tensor.Tensor
         , Data.Tensor.Utils
+        , Data.Tensor.Softargmax
 
         , Data.CT
         , Data.CT.Category.Definition

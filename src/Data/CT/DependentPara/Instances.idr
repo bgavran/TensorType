@@ -12,21 +12,44 @@ import Data.CT.DependentAction.Instances
 import Data.Container.Base
 import Data.Container.Additive
 
-public export infixr 1 -\-> -- dependent parametric functions
-public export infixr 1 -\--> -- non-dependent parametric functions
-public export infixr 1 =\\=> -- dependent parametric (additive) dependent lenses
-public export infixr 1 =\\==> -- non-dependent parametric (additive) dependent lenses
+{-------------------------------------------------------------------------------
+{-------------------------------------------------------------------------------
+Default Para is dependent Para, and default lenses are dependent additive lenses
 
-{-------------------------------------------------------------------------------
-{-------------------------------------------------------------------------------
-Instead going in and defining full-blown definitions of dependent actegories with units and coherences we instead leverage the main definition in the background and only instantiate cases, manually:
+Ideally, this code would uphold the notation principle that
+`-\->` denotes dependent parametric functions and
+`=\\=>` denotes dependent parametric lenses
+
+But since learning where the parameter depends on the input hasn't been
+implemented yet, the code will write `=\\=>` for non-dependent additive lenses, and simply not export an infix notation for dependent additive lenses
+
+Likewise, instead going in and defining full-blown definitions of dependent 
+actegories with units and coherences we instead leverage the main definition in 
+the background and only instantiate cases, manually:
 one for parametric functions and one for parametric additive dependent lenses.
 We instantiate them using same names in different namespaces, and leverage Idris' name resolution mechanisms to allow the user to use the same name and
-reduce cognitive load
+reduce cognitive load.
+However, to reduce typechecking time, there are also now some concrete records.
 -------------------------------------------------------------------------------}
 -------------------------------------------------------------------------------}
 
+-- Para(Set)
+public export infixr 1 -\-> -- dependent parametric functions
+public export infixr 1 -\--> -- non-dependent parametric functions
+
+-- Para(AddCont)
+public export infixr 1 =\\=> -- non-dependent parametric lenses
+-- public export infixr 1 =\\==> -- not exported, see comment at top of file
+
+  
+-- Dependent parametric function composition
+public export infixr 10 \>>
+-- Dependent parametric lens composition
+public export infixr 10 &>>
+
+||| The 2-category `Para(Set)`
 namespace ParametricFunctions
+  ||| Non-dependent parametric functions
   public export
   Para : (a, b : Type) -> Type
   Para = DepParaMor PairType
@@ -38,8 +61,8 @@ namespace ParametricFunctions
   (-\-->) : (a, b : Type) -> Type
   a -\--> b = Para a b
 
-  ||| Parametric functions
-  ||| "Usual" dependent para on sets and functions
+  ||| Dependent parametric functions, i.e. where the parameter type varies with
+  ||| values of the input `a`
   public export
   DPara : (a, b : Type) -> Type 
   DPara = DepParaMor DPairType
@@ -65,8 +88,10 @@ namespace ParametricFunctions
   composePara (MkPara p f) (MkPara q g) = MkPara
     (\x => DPair (p x) (\p' => q (f (x ** p'))) )
     (\(x ** (p' ** q')) => g (f (x ** p') ** q'))
-  
-  public export infixr 10 \>>
+
+  public export
+  composeParallel : a -\-> b -> c -\-> d -> (a, c) -\-> (b, d)
+  composeParallel f g = ?composeParallel_rhs
   
   public export
   (\>>) : a -\-> b -> b -\-> c -> a -\-> c
@@ -103,7 +128,6 @@ namespace ParametricFunctions
     IsNotDependent pf => Type
   GetParam _ @{MkNonDep p f} = p
 
-
   public export
   composeNTimes : Nat -> a -\-> a -> a -\-> a
   composeNTimes 0 f = id
@@ -116,27 +140,44 @@ namespace ParametricFunctions
     (\_ => p)
     (\(x ** p') => f (x, p'))
 
-namespace ParametricDependentLenses -- also additive ones
-  ||| DParametric dependent lenses
-  ||| Not really used in this repo
+||| The 2-category Para(AddCont)
+||| Para(Cont) is not used in TensorType
+namespace ParametricLenses
+  ||| Non-dependent parametric lenses.
+  ||| As mentioned on top, all of these lenses are additive, and dependent
+  |||
+  ||| As a record, because otherwise the implicit argument carrying slows down
+  ||| typechecking practical neural network architectures. That is, every
+  ||| `.Param` and `.Run` carry `AddDLens`, `Const` and `PairAddCont` as 
+  ||| implcit arguments, unfolded into the full `MkCat` and `MkFunctor` 
+  ||| structure. This happens in bodies of, say `>*<`, at *every occurence*
   public export
-  DParaDLens : (a, b : Cont) -> Type
-  DParaDLens = DepParaMor DPairCont
+  record ParaAddLens (a, b : AddCont) where
+    constructor MkPara
+    Param : AddCont
+    Run : (a >*< Param) =%+> b
+
+  ||| Infix notation for non-dependent parametric additive lenses
+  ||| Compared to `-\-->`, every line is doubled, meant to be interpreted as 
+  ||| information flowing bidirectionally. 
+  ||| See comment for top of file for further explanation
+  public export
+  (=\\=>) : (a, b : AddCont) -> Type
+  a =\\=> b = ParaAddLens a b
+
+  namespace Wrapping
+    ||| Simple wrapping and unwrapping because this is a record now
+    public export
+    toDepPara : ParaAddLens a b -> DepParaMor PairAddCont a b
+    toDepPara (MkPara p f) = MkPara p f
+
+    public export
+    fromDepPara : DepParaMor PairAddCont a b -> ParaAddLens a b
+    fromDepPara (MkPara p f) = MkPara p f
+
 
   public export
-  ParaDLens : (a, b : Cont) -> Type
-  ParaDLens = DepParaMor PairCont
-
-  public export
-  ParaAddDLens : (a, b : AddCont) -> Type
-  ParaAddDLens = DepParaMor PairAddCont
-
-  public export
-  (=\\==>) : (a, b : AddCont) -> Type
-  a =\\==> b = ParaAddDLens a b
-
-  public export
-  trivialParam : a =%+> b -> a =\\==> b
+  trivialParam : a =%+> b -> a =\\=> b
   trivialParam f = MkPara
     UnitCont
     (!%+ \(x, ()) =>
@@ -144,22 +185,27 @@ namespace ParametricDependentLenses -- also additive ones
       in (y ** \y' => (ky y', ())))
 
   public export
-  id : a =\\==> a
+  binaryOpToPara : {p : AddCont} ->
+    (a >*< p) =%+> b -> a =\\=> b
+  binaryOpToPara f = MkPara p f
+
+  public export
+  id : a =\\=> a
   id = trivialParam id
 
   public export
-  GetParam : ParaAddDLens a b -> AddCont
+  GetParam : ParaAddLens a b -> AddCont
   GetParam (MkPara p _) = p
 
   public export
-  toHomRepresentation : (f : ParaAddDLens a b) ->
+  toHomRepresentation : (f : ParaAddLens a b) ->
     (GetParam f) =%+> InternalLensAdditive a b
   toHomRepresentation (MkPara pType f) = !%+ \p =>
     (!%+ \a => (f.fwd (a, p) ** \b' => fst (f.bwd (a, p) b')) **
       \l => foldr (\(a ** b') => pType.Plus p (snd (f.bwd (a, p) b'))) (pType.Zero p) l)
 
   public export
-  composePara : a =\\==> b -> b =\\==> c -> a =\\==> c
+  composePara : a =\\=> b -> b =\\=> c -> a =\\=> c
   composePara (MkPara p f) (MkPara q g) = MkPara
     (p >*< q)
     (!%+ \(x, (ps, qs)) => 
@@ -169,17 +215,30 @@ namespace ParametricDependentLenses -- also additive ones
         in (aPos, (pPos, qPos))))
 
 
-namespace DependentParametricDependentLenses
-
-  ||| Used in this repo, as all neural networks are additive dependent lenses
+namespace DependentParametricLenses
+  ||| Dependent parametric lenses, i.e. where the parameter container can vary
+  ||| with the shape of the input container
+  ||| Defined as its own record for the same reason as `ParaAddLens`
   public export
-  DParaAddDLens : (a, b : AddCont) -> Type
-  DParaAddDLens = DepParaMor DPairAddCont
+  record DParaAddLens (a, b : AddCont) where
+    constructor MkPara
+    Param : a.Shp -> AddCont
+    Run : DPair a Param =%+> b
 
+  namespace Wrap
+    public export
+    toDepPara : DParaAddLens a b -> DepParaMor DPairAddCont a b
+    toDepPara (MkPara p f) = MkPara p f
+
+    public export
+    fromDepPara : DepParaMor DPairAddCont a b -> DParaAddLens a b
+    fromDepPara (MkPara p f) = MkPara p f
+
+  {- commented out for now, since its not used
   ||| Infix notation for additive parametric dependent lenses
   public export
   (=\\=>) : (a, b : AddCont) -> Type
-  a =\\=> b = DParaAddDLens a b
+  a =\\=> b = DParaAddLens a b
   
   public export
   trivialParam : a =%+> b -> a =\\=> b
@@ -202,7 +261,6 @@ namespace DependentParametricDependentLenses
             (aPos, pPos) = f.bwd (x ** ps) bPos
         in (aPos, (pPos, qPos))))
 
-  public export infixr 10 &>>
 
   public export
   (&>>) : a =\\=> b -> b =\\=> c -> a =\\=> c
@@ -211,22 +269,22 @@ namespace DependentParametricDependentLenses
   ||| A predicate witnessing that a parametric additive dependent lens has
   ||| a non-dependent (constant) parameter.
   public export
-  data IsNotDependent : DParaAddDLens a b -> Type where
+  data IsNotDependent : DParaAddLens a b -> Type where
     MkNonDep : (p : AddCont) -> (f : DPair a (const p) =%+> b) ->
       IsNotDependent {a=a} {b=b} (MkPara (\_ => p) f)
   
   public export
-  GetNonDep : (pf : DParaAddDLens a b) ->
+  GetNonDep : (pf : DParaAddLens a b) ->
     IsNotDependent pf => (pc : AddCont ** DPair a (const pc) =%+> b)
   GetNonDep _ @{MkNonDep pc f} = (pc ** f)
 
   public export
-  GetParam : (pf : DParaAddDLens a b) ->
+  GetParam : (pf : DParaAddLens a b) ->
     IsNotDependent pf => AddCont
   GetParam (MkPara (const p) f) @{MkNonDep p f} = p
 
   public export
-  toHomRepresentation : (pf : DParaAddDLens a b) ->
+  toHomRepresentation : (pf : DParaAddLens a b) ->
     IsNotDependent pf =>
     GetParam pf =%+> (InternalLensAdditive a b)
   toHomRepresentation (MkPara (const pc) f) @{MkNonDep pc f}
@@ -244,12 +302,9 @@ namespace DependentParametricDependentLenses
   fromNonDepProduct : (a >*< p) =%+> b -> DPair a (const p) =%+> b
   fromNonDepProduct f = !%+ \(x ** p') => (%!+) f (x, p')
 
-  public export
-  binaryOpToPara : {p : AddCont} ->
-    (a >*< p) =%+> b -> a =\\==> b
-  binaryOpToPara f = MkPara p f
 
   %hide Data.Container.Base.Morphism.Definition.DependentLenses.(=%>)
+  -}
 
 -- public export
 -- dependentMap : {t : a -> Type} -> (f : (x : a) -> t x) ->
@@ -274,4 +329,3 @@ namespace DependentParametricDependentLenses
 -- 
 -- composePara : Para a n b -> Para b m c -> Para a (n + m) c
 -- composePara (MkPara p f) (MkPara q g) = MkPara (p ++ q) (composePara_rhs_1 p q f g)
-

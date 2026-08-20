@@ -115,7 +115,7 @@ namespace AddCont
 
   public export
   AddContDFunFinite : {n : Nat} -> (Fin n -> AddCont) -> AddCont
-  AddContDFunFinite {n = 0} i = Scalar
+  AddContDFunFinite {n = 0} i = UnitCont
   AddContDFunFinite {n = (S k)} i = i 0 >*< AddContDFunFinite (i . FS)
 
   public export

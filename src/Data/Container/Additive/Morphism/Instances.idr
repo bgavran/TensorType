@@ -17,8 +17,6 @@ import Data.Container.Additive.Properties.Definitions
 
 import Data.Container.Additive.Quantifiers
 
-import Control.Monad.Distribution
-import Control.Monad.Sample.Definition
 
 import Misc
 
@@ -209,12 +207,21 @@ namespace Coproduct
   elim : c >+< c =%+> c
   elim = !% elim
 
--- public export
--- duoidal : (c >+@ d) >< (e >+@ f) =%+> (c >< e) >+@ (d >< f)
--- duoidal = !%+ \((sc <| idxC), (se <| idxE)) =>
---   ((sc, se) <| \(cp, ep) => (idxC cp, idxE ep) **
---     \ll => ((\((cp, ep) ** (dp, fp)) => (cp ** dp)) <$> ll,
---             (\((cp, ep) ** (dp, fp)) => (ep ** fp)) <$> ll))
+||| Lax interchange between the categorical product `>*<` on AddCont and the
+||| action `>-+@` of `(Cont, ><)` on it. Not an isomorphism.
+public export
+duoidal : (m >-+@ d) >*< (n >-+@ g) =%+> (m >< n) >-+@ (d >*< g)
+duoidal = !%+ \(exM, exN) =>
+  ((shapeExt exM, shapeExt exN) <| \(mp, np) => (index exM mp, index exN np) **
+    \bag => ((\((mp, np) ** (dp, gp)) => (mp ** dp)) <$> bag,
+             (\((mp, np) ** (dp, gp)) => (np ** gp)) <$> bag))
+
+||| Specific distributive law we need
+public export
+distribute : {c : AddCont} ->
+  (f : c.Shp -> (e =%> s)) ->
+  c >*< (e >-+@ g) =%+> s >-+@ g
+distribute f = uncurry (!%+ \cs => (f cs >-+@ id {c=g} ** \_ => c.Zero cs))
 
 public export
 coprodDistrOverTensor : {q, p : AddCont} ->
@@ -231,14 +238,6 @@ rebracketcomptensor = (id {c=e >+@ y} >< leftUnitInv {c=y})
                       %+>> duoidal {c=e} {d=y} {e=Scalar} {f=y}
                       %+>> (rightUnit {c=e} >+@ id {c=(y><y)})
 
-
-public export
-distribute : {c : AddCont} ->
-  c >< e =%+> s ->
-  c >< (e >+@ g) =%+> s >+@ g
-distribute f = (rightUnitInv >< id {c=e >+@ g})
-             %+>> duoidal {d = Scalar}
-             %+>> (f >+@ leftUnit)
 
 public export
 extractEffect : {d : AddCont} ->
@@ -361,6 +360,8 @@ namespace Sample
     (index i xs).Pos (index i shapes)
   extractPos {shapes = (_ :: _)} FZ (Here x') = x'
   extractPos {shapes = (_ :: _)} (FS j) (There rest) = extractPos j rest
+
+
 
 -- parameters (f : Type -> Type)
 --   ||| These are all of the morphisms in the cokleisli category of (f <!> -)  

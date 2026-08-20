@@ -17,8 +17,6 @@ import Data.Container.Base.Object.Instances
 import Data.Container.Base.Quantifiers
 import Data.Container.Base.TreeUtils
 
-import Control.Monad.Distribution
-import Control.Monad.Sample.Definition
 
 import Data.Num
 import Data.Layout
@@ -567,11 +565,6 @@ maybeToList : Maybe =%> List
 maybeToList = !% \b => case b of 
   False => (0 ** absurd)
   True => (1 ** \_ => ())
-
-public export
-Sample : MonadSample m => {n : Nat} -> IsSucc n =>
-  (m <!> Dist n) =%> Scalar
-Sample = toCostate sample
 
 -- TODO here maybe need to uncomment during merge?
 -- public export

@@ -5,6 +5,7 @@ import Data.List
 import System.Random
 
 import Data.Tensor.Tensor
+import Data.Container.Additive
 import Data.Container.SubTerm
 import Misc
 
@@ -170,6 +171,37 @@ namespace Max
     Tensor shape a -> Maybe a
   max = max . flatten
 
+namespace ArgMinMax
+  ||| At the moment this simply reuses the vect implementation
+  ||| To be revised at some point later
+  public export
+  argmax : {name : AxisName} -> {n : Nat} -> IsSucc n => Ord a =>
+    Tensor [name ~~> n] a -> Fin n
+  argmax = Vect.argmax . (#>)
+
+  ||| At the moment this simply reuses the vect implementation
+  ||| To be revised at some point later
+  public export
+  argmin : {name : AxisName} -> {n : Nat} -> IsSucc n => Ord a =>
+    Tensor [name ~~> n] a -> Fin n
+  argmin = Vect.argmin . (#>)
+
+namespace AllClose
+  ||| Scalar approximate equality, following NumPy's `isclose`:
+  ||| |x - y| <= atol + rtol * |y|
+  public export
+  isClose : {default 1.0e-8 atol : Double} -> {default 1.0e-5 rtol : Double} ->
+    Double -> Double -> Bool
+  isClose x y = abs (x - y) <= atol + rtol * abs y
+
+  ||| Elementwise approximate equality of tensors, following NumPy's `allclose`
+  public export
+  allClose : {0 shape : TensorShape rank} ->
+    Applicative (Tensor shape) => Foldable (Tensor shape) =>
+    {default 1.0e-8 atol : Double} -> {default 1.0e-5 rtol : Double} ->
+    Tensor shape Double -> Tensor shape Double -> Bool
+  allClose t t' = all id [| isClose {atol} {rtol} t t' |]
+
 namespace OneHot
   public export
   oneHot : {0 c : Axis} -> IsCubical c =>
@@ -264,6 +296,17 @@ namespace Misc
 
 
 
+
+
+namespace TensorComMonoid
+  ||| Pointwise commutative monoid structure on tensors, lifted from the one
+  ||| on the underlying type
+  public export
+  tensorComMonoid : {shape : TensorShape rank} -> AllC TensorMonoid shape =>
+    ComMonoid a -> ComMonoid (Tensor shape a)
+  tensorComMonoid (MkComMonoid p z) = MkComMonoid
+    (\t, t' => [| p t t' |])
+    (pure z)
 
 namespace Traversals
   public export

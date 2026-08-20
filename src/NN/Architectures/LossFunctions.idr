@@ -6,7 +6,6 @@ import Data.Zippable
 import Data.Tensor
 import Data.Tensor.Utils
 import Data.Container.Additive
-import NN.Architectures.Softargmax
 import Control.Monad.Distribution
 
 import Data.Container.Additive.Quantifiers
@@ -123,11 +122,12 @@ MeanSquaredError : IsCubical n => TensorMonoid n.cont =>
 MeanSquaredError @{MkIsCubical _ n} = SquaredError %+>> Sum %+>> Div (cast n)
 
 public export
-SoftargmaxCrossEntropyLogits : {n : Nat} -> Loss (Simplex n)
-SoftargmaxCrossEntropyLogits = !%+ \(logits, labels) =>
-  let logSoftargmaxLogits = logSoftargmax (># (toVect logits))
-      targetProbs = softargmaxImpl {i="softargmaxTemp" ~~> n} (># (toVect labels))
+SoftargmaxCrossEntropyLogits : {name : AxisName} -> {n : Nat} ->
+  Loss (Simplex name n)
+SoftargmaxCrossEntropyLogits = !%+ \(predicted, labels) =>
+  let logSoftargmaxLogits = logSoftargmax predicted.logits
+      targetProbs = softargmaxImpl labels.logits
       out = - dot logSoftargmaxLogits targetProbs
   in (extract out ** \l' =>
-    (#> (((l' *) <$> softargmaxImpl (># (toVect logits)) - targetProbs)),
-      replicate n 0)) -- zeros for now
+    ((l' *) <$> softargmaxImpl predicted.logits - targetProbs,
+      fill 0)) -- zeros for now

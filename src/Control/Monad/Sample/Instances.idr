@@ -6,7 +6,6 @@ import System.Random
 import Data.Tensor
 import Control.Monad.Distribution
 import Control.Monad.Sample.Definition
-import NN.Architectures.Softargmax
 
 ||| Trivial sampler, always picks the first element
 public export
@@ -16,32 +15,29 @@ public export
 ||| Max sampler, always picks the element with the highest logit
 public export
 [pickMax] MonadSample Identity where
-  sample {i = (S k)} (MkDist xs) = Id (argmax xs)
+  sample {i = (S k)} d = Id (argmax d.logits)
 
 ||| Min sampler, always picks the element with the lowest logit
 public export
 [pickMin] MonadSample Identity where
-  sample {i = (S k)} (MkDist xs) = Id (argmin xs)
+  sample {i = (S k)} d = Id (argmin d.logits)
 
 
 ||| Computes the cumulative distribution, samples randomly, finds the right bin
 public export
 MonadSample IO where
   sample {i = S j} (MkDist xs) = do
-    let dist : Tensor ["dist" ~~> S j] Double
-        dist = softargmaxImpl {i="dist" ~~> S j} (># xs)
-        cumSum : Tensor ["dist" ~~> S j] Double
+    let dist = softargmaxImpl xs
         cumSum = cumulativeSum dist
     r <- randomRIO (0.0, 1.0)
     case findBin (#> cumSum) r of
       Nothing => pure FZ -- should never happen!
       Just i => pure i
 
-
-
 testIO : IO ()
 testIO = do
-  let logits = MkDist [-(1.099), 1.099] -- this produes the dist [0.1, 0.9]
+  let logits : Dist "coin" 2
+      logits = MkDist (># [-(1.099), 1.099]) -- this produces the dist [0.1, 0.9]
   is <- sequence (replicate 1000 (sample logits))
   -- printLn is
   printLn (count (== 0) is) -- should be ~100
@@ -51,7 +47,7 @@ public export
 testDirac : IO ()
 testDirac = do
   let index = 4
-  let logits = diracDelta {i=10} index
+  let logits = diracDelta {name="dirac"} {i=10} index
   inds <- sequence (replicate 1000 (sample logits))
   printLn (take 10 inds)
   printLn (count (== index) inds)

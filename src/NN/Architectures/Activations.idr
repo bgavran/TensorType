@@ -7,7 +7,7 @@ import Misc
 -- Should this be a typeclass?
 public export
 relu : Ord a => Num a => a -> a
-relu x = max 0 x
+relu x = Prelude.max 0 x
 
 public export
 sigmoid : Fractional a => Exp a => a -> a

@@ -95,7 +95,7 @@ optimise f handleEffect opt numSteps = do
 ||| b) a loss function `loss : y >< y =%+> l`
 ||| builds an effectful lens `p =%+> l`
 public export
-buildSupervisedLearningSystem : (f : ParaAddDLens x y) ->
+buildSupervisedLearningSystem : (f : ParaAddLens x y) ->
   (loss : Loss y {l=l}) ->
   (GetParam f) =%+> SupervisedData x.Shp y.Shp >-+@ l
 buildSupervisedLearningSystem (MkPara p f) loss =
@@ -113,7 +113,7 @@ namespace WithEffect
   ||| evaluation
   public export
   totalLoss : Show l.Shp => Num l.Shp =>
-    (f : ParaAddDLens x (e >-+@ y)) ->
+    (f : ParaAddLens x (e >-+@ y)) ->
     (loss : Loss y {l=l}) ->
     (p : (GetParam f).Shp) ->
     (handleEffect : Costate (IO <!> e)) ->
@@ -130,7 +130,7 @@ namespace WithEffect
   public export
   averageLoss :  {n : Nat} ->
     Show l.Shp => Num l.Shp => Fractional l.Shp => Cast Nat l.Shp =>
-    (f : ParaAddDLens x (e >-+@ y)) ->
+    (f : ParaAddLens x (e >-+@ y)) ->
     (loss : Loss y {l=l}) ->
     (p : (GetParam f).Shp) ->
     (handleEffect : Costate (IO <!> e)) ->
@@ -142,7 +142,7 @@ namespace WithEffect
   ||| Eval a model and loss with specific parameters, in the presence of an effect
   public export
   evalWithLoss : ScientificDisplay x.Shp => ScientificDisplay y.Shp => ScientificDisplay l.Shp =>
-    (f : ParaAddDLens x (e >-+@ y)) ->
+    (f : ParaAddLens x (e >-+@ y)) ->
     (loss : Loss y {l=l}) ->
     (p : (GetParam f).Shp) ->
     (handleEffect : Costate (IO <!> e)) ->
@@ -159,7 +159,7 @@ namespace WithEffect
   ||| Eval a model with specific parameters, in the presence of an effect
   public export
   eval : ScientificDisplay x.Shp => ScientificDisplay y.Shp =>
-    (f : ParaAddDLens x (e >-+@ y)) ->
+    (f : ParaAddLens x (e >-+@ y)) ->
     (p : (GetParam f).Shp) ->
     (handleEffect : Costate (IO <!> e)) ->
     Costate (IO <!> (Const2 (Vect n x.Shp) Unit))
@@ -174,7 +174,7 @@ namespace WithEffect
 namespace WithoutEffect
   public export
   trivialEffect : {y : AddCont} ->
-    ParaAddDLens x y -> ParaAddDLens x (Scalar >+@ y)
+    ParaAddLens x y -> ParaAddLens x (Scalar >+@ y)
   trivialEffect (MkPara p f) = MkPara p
     (f %+>> leftUnitInv)
 
@@ -186,7 +186,7 @@ namespace WithoutEffect
   ||| Eval a model with specific parameters
   public export
   eval : {y : AddCont} -> ScientificDisplay x.Shp => ScientificDisplay y.Shp =>
-    (f : ParaAddDLens x y) ->
+    (f : ParaAddLens x y) ->
     (p : (GetParam f).Shp) ->
     Costate (IO <!> (Const2 (Vect n x.Shp) Unit))
   eval (MkPara pCont f) p
@@ -195,7 +195,7 @@ namespace WithoutEffect
   public export
   averageLoss :  {y : AddCont} -> {n : Nat} ->
     Show l.Shp => Num l.Shp => Fractional l.Shp => Cast Nat l.Shp =>
-    (f : ParaAddDLens x y) ->
+    (f : ParaAddLens x y) ->
     (loss : Loss y {l=l}) ->
     (p : (GetParam f).Shp) ->
     Costate (IO <!> (Const2 (Vect n (x.Shp, y.Shp)) l.Shp))
@@ -210,7 +210,7 @@ namespace WithoutEffect
 public export
 train : {x, y, l : AddCont} -> InterfaceOnPositions l Num => IsFlat l =>
   {default 100 printEvery : Nat} ->
-  (f : ParaAddDLens x y) ->
+  (f : ParaAddLens x y) ->
   Show (GetParam f).Shp => Num l.Shp =>
   Show x.Shp => Show y.Shp => Show stateTy => Show l.Shp =>
   {default Nothing initParam : Maybe (GetParam f).Shp} ->

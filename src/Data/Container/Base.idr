@@ -13,7 +13,6 @@ import public Data.Trees
 import public Data.Functor.Algebra
 -- import public Data.Functor.Naperian
 import public Data.Container.Base.TreeUtils
-import public Control.Monad.Distribution
 
 import public Data.Container.Base.Display2D.Display2D -- where to put
 

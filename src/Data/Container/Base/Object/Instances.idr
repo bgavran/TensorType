@@ -6,7 +6,6 @@ import Data.List.Quantifiers
 import Data.Container.Base.Object.Definition
 import Data.Container.Base.Product.Definitions
 import Data.Container.Base.TreeUtils
-import Control.Monad.Distribution
 
 
 {-------------------------------------------------------------------------------
@@ -160,12 +159,6 @@ CoproductTensor = foldr (>+<) Empty
 public export
 ContUniverse : Cont
 ContUniverse = (_ : (s : Type ** s -> Type)) !> Void
-
-||| Given a natural number `n`, this is a container whose shape represents a 
-||| distribution over `n` choices, and its position represents the choice made.
-public export
-Dist : Nat -> Cont
-Dist n = Const2 (Dist n) (Fin n)
 
 ||| Basically an alias for `Nap`
 public export

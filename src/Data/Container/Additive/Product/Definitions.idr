@@ -13,7 +13,6 @@ import Data.Container.Additive.Extension.Definition
 import Data.Container.Base.Quantifiers
 import Data.Container.Additive.Quantifiers
 
-import Control.Monad.Distribution
 
 import Misc
 
@@ -347,36 +346,24 @@ PreparedChoice : {n : Nat} -> Vect n Cont -> AddCont
 PreparedChoice xs = !* (AllAny xs)
 
 namespace ConvexCombProduct
-  ||| Container whose shapes are distributions, positions their gradients.
-  ||| Both are represented as logits
-  ||| If we were treating this as non-logit distributions then we'd have a 
-  ||| one less dimension: both for the simplex in the forward pass and the
-  ||| gradients in the backwards one
-  ||| That is, the effective dimension of this space is n-1 (we can add a 
-  ||| constant to all logits without changing the answer), and there's a
-  ||| direction in the gradient logit space that does not affect output
-  public export
-  Simplex : Nat -> AddCont
-  Simplex n = MkAddCont (Simplex n)
-  
-  ||| Convex combination of containers. Uses ordinary containers as input.
-  |||
-  ||| Shape: all shapes from each branch, plus a distribution over branches.
-  ||| Position: a list of tagged positions (coproduct of monoids structure).
-  |||
-  ||| The list represents a formal sum of branch-tagged gradients:
-  ||| - Singleton [(i ** p)] means gradient p came from branch i
-  ||| - Multiple entries accumulate (same-index entries add their positions)
-  ||| - Empty list is the neutral element
-  public export
-  ConvexComb : {n : Nat} -> Vect n Cont -> AddCont
-  ConvexComb xs = Simplex n >*< PreparedChoice xs
+  -- ||| Convex combination of containers. Uses ordinary containers as input.
+  -- |||
+  -- ||| Shape: all shapes from each branch, plus a distribution over branches.
+  -- ||| Position: a list of tagged positions (coproduct of monoids structure).
+  -- |||
+  -- ||| The list represents a formal sum of branch-tagged gradients:
+  -- ||| - Singleton [(i ** p)] means gradient p came from branch i
+  -- ||| - Multiple entries accumulate (same-index entries add their positions)
+  -- ||| - Empty list is the neutral element
+  -- public export
+  -- ConvexComb : {n : Nat} -> Vect n Cont -> AddCont
+  -- ConvexComb xs = Simplex n >*< PreparedChoice xs
 
 
-  namespace Additive
-    public export
-    ConvexComb : {n : Nat} -> (xs : Vect n AddCont) -> AddCont
-    ConvexComb xs = ConvexComb (UC <$> xs)
+  -- namespace Additive
+  --   public export
+  --   ConvexComb : {n : Nat} -> (xs : Vect n AddCont) -> AddCont
+  --   ConvexComb xs = ConvexComb (UC <$> xs)
 
 --public export
 --UniversalMapAny : {n : Nat} -> {cs : Vect n AddCont} ->
