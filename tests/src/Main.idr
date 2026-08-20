@@ -16,6 +16,7 @@ main = do
   trainGr <- trainGroup -- kind of a hack, as Hedgehog does not have evalIO
   test
     [ cubicalIndexingGroup
+    , indexingGroup
 
     , interfaceTests
     , axisTests
