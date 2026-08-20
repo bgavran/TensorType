@@ -22,6 +22,7 @@ modules = Display2D.Instances
         , Tensor.Interfaces
         , Tensor.Indexing
         , Tensor.Axis
+        , Tensor.Softargmax
         , Train.LinearRegression
         , Main
 
