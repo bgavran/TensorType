@@ -111,9 +111,8 @@ namespace DependentCharts
 
   public export
   compDepChart : c =&> d -> d =&> e -> c =&> e
-  compDepChart f g = !& \x => let (y ** ky) = (&! f) x
-                                  (z ** kz) = (&! g) y
-                              in (z ** kz . ky)
+  compDepChart f g = !& \x =>
+    (g.fwd (f.fwd x) ** g.bwd (f.fwd x) . f.bwd x)
 
   public export
   (&>>) : c =&> d -> d =&> e -> c =&> e
