@@ -29,7 +29,7 @@ indexingGroup = MkGroup "Tree tensor indexing"
     treeTensor1 @@ [GoLeft (GoLeft AtLeaf), 1] === 2)
   , ("Tree indexing example 3", property1 $
     treeTensor1 @@ [GoRight AtLeaf, 1] === 6)
-  , ("Tree indexing example 3", property1 $
-    treeTensor1 @@ [GoLeft (GoRight AtLeaf), 0] === 3)
   , ("Tree indexing example 4", property1 $
-    treeTensor1 @@ [GoLeft (GoRight AtLeaf), 1] === 6) ]
+    treeTensor1 @@ [GoLeft (GoRight AtLeaf), 0] === 3)
+  , ("Tree indexing example 5", property1 $
+    treeTensor1 @@ [GoLeft (GoRight AtLeaf), 1] === 4) ]
