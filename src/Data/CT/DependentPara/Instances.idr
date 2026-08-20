@@ -91,7 +91,9 @@ namespace ParametricFunctions
 
   public export
   composeParallel : a -\-> b -> c -\-> d -> (a, c) -\-> (b, d)
-  composeParallel f g = ?composeParallel_rhs
+  composeParallel (MkPara p f) (MkPara q g) = MkPara
+    (\(x, y) => (p x, q y))
+    (\((x, y) ** (px, qy)) => (f (x ** px), g (y ** qy)))
   
   public export
   (\>>) : a -\-> b -> b -\-> c -> a -\-> c
@@ -208,11 +210,17 @@ namespace ParametricLenses
   composePara : a =\\=> b -> b =\\=> c -> a =\\=> c
   composePara (MkPara p f) (MkPara q g) = MkPara
     (p >*< q)
-    (!%+ \(x, (ps, qs)) => 
+    (!%+ \(x, (ps, qs)) =>
       (g.fwd (f.fwd (x, ps), qs) ** \cPos =>
         let (bPos, qPos) = g.bwd (f.fwd (x, ps), qs) cPos
             (aPos, pPos) = f.bwd (x, ps) bPos
         in (aPos, (pPos, qPos))))
+
+  public export
+  composeParallel : a =\\=> b -> c =\\=> d -> (a >*< c) =\\=> (b >*< d)
+  composeParallel (MkPara p f) (MkPara q g) = MkPara
+    (p >*< q)
+    (swapMiddle %+>> (f >*< g))
 
 
 namespace DependentParametricLenses
