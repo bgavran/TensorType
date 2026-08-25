@@ -15,14 +15,14 @@ record ComMonoid (a : Type) where
   neutral : a
 
 ||| Every `Num` type is a commutative monoid under addition.
-|||
-||| Deliberately `export` and not `public export`. This is because this spawns
-||| a witness for every `Const a` with numeric `a`
+||| Deliberately `export` and not `public export`, as it complicates search
+||| It spawns a witness for every `Const a` with numeric `a`
 %hint
 export
 numIsMonoid : Num a => ComMonoid a
 numIsMonoid = MkComMonoid (+) 0
 
+-- todo figure out a consistent strategy for when `%hint` is needed or not
 public export
 listIsMonoid : ComMonoid (List a)
 listIsMonoid = MkComMonoid (++) []
@@ -43,45 +43,52 @@ public export
 sum : ComMonoid a => Bag a -> a
 sum @{mon} = foldr (plus mon) (neutral mon)
 
--- public export
--- ComMonoidHomo : {a, b : Type} -> ComMonoid a -> ComMonoid b -> Type
--- ComMonoidHomo _ _ = a -> b
-
-
 namespace NotExposingType
   ||| Same as ComMonoid, but without exposing the underlying carrier in the type
   public export
   ComMonoid : Type
   ComMonoid = (t : Type ** ComMonoid t)
 
+  ||| Forgetful functor
   public export
   uSet : ComMonoid -> Type
   uSet = fst
 
   ||| Not encoding the rules for now
+  ||| Not using pattern matching so it reduces
   public export
   ComMonoidHomo : ComMonoid -> ComMonoid -> Type
-  ComMonoidHomo (t ** _) (t' ** _) = t -> t'
+  ComMonoidHomo m n = uSet m -> uSet n
 
-  -- public export
-  -- record ComMonoidHomo (c, d : ComMonoid) where
-  --   constructor MkComMonoidHomo
-  --   underlyingMap : c.fst -> d.fst
-  --   plusPreserve : (x, y : c.fst) ->
-  --     underlyingMap (c.snd.plus x y) = d.snd.plus (underlyingMap x) (underlyingMap y)
-  --   neutralPreserve : underlyingMap c.snd.neutral = d.snd.neutral
+  ||| Hom object of commutative monoids 
+  ||| Notably, without commutativity this does not exist
+  public export
+  functionIsMonoid : {0 a : Type} -> ComMonoid b -> ComMonoid (a -> b)
+  functionIsMonoid m = MkComMonoid
+    (\f, g => \x => plus m (f x) (g x))
+    (\_ => neutral m)
 
-||| One way of the hom-set isomorphism of the free-forgetful adjunction. It 
-||| extends a map on generators to a homomorphism out of the free commutative
-||| monoid on those generators.
+  ||| Natural numbers, the free commutative monoid on one generator.
+  public export
+  natMon : ComMonoid
+  natMon = (Nat ** numIsMonoid)
+
+  public export
+  Free : Type -> ComMonoid
+  Free a = (Bag a ** bagIsMonoid)
+
+||| Hom-set isomorphism of the free-forgetful adjunction between ComMon and Set
+||| A map on generators is extended to a homomorphism out of a free commtuative 
+||| monoid on the generators
 public export
-fromGenerators : {0 a : Type} -> (mon : ComMonoid y) => (a -> y) ->
-  ComMonoidHomo (Bag a ** bagIsMonoid {a}) (y ** mon)
-fromGenerators h = sum . map h
+fromGenerators : {0 a : Type} -> {y : ComMonoid} ->
+  (a -> uSet y) -> -- a map on generators
+  ComMonoidHomo (Free a) y
+fromGenerators f b = sum @{snd y} (f <$> b)
 
 ||| Canonical action of `Nat` on a commutative monoid
 ||| `scale n x` is the `n`-fold sum `x + ... + x`
-||| The one-generator case of `fromGenerators`, with `Nat \cong Bag Unit`
+||| Special case of `fromGenerators` whe `a=Unit`.
 public export
 scale : ComMonoid a => Nat -> a -> a
 scale @{mon} 0 a = neutral mon
