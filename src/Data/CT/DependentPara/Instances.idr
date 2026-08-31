@@ -210,11 +210,7 @@ namespace ParametricLenses
   composePara : a =\\=> b -> b =\\=> c -> a =\\=> c
   composePara (MkPara p f) (MkPara q g) = MkPara
     (p >*< q)
-    (!%+ \(x, (ps, qs)) =>
-      (g.fwd (f.fwd (x, ps), qs) ** \cPos =>
-        let (bPos, qPos) = g.bwd (f.fwd (x, ps), qs) cPos
-            (aPos, pPos) = f.bwd (x, ps) bPos
-        in (aPos, (pPos, qPos))))
+    (assocR %+>> (f >*< id) %+>> g)
 
   public export
   composeParallel : a =\\=> b -> c =\\=> d -> (a >*< c) =\\=> (b >*< d)

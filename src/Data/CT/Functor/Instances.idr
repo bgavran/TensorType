@@ -4,6 +4,7 @@ import Data.CT.Category.Definition
 import Data.CT.Category.Instances
 import Data.CT.Functor.Definition
 
+import Data.Vect
 import Data.Container.Base
 import Data.Container.Additive
 
@@ -55,23 +56,6 @@ FamAddDLens : {c : Cat} -> IndCat AddDLens
 FamAddDLens = composeFunctors AddBase (FamIndCat {c=c})
 
 -- need to check everything from here onwards
---------------------------------------------------------------------------------
--- Dependent Types in Poly (Category of Containers & Dependent Lenses)
---
--- Reference: von Glehn, "Polynomials and Models of Type Theory", Section 4.1
---
--- Key insight: Poly is NOT locally cartesian closed, but:
---   1. Dependent sums (Σ-types) always exist
---   2. Dependent products (Π-types) exist only along cartesian morphisms
---------------------------------------------------------------------------------
-
---------------------------------------------------------------------------------
--- IN TYPE
---
--- A type family over `a` is: `a -> Type`
--- The dependent pair is:     `(x : a ** fam x)`
--- The dependent function is: `(x : a) -> fam x`
---------------------------------------------------------------------------------
 
 namespace Type
   public export
@@ -109,8 +93,8 @@ namespace AddCont
   public export
   AddContDPair : {a : AddCont} -> IndexedAddCont a -> AddCont
   AddContDPair a' = MkAddCont
-    (((x ** t) : DPair a.Shp ((.Shp) . a')) !> (a' x).Pos t)
-    {mon=(?MonDPairAddCont)}
+    (DPair a.Shp (\x => (a' x).Shp))
+    (\(x ** x') => (a' x).Pos x')
 
 
   public export
@@ -126,13 +110,32 @@ namespace AddCont
   indexShp {n = (S k)} {i} (FS y) (_, ss) = indexShp {i=i . FS} y ss
 
   public export
+  injectPos : {n : Nat} -> {f : Fin n -> AddCont} ->
+    (j : Fin n) -> (bp : (AddContDFunFinite f).Shp) ->
+    (f j).PosSet (indexShp {i=f} j bp) ->
+    (AddContDFunFinite f).PosSet bp
+  injectPos {n = S k} FZ (p, rest) g =
+    (g, (AddContDFunFinite (f . FS)).Zero rest)
+  injectPos {n = S k} {f} (FS j) (p, rest) g =
+    ((f FZ).Zero p, injectPos {f=f . FS} j rest g)
+
+  ||| Sections of a finite family inside the choice effect: forward the graph
+  ||| of the section, backward the free-monoid counit at the coprojections
+  public export
+  graph : {n : Nat} -> {br : Vect n AddCont} ->
+    AddContDFunFinite (\i => index i br) =%+> Vect n >-+@ Coproduct br
+  graph = !%+ \s =>
+    (() <| (\i => (i ** indexShp {i = \i => index i br} i s)) **
+     fromGenerators {y = (AddContDFunFinite (\i => index i br)).Pos s}
+       (\(i ** g) => injectPos {f = \i => index i br} i s g))
+
+  public export
   AddContDFunction : {a : AddCont} -> IndexedAddCont a -> AddCont
-  AddContDFunction a' = MkAddCont 
-    ((s : (x : a.Shp) -> (a' x).Shp) !> ((x : a.Shp) -> (a' x).Pos (s x)))
-    {mon=(?MonDFunctionAddCont)}
-    --{mon=(MkI @{\s => MkComMonoid
-    --  (\l, r => \x => (a' x).Plus (s x) (l x) (r x))
-    --  (\x => (a' x).Zero (s x))})}
+  AddContDFunction a' = MkAddCont
+    ((x : a.Shp) -> (a' x).Shp)
+    (\s => (((x : a.Shp) -> (a' x).PosSet (s x)) ** MkComMonoid
+      (\l, r => \x => (a' x).Plus (s x) (l x) (r x))
+      (\x => (a' x).Zero (s x))))
 
 -- public export
 -- ContDPair : (c : Cont) -> IndexedCont c -> Cont
