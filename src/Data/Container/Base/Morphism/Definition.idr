@@ -54,11 +54,12 @@ namespace DependentLenses
   (.bwd) : (f : c =%> d) -> (x : c.Shp) -> d.Pos (f.fwd x) -> c.Pos x
   (.bwd) (!% f) x y' = (f x).snd y'
 
-  ||| Composition of dependent lenses
+  ||| Composition of dependent lenses.
   public export
   compDepLens : c =%> d -> d =%> e -> c =%> e
-  compDepLens f g = !% \x =>
-    (g.fwd (f.fwd x) ** (f.bwd x) . (g.bwd (f.fwd x)))
+  compDepLens f g = !% \x => let (y ** ky) = (%!) f x
+                                 (z ** kz) = (%!) g y
+                             in (z ** ky . kz)
 
   public export
   (%>>) : c =%> d -> d =%> e -> c =%> e
@@ -111,8 +112,9 @@ namespace DependentCharts
 
   public export
   compDepChart : c =&> d -> d =&> e -> c =&> e
-  compDepChart f g = !& \x =>
-    (g.fwd (f.fwd x) ** g.bwd (f.fwd x) . f.bwd x)
+  compDepChart f g = !& \x => let (y ** ky) = (&!) f x
+                                  (z ** kz) = (&!) g y
+                              in (z ** kz . ky)
 
   public export
   (&>>) : c =&> d -> d =&> e -> c =&> e
@@ -169,5 +171,5 @@ public export
 chartToLens : {c1, c2 : Cont} -> {r : Type}
   ->  c1 =&> c2
   ->  (c1 `valuedIn` r) =%> (c2 `valuedIn` r)
-chartToLens f = !% \x => let (y ** ky) = (((&!) f) x)
+chartToLens f = !% \x => let (y ** ky) = (&!) f x
                          in (y ** (. ky))
