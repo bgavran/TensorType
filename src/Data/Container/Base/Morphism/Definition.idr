@@ -161,11 +161,12 @@ reduceVia f l s = l.bwd s (f (l.fwd s))
 ||| Diegetic open games (https://arxiv.org/abs/2206.12338)
 ||| Is this recovered via container composition when `r` is a some container?
 ||| Probably something like `c >@ (Const Unit r) = valuedIn c r`?
+||| See also `Data.Container.Additive.Extension.Instances.dualTo`
 public export
 valuedIn : Cont -> Type -> Cont
 valuedIn c r = (s : c.Shp) !> (c.Pos s -> r)
 
-||| Chart -> DLens
+||| Chart -> Lens
 ||| Tangent bundle to Contanget bundle, effectively
 public export
 chartToLens : {c1, c2 : Cont} -> {r : Type}

@@ -7,13 +7,14 @@ import Data.Vect.Quantifiers
 import Data.Container.Base
 import Data.Container.Base.Morphism.Instances as Base
 import Data.ComMonoid
+import Data.Materialise
 import Data.Num
 import Data.Container.Additive.Object.Definition
 import Data.Container.Additive.Object.Instances
 import Data.Container.Additive.Extension.Definition
 import Data.Container.Additive.Morphism.Definition
-import Data.Container.Additive.Product.Definitions
-import Data.Container.Additive.Properties.Definitions
+import Data.Container.Additive.Product.Definition
+import Data.Container.Additive.Properties.Definition
 
 import Data.Container.Additive.Quantifiers
 
@@ -25,44 +26,21 @@ import Misc
 %hide Base.Morphism.Instances.State.State
 %hide Base.Morphism.Instances.Costate.Costate
 
--- Not sure if we'll need these?
--- public export
--- pushIntoContinuationBag : {p : AddCont} -> {0 d, l : AddCont} ->
---   d >< p =%+> l ->
---   p =%+> (pushDown d) >+@ (Bag l)
--- pushIntoContinuationBag f = !%+ \param => (() <|
---   map (\dShp => f.fwd (dShp, param)) **
---     \ll => sum @{UMon p param} $ ll >>=
---       \(ds ** grads) => extractPGradsBag param ds grads)
---   where
---     extractPGrads : (param : p.Shp) ->
---       (ds : List d.Shp) ->
---       All l.Pos ((\dShp => f.fwd (dShp, param)) <$> ds) ->
---       List (p.Pos param)
---     extractPGrads param [] [] = []
---     extractPGrads param (dShp :: ds) (grad :: grads) =
---       snd (f.bwd (dShp, param) grad) :: extractPGrads param ds grads
--- 
---     extractPGradsBag : (param : p.Shp) ->
---       (ds : Bag d.Shp) ->
---       All l.Pos ((\dShp => f.fwd (dShp, param)) <$> ds) ->
---       Bag (p.Pos param)
---     extractPGradsBag param (MkBag dsl) grads
---       = MkBag $ extractPGrads param dsl grads
--- 
--- 
-
 public export
 pushIntoContinuation : {p : AddCont} ->
   (f : d >*< p =%+> l) ->
   (p =%+> (pushDown d.Shp) >-+@ l)
 pushIntoContinuation f = !%+ \param => (() <| \dShp => f.fwd (dShp, param) **
-    fromGenerators @{UMon p param}
-      (\(dShp ** grad) => snd (f.bwd (dShp, param) grad)))
+    fromGenerators (\(dShp ** grad) => snd (f.bwd (dShp, param) grad)))
 
 ||| Categorical product of additive containers
 ||| On underlying containers computed as the hancock tensor product
 namespace CategoricalProduct
+  ||| The unique map to the terminal object; its backward is the zero
+  public export
+  terminal : {c : AddCont} -> c =%+> UnitCont
+  terminal = !%+ \x => (() ** \() => c.Zero x)
+
   public export
   leftUnit : UnitCont >*< c =%+> c
   leftUnit = !% leftUnit
@@ -81,19 +59,19 @@ namespace CategoricalProduct
 
   public export
   assocL : (a >*< b) >*< c =%+> a >*< (b >*< c)
-  assocL = !% assocL
+  assocL = !% assocL {a=UC a, b=UC b, c=UC c}
 
   public export
   assocR : a >*< (b >*< c) =%+> (a >*< b) >*< c
-  assocR = !% assocR
+  assocR = !% assocR {a=UC a, b=UC b, c=UC c}
 
   public export
   swap : a >*< b =%+> b >*< a
-  swap = !% swap
+  swap = !% swap {a=UC a, b=UC b}
 
   public export
   swapMiddle : (c1 >*< c2) >*< (c3 >*< c4) =%+> (c1 >*< c3) >*< (c2 >*< c4)
-  swapMiddle = !% swapMiddle
+  swapMiddle = !% swapMiddle {c1=UC c1, c2=UC c2, c3=UC c3, c4=UC c4}
 
   ||| These do not exist for ordinary containers!
   ||| Here we need `c` not to be erased since we're using its monoid structure
@@ -107,7 +85,21 @@ namespace CategoricalProduct
     c =%+> e ->
     c =%+> d >*< e
   pairMaps f g = copy %+>> (f >*< g)
-  
+
+  ||| Materialises both the forward pass and the backward pass
+  public export
+  materialiseCont : Materialise c.Shp =>
+    (ip : InterfaceOnPositions c Materialise) =>
+    c =%+> c
+  materialiseCont {ip=MkI i} = !%+ \x => (materialise x ** \x' =>
+    replace {p=c.PosSet} materialiseIsId (materialise @{i (materialise x)} x'))
+
+  ||| Generally used for pairing up parameters
+  public export
+  constPair : ComMonoid s => ComMonoid t =>
+    Const (s, t) =%+> Const s >*< Const t
+  constPair = !%+ \x => (x ** id)
+
   public export
   projLeft : {d : AddCont} -> c >*< d =%+> c
   projLeft = !%+ \(x, y) => (x ** \x' => (x', d.Zero y))
@@ -119,26 +111,26 @@ namespace CategoricalProduct
 ||| Structure maps of the left action `>-+@` of `(Cont, >@, Scalar)` on AddCont
 ||| They generally use the following components:
 ||| * `pureBw` : a position becomes the singleton bag containing it
-||| * `sumBw` : a bag of positions is added up using their monoid structure
+||| * `sumBw` : a bag of positions is added up using its monoid structure
 ||| * `joinBwComp` : nested bags of positions are flattened
 namespace CompositionProductAction
   ||| Backwards pass is ComMon-homomorphism on the nose
   public export
   unitor : {c : AddCont} -> c =%+> Scalar >-+@ c
-  unitor = !% (sumBw @{mon c} %>> (Bag <!> leftUnitInv))
+  unitor = !% (sumBw @{mon c} %>> (Bag <!> leftUnitInv {c=UC c}))
 
   ||| Backwards map is a ComMon-homomorphism only through the quotient
   public export
   unitorInv : Scalar >-+@ c =%+> c
-  unitorInv = !% ((Bag <!> leftUnit) %>> pureBw)
+  unitorInv = !% ((Bag <!> leftUnit {c=UC c}) %>> pureBw)
 
   public export
   multiplicator : (m >-+@ (n >-+@ c)) =%+> ((m >@ n) >-+@ c)
-  multiplicator = !% (Bag <!> ((id >@ pureBw {c = n >@ UC c}) %>> assocR))
+  multiplicator = !% (Bag <!> ((id {c=m} >@ pureBw {c = n >@ UC c}) %>> assocR {a=m, b=n, c=UC c}))
 
   public export
   multiplicatorInv : ((m >@ n) >-+@ c) =%+> (m >-+@ (n >-+@ c))
-  multiplicatorInv = !% ((Bag <!> assocL) %>> joinBwComp {d = n >@ UC c})
+  multiplicatorInv = !% ((Bag <!> assocL {a=m, b=n, c=UC c}) %>> joinBwComp {c=m, d = n >@ UC c})
 
 ||| `!*` and `- >-+@ Scalar` are isomorphic: they're both right adjoint to 
 ||| `UC`.  They are two presentations of the same free commutative monoid on
@@ -150,11 +142,11 @@ namespace CompositionActionBang
   actionToFree : {0 e : Cont} -> e >-+@ Scalar =%+> !* e
   actionToFree = !%+ \ex => (shapeExt ex ** map (\mp => (mp ** 1)))
 
-  ||| Expand each generator into as many copies as its multiplicity says
+  ||| Expand each generator into as many copies as its multiplicity says.
   public export
   freeToAction : {0 e : Cont} -> !* e =%+> e >-+@ Scalar
-  freeToAction = !%+ \x => (x <| \_ => () ** fromGenerators @{bagIsMonoid}
-    (\(mp ** n) => scale @{bagIsMonoid} n (pure mp)))
+  freeToAction = !%+ \x => (x <| \_ => () ** \gens =>
+    sum @{bagIsMonoid} ((\(mp ** n) => scale @{bagIsMonoid} n (pure mp)) <$> gens))
 
 ||| Structure maps of the left-skew monoidal product `>+@` on AddCont
 ||| These definitions follow Theorem 3.1 in https://arxiv.org/abs/2506.06847
@@ -219,7 +211,7 @@ duoidal = !%+ \(exM, exN) =>
 ||| Specific distributive law we need
 public export
 distribute : {c : AddCont} ->
-  (f : c.Shp -> (e =%> s)) ->
+  (f : c.Shp -> e =%> s) ->
   c >*< (e >-+@ g) =%+> s >-+@ g
 distribute f = uncurry (!%+ \cs => (f cs >-+@ id {c=g} ** \_ => c.Zero cs))
 
@@ -287,11 +279,11 @@ namespace Costate
   
   public export
   toCostate : {c : AddCont} ->
-    ((x : c.Shp) -> c.Pos x) -> Costate c
+    ((x : c.Shp) -> c.PosSet x) -> Costate c
   toCostate s = !%+ \x => (() ** \n => scale @{UMon c x} n (s x))
 
   -- public export
-  -- fromCostate : Costate c -> (x : c.Shp) -> c.Pos x
+  -- fromCostate : Costate c -> (x : c.Shp) -> c.PosSet x
   -- fromCostate f x = f.bwd x ()
 
   public export
@@ -357,7 +349,7 @@ namespace Sample
   extractPos : {n : Nat} -> {xs : Vect n AddCont} -> {shapes : All (.Shp) xs} ->
     (i : Fin n) ->
     AnyShpPos (selectShape shapes i) ->
-    (index i xs).Pos (index i shapes)
+    (index i xs).PosSet (index i shapes)
   extractPos {shapes = (_ :: _)} FZ (Here x') = x'
   extractPos {shapes = (_ :: _)} (FS j) (There rest) = extractPos j rest
 

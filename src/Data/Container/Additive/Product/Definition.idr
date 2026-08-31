@@ -1,4 +1,4 @@
-module Data.Container.Additive.Product.Definitions
+module Data.Container.Additive.Product.Definition
 
 import Data.Vect
 import Data.Vect.Quantifiers
@@ -40,6 +40,8 @@ underlying containers:
 
 Notably, the forgetful functor AddCont -> Cont with hancock product on domain and categorical product on codomain is not monoidal in any sense: it is not strict, strong, lax nor oplax.
 
+TODO update this writeup in light of new finds
+
 -------------------------------------------------------------------------------}
 -------------------------------------------------------------------------------}
 
@@ -50,32 +52,34 @@ namespace CategoricalProduct
   ||| Binary version of product
   public export
   (>*<) : AddCont -> AddCont -> AddCont
-  c >*< d = MkAddCont (UC c >< UC d)
-    @{MkI $ \sh => MkComMonoid (\l, r =>
-      (c.Plus (fst sh) (fst l) (fst r), d.Plus (snd sh) (snd l) (snd r)))
-      (c.Zero (fst sh), d.Zero (snd sh))}
+  c >*< d = MkAddCont (c.Shp, d.Shp)
+    (\sh => ((c.PosSet (fst sh), d.PosSet (snd sh)) ** MkComMonoid
+      (\l, r => (c.Plus (fst sh) (fst l) (fst r), d.Plus (snd sh) (snd l) (snd r)))
+      (c.Zero (fst sh), d.Zero (snd sh))))
 
   namespace List
     ||| N-ary version of hancock product
     public export
     AllAll : List AddCont -> AddCont
     AllAll xs = MkAddCont
-      ((shapes : All (.Shp) xs) !> AllPos shapes)
-      @{MkI allPosComMonoid}
+      (All (.Shp) xs)
+      (\shapes => (AllPos shapes ** allPosComMonoid shapes))
 
   namespace Vect
     ||| N-ary version of hancock product
     public export
     AllAll : Vect n AddCont -> AddCont
     AllAll xs = MkAddCont
-      ((shapes : All (.Shp) xs) !> AllPos shapes)
-      @{MkI allPosComMonoid}
+      (All (.Shp) xs)
+      (\shapes => (AllPos shapes ** allPosComMonoid shapes))
 
   namespace Morphism
     public export
     (>*<) : (c1 =%+> d1) -> (c2 =%+> d2) -> (c1 >*< c2) =%+> (d1 >*< d2)
-    (>*<) f g = !%+ \(c, d) => ((f.fwd c, g.fwd d) **
-      \(c', d') => (f.bwd c c', g.bwd d d'))
+    (>*<) f g = !%+ \(c, d) =>
+      let (c1 ** fk) = (%!+) f c
+          (d1 ** gk) = (%!+) g d
+      in ((c1, d1) ** \(c', d') => (fk c', gk d'))
 
   ||| Dependent pair type for additive containers
   ||| Can be thought of as the dependent tensor product of containers
@@ -85,11 +89,11 @@ namespace CategoricalProduct
   public export
   DPair : (pc : AddCont) -> (qc : pc.Shp -> AddCont) -> AddCont
   DPair pc qc = MkAddCont
-    (DPairTensor (UC pc) (UC . qc))
-    @{MkI $ \(ps ** qs) => MkComMonoid
-      (\(pcPos1, qcPos1), (pcPos2, qcPos2) =>
-        (plus (UMon pc ps) pcPos1 pcPos2, plus (UMon (qc ps) qs) qcPos1 qcPos2))
-      (neutral (UMon pc ps), neutral (UMon (qc ps) qs))}
+    (DPair pc.Shp (\ps => (qc ps).Shp))
+    (\sh => ((pc.PosSet (fst sh), (qc (fst sh)).PosSet (snd sh)) ** MkComMonoid
+      (\l, r => (plus (UMon pc (fst sh)) (fst l) (fst r),
+                 plus (UMon (qc (fst sh)) (snd sh)) (snd l) (snd r)))
+      (neutral (UMon pc (fst sh)), neutral (UMon (qc (fst sh)) (snd sh)))))
 
 
 ||| Non-categorical product of additive containers
@@ -108,10 +112,13 @@ namespace CategoricalCoproduct
   ||| Coproduct
   public export
   (>+<) : AddCont -> AddCont -> AddCont
-  c >+< d = MkAddCont (UC c >+< UC d)
-    @{MkI $ \case
-      Left cs => MkComMonoid (plus (UMon c cs)) (neutral (UMon c cs))
-      Right ds => MkComMonoid (plus (UMon d ds)) (neutral (UMon d ds))}
+  c >+< d = MkAddCont (Either c.Shp d.Shp)
+    (\es => (either (\cs => c.PosSet cs) (\ds => d.PosSet ds) es ** eitherMon es))
+    where
+      eitherMon : (es : Either c.Shp d.Shp) ->
+        ComMonoid (either (\cs => c.PosSet cs) (\ds => d.PosSet ds) es)
+      eitherMon (Left cs) = UMon c cs
+      eitherMon (Right ds) = UMon d ds
 
   namespace Morphism
     public export
@@ -120,21 +127,45 @@ namespace CategoricalCoproduct
       (Left x) => (Left (f.fwd x) ** f.bwd x)
       (Right y) => (Right (g.fwd y) ** g.bwd y)
 
+  namespace Vect
+    ||| N-ary coproduct of a finite family indexed by `Fin n`
+    public export
+    Coproduct : {n : Nat} -> (branches : Vect n AddCont) -> AddCont
+    Coproduct branches = MkAddCont
+      (i : Fin n ** (index i branches).Shp)
+      (\sh => (index (fst sh) branches).Pos (snd sh))
+
+    lookupAll : {0 p : a -> Type} -> {0 xs : Vect n a} ->
+      (i : Fin n) -> All p xs -> p (index i xs)
+    lookupAll FZ (px :: _) = px
+    lookupAll (FS i) (_ :: pxs) = lookupAll i pxs
+
+    export
+    showCoproduct : {branches : Vect n AddCont} ->
+      All (\b => Show b.Shp) branches -> (Coproduct branches).Shp -> String
+    showCoproduct sh (i ** x) = show @{lookupAll i sh} x
+
+    public export
+    {branches : Vect n AddCont} ->
+    All (\b => Show b.Shp) branches =>
+    Show (Coproduct branches).Shp where
+      show = showCoproduct %search
+
   namespace List
     ||| N-ary version of coproduct
     public export
     Any : List AddCont -> AddCont
     Any xs = MkAddCont
-      ((shapes : Any (.Shp) xs) !> AnyShpPos shapes)
-      @{MkI anyShpPosComMonoid}
+      (Any (.Shp) xs)
+      (\shapes => (AnyShpPos shapes ** anyShpPosComMonoid shapes))
 
   namespace Vect
     ||| N-ary version of coproduct
     public export
     Any : Vect n AddCont -> AddCont
     Any xs = MkAddCont
-      ((shapes : Any (.Shp) xs) !> AnyShpPos shapes)
-      @{MkI anyShpPosComMonoid}
+      (Any (.Shp) xs)
+      (\shapes => (AnyShpPos shapes ** anyShpPosComMonoid shapes))
 
 
 -- Is All really a ComMonoid for List?
@@ -142,7 +173,7 @@ namespace ListAllComMonoid
   public export
   allIsComMonoidPlus : {c : AddCont} ->
     (s : List c.Shp) ->
-    All c.Pos s -> All c.Pos s -> All c.Pos s
+    All c.PosSet s -> All c.PosSet s -> All c.PosSet s
   allIsComMonoidPlus [] [] [] = []
   allIsComMonoidPlus (s :: ss) (l :: ls) (r :: rs) =
     c.Plus s l r :: allIsComMonoidPlus ss ls rs
@@ -150,33 +181,33 @@ namespace ListAllComMonoid
   public export
   allIsComMonoidNeutral : {c : AddCont} ->
     (s : List c.Shp) ->
-    All c.Pos s
+    All c.PosSet s
   allIsComMonoidNeutral [] = []
   allIsComMonoidNeutral (s :: ss) = c.Zero s :: allIsComMonoidNeutral ss
   
   public export
   allIsComMonoid : {c : AddCont} ->
     (s : List c.Shp) ->
-    ComMonoid (All c.Pos s)
+    ComMonoid (All c.PosSet s)
   allIsComMonoid s = MkComMonoid (allIsComMonoidPlus s) (allIsComMonoidNeutral s)
 
 namespace BagAllComMonoid
   public export
   allIsComMonoidPlus : {c : AddCont} ->
     (s : Bag c.Shp) ->
-    All c.Pos s -> All c.Pos s -> All c.Pos s
+    All c.PosSet s -> All c.PosSet s -> All c.PosSet s
   allIsComMonoidPlus (MkBag ul) l r = allIsComMonoidPlus ul l r
   
   public export
   allIsComMonoidNeutral : {c : AddCont} ->
     (s : Bag c.Shp) ->
-    All c.Pos s
+    All c.PosSet s
   allIsComMonoidNeutral (MkBag ul) = allIsComMonoidNeutral ul
 
   public export
   allIsComMonoid : {c : AddCont} ->
     (s : Bag c.Shp) ->
-    ComMonoid (All c.Pos s)
+    ComMonoid (All c.PosSet s)
   allIsComMonoid s = MkComMonoid
     (allIsComMonoidPlus s)
     (allIsComMonoidNeutral s)
@@ -185,13 +216,13 @@ namespace FunctorsOnAddCont
   public export
   BagAll : AddCont -> AddCont
   BagAll c = MkAddCont
-    (BagAll (UC c))
-    @{MkI $ allIsComMonoid}
+    (Bag c.Shp)
+    (\ss => (All c.PosSet ss ** allIsComMonoid ss))
 
   namespace Morphism
     -- public export
     -- bwww : (f : c =%+> d) -> (cs : Bag c.Shp) ->
-    --   All (d.Pos) (f.fwd <$> cs) -> All (c .Pos) cs
+    --   All (d.PosSet) (f.fwd <$> cs) -> All (c .PosSet) cs
     -- bwww f (MkBag []) [] = []
     -- bwww f (MkBag (c :: cs)) (a :: as) = (f.bwd c a) :: bwww  ?oo ?tt ?heiii 
 
@@ -202,13 +233,13 @@ namespace FunctorsOnAddCont
   public export
   ListAll : AddCont -> AddCont
   ListAll c = MkAddCont
-    (ListAll (UC c))
-    @{MkI allIsComMonoid}
+    (List c.Shp)
+    (\ss => (All c.PosSet ss ** allIsComMonoid ss))
   
   -- namespace Morphism
   --   public export
   --   bww : (f : c =%+> d) -> (cs : List c.Shp) ->
-  --     All (d.Pos) (f.fwd <$> cs) -> All (c .Pos) cs
+  --     All (d.PosSet) (f.fwd <$> cs) -> All (c .PosSet) cs
   --   bww f [] [] = []
   --   bww f (c :: cs) (a :: as) = (f.bwd c a) :: bww f cs as
   -- 
@@ -241,7 +272,7 @@ namespace BangAddCont
   ||| Here we use join?
   public export
   (<!>) : {m : Type -> Type} -> Monad m => AddCont -> AddCont
-  (<!>) c = MkAddCont ?heheh {mon=(MkI ?eiiix)}
+  (<!>) c = MkAddCont ?bangAddContShp ?bangAddContMon
   
   -- public export
   -- ipList : {0 c : AddCont} -> InterfaceOnPositions (List <!> c) ComMonoid
@@ -254,8 +285,8 @@ export prefix 9 !*
 public export
 (!*) : Cont -> AddCont
 (!*) c = MkAddCont
-  (Bag <!> c)
-  @{MkI $ \_ => bagIsMonoid}
+  c.Shp
+  (\s => (Bag (c.Pos s) ** bagIsMonoid))
 
 namespace Morphism
   public export
@@ -277,15 +308,15 @@ namespace CompositionAction
   public export
   positionCont : {c : Cont} -> {d : AddCont} -> Ext c d.Shp -> AddCont
   positionCont ex = MkAddCont
-    ((cp : c.Pos (shapeExt ex)) !> d.Pos (index ex cp))
-    @{MkI $ \s => UMon d (index ex s)}
+    (c.Pos (shapeExt ex))
+    (\cp => d.Pos (index ex cp))
 
   ||| Action of a container on an additive container
   public export
   (>-+@) : Cont -> AddCont -> AddCont
   c >-+@ d = MkAddCont
-    ((ex : Ext c d.Shp) !> DPair (positionCont {d=d} ex))
-    @{MkI $ \s => bagIsMonoid}
+    (Ext c d.Shp)
+    (\ex => (DPair (positionCont {d=d} ex) ** bagIsMonoid))
 
   namespace Morphism
     ||| Action on morphisms
@@ -321,8 +352,8 @@ namespace CartesianClosure
   public export
   InternalLensAdditive : AddCont -> AddCont -> AddCont
   InternalLensAdditive c d = MkAddCont
-    ((l : c =%+> d) !> DPair (lensInputs l))
-    @{MkI $ \_ => bagIsMonoid}
+    (c =%+> d)
+    (\l => (DPair (lensInputs l) ** bagIsMonoid))
 
   public export
   curry : {c : AddCont} -> (c >*< d) =%+> e -> c =%+> (InternalLensAdditive d e)
@@ -344,30 +375,3 @@ namespace CartesianClosure
 public export
 PreparedChoice : {n : Nat} -> Vect n Cont -> AddCont
 PreparedChoice xs = !* (AllAny xs)
-
-namespace ConvexCombProduct
-  -- ||| Convex combination of containers. Uses ordinary containers as input.
-  -- |||
-  -- ||| Shape: all shapes from each branch, plus a distribution over branches.
-  -- ||| Position: a list of tagged positions (coproduct of monoids structure).
-  -- |||
-  -- ||| The list represents a formal sum of branch-tagged gradients:
-  -- ||| - Singleton [(i ** p)] means gradient p came from branch i
-  -- ||| - Multiple entries accumulate (same-index entries add their positions)
-  -- ||| - Empty list is the neutral element
-  -- public export
-  -- ConvexComb : {n : Nat} -> Vect n Cont -> AddCont
-  -- ConvexComb xs = Simplex n >*< PreparedChoice xs
-
-
-  -- namespace Additive
-  --   public export
-  --   ConvexComb : {n : Nat} -> (xs : Vect n AddCont) -> AddCont
-  --   ConvexComb xs = ConvexComb (UC <$> xs)
-
---public export
---UniversalMapAny : {n : Nat} -> {cs : Vect n AddCont} ->
---  ((i : Fin n) -> (index i cs) =%> d) ->
---  Any cs =%> d
---UniversalMapAny {cs = []} f = !%+ \c => ?shouldBeUninhabited
---UniversalMapAny {cs = (c :: cs)} f = !%+ \x => ?asdf

@@ -35,13 +35,13 @@ namespace DependentLenses
   ||| lens directly
   public export
   (!%+) : {0 c, d : AddCont} ->
-    ((x : c.Shp) -> (y : d.Shp ** (d.Pos y -> c.Pos x))) ->
+    ((x : c.Shp) -> (y : d.Shp ** (d.PosSet y -> c.PosSet x))) ->
     c =%+> d
   (!%+) f = (!%) ((!%) f)
 
   public export
   (%!+) : {0 c, d : AddCont} ->
-    c =%+> d -> (x : c.Shp) -> (y : d.Shp ** (d.Pos y -> c.Pos x))
+    c =%+> d -> (x : c.Shp) -> (y : d.Shp ** (d.PosSet y -> c.PosSet x))
   (%!+) (!% f) = (%!) f
 
   public export
@@ -50,7 +50,7 @@ namespace DependentLenses
 
   public export
   (.bwd) : {0 c, d : AddCont} -> (f : c =%+> d) ->
-    (x : c.Shp) -> d.Pos (f.fwd x) -> c.Pos x
+    (x : c.Shp) -> d.PosSet (f.fwd x) -> c.PosSet x
   (.bwd) f = (ULens f).bwd
 
   public export
@@ -74,9 +74,7 @@ namespace DependentLenses
   |||                  └─────────────┘
   public export
   lensInputs : {c, d : AddCont} -> c =%+> d -> AddCont
-  lensInputs lens = MkAddCont
-    (lensInputs (ULens lens))
-    {mon=(MkI $ \s => UMon d (lens.fwd s))}
+  lensInputs lens = MkAddCont c.Shp (d.Pos . lens.fwd)
 
 
 namespace DependentCharts
@@ -96,12 +94,12 @@ namespace DependentCharts
 
   public export
   (!&+) : {0 c, d : AddCont} ->
-    ((x : c.Shp) -> (y : d.Shp ** (c.Pos x -> d.Pos y))) ->
+    ((x : c.Shp) -> (y : d.Shp ** (c.PosSet x -> d.PosSet y))) ->
     c =&+> d
   (!&+) f = (!&) ((!&) f)
 
   public export
-  (&!+) : {0 c, d : AddCont} -> c =&+> d -> (x : c.Shp) -> (y : d.Shp ** (c.Pos x -> d.Pos y))
+  (&!+) : {0 c, d : AddCont} -> c =&+> d -> (x : c.Shp) -> (y : d.Shp ** (c.PosSet x -> d.PosSet y))
   (&!+) (!& f) = (&!) f
 
   public export
@@ -110,7 +108,7 @@ namespace DependentCharts
 
   public export
   (.bwd) : {0 c, d : AddCont} -> (f : c =&+> d) ->
-    (x : c.Shp) -> c.Pos x -> d.Pos (f.fwd x)
+    (x : c.Shp) -> c.PosSet x -> d.PosSet (f.fwd x)
   (.bwd) f = (UChart f).bwd
 
   public export
@@ -130,3 +128,22 @@ namespace DependentCharts
   public export
   chartInputs : {c, d : AddCont} -> (0 f : c =&+> d) -> AddCont
   chartInputs _ = c
+
+||| The dual of an additive container at some monoid `y`:
+||| same shapes, positions become homomorphisms into `y`
+||| On underlying containers this recoves `valuedIn`
+public export
+valuedIn : AddCont -> ComMonoid -> AddCont
+valuedIn c y = MkAddCont c.Shp
+  (\s => (ComMonoidHomo (c.Pos s) y ** functionIsMonoid (snd y)))
+
+||| `dualTo` at the free object on 1
+public export
+dual : AddCont -> AddCont
+dual c = valuedIn c natMon
+
+||| Charts dualise to lenses: forward mode becomes reverse mode.
+public export
+dualiseChart : {c, d : AddCont} -> {y : ComMonoid} -> 
+  c =&+> d -> (c `valuedIn` y) =%+> (d `valuedIn` y)
+dualiseChart f = !% chartToLens (UChart f)

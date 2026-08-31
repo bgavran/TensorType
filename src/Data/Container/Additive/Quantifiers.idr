@@ -21,11 +21,11 @@ namespace List
     public export
     data AllPos : {cs : List AddCont} -> All (.Shp) cs -> Type where
       Nil : AllPos []
-      (::) : c.Pos s -> AllPos ss -> AllPos {cs=(c::cs)} (s :: ss)
+      (::) : c.PosSet s -> AllPos ss -> AllPos {cs=(c::cs)} (s :: ss)
 
     public export
     head : {0 cs : List AddCont} -> {0 ss : All (.Shp) cs} ->
-      AllPos {cs=c::cs} (s :: ss) -> c.Pos s
+      AllPos {cs=c::cs} (s :: ss) -> c.PosSet s
     head (p :: ps) = p
 
     public export
@@ -56,7 +56,7 @@ namespace List
 
   public export
   data AnyShpPos : {cs : List AddCont} -> Any (.Shp) cs -> Type where
-    Here : c.Pos s -> AnyShpPos (Here {x=c} {xs=cs} s)
+    Here : c.PosSet s -> AnyShpPos (Here {x=c} {xs=cs} s)
     There : AnyShpPos ss -> AnyShpPos (There ss)
 
   public export
@@ -85,11 +85,11 @@ namespace Vect
     public export
     data AllPos : {cs : Vect n AddCont} -> All (.Shp) cs -> Type where
       Nil : AllPos []
-      (::) : c.Pos s -> AllPos {cs=cs} ss -> AllPos {cs=(c::cs)} (s :: ss)
+      (::) : c.PosSet s -> AllPos {cs=cs} ss -> AllPos {cs=(c::cs)} (s :: ss)
 
     public export
     head : {0 cs : Vect n AddCont} -> {0 ss : All (.Shp) cs} ->
-      AllPos {cs=c::cs} (s :: ss) -> c.Pos s
+      AllPos {cs=c::cs} (s :: ss) -> c.PosSet s
     head (p :: ps) = p
 
     public export
@@ -121,7 +121,7 @@ namespace Vect
 
   public export
   data AnyShpPos : {cs : Vect n AddCont} -> Any (.Shp) cs -> Type where
-    Here : c.Pos s -> AnyShpPos (Here {x=c} {xs=cs} s)
+    Here : c.PosSet s -> AnyShpPos (Here {x=c} {xs=cs} s)
     There : AnyShpPos ss -> AnyShpPos (There ss)
 
   public export
