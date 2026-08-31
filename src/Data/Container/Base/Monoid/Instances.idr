@@ -1,15 +1,15 @@
-module Data.Container.Base.Product.InterfaceImplementations
+module Data.Container.Base.Monoid.Instances
 
 import Data.Container.Base.Object.Definition
 import Data.Container.Base.Extension.Definition
 import Data.Container.Base.Morphism.Definition
-import Data.Container.Base.Product.Definitions
-import Data.Container.Base.Properties.Definitions
+import Data.Container.Base.Product.Definition
+import Data.Container.Base.Properties.Definition
 
 import Data.Container.Base.Object.Instances
 import Data.Container.Base.Extension.Instances
 import Data.Container.Base.Morphism.Instances
-import Data.Container.Base.Product.Interfaces
+import Data.Container.Base.Monoid.Definition
 import Data.Container.Base.Properties.Instances
 
 import Data.Container.Base.TreeUtils

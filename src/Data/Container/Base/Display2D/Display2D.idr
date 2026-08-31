@@ -7,17 +7,17 @@ import Data.Vect
 
 import Data.Container.Base.Object.Definition
 import Data.Container.Base.Extension.Definition
-import Data.Container.Base.Product.Definitions
+import Data.Container.Base.Product.Definition
 
-import Data.Container.Base.Instances
+import Data.Container.Base.Object.Instances
+import Data.Container.Base.Extension.Instances
+import Data.Container.Base.Properties.Instances
 
 import public Data.Container.Base.Display2D.CharacterMap
 import Data.ScientificNotation
 
 import Data.Container.Base.TreeUtils
 import Misc
-
-%hide Syntax.WithProof.prefix.(@@)
 
 {-------------------------------------------------------------------------------
 Machinery for rendering values as rectangular 2D character grids.
@@ -363,6 +363,15 @@ Display2D instances for container extensions
 public export
 Display2D a => Display2D (Scalar' a) where
   display2D (() <| index) = display2D (index ())
+
+public export
+Display2D a => Display2D b => Display2D (a, b) where
+  display2D (x, y) = besideAll padCharacter
+    [ singleValue (left AsciiPairSyntax)
+    , display2D x
+    , singleValue (separator AsciiPairSyntax)
+    , display2D y
+    , singleValue (right AsciiPairSyntax) ]
 
 public export
 Display2D a => Display2D (Pair' a) where

@@ -1,8 +1,10 @@
-module Data.Container.Applicative.TreeUtils
+module Data.Container.Base.RoseTree.Definition
 
+import Data.Container.Base.Object.Definition
+import Data.Container.Base.Extension.Definition
+import Data.Container.Base.Monoid.Definition
 
-import Data.Container.Base
-
+-- will be refactored away too
 
 ||| Requires a TensorMonoid (Applicative) to even be stated
 namespace RoseTree

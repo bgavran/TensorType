@@ -1,4 +1,4 @@
-module Data.Container.Base.Properties.Definitions
+module Data.Container.Base.Properties.Definition
 
 import Data.Fin
 import Data.Finite

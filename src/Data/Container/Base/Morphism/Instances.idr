@@ -9,8 +9,9 @@ import Data.List.Quantifiers
 import Data.Container.Base.Object.Definition
 import Data.Container.Base.Morphism.Definition
 import Data.Container.Base.Extension.Definition
-import Data.Container.Base.Properties.Definitions
-import Data.Container.Base.Product.Definitions
+import Data.Container.Base.Properties.Definition
+import Data.Container.Base.Product.Definition
+import Data.Container.Base.Endofunctor.Definition
 
 import Data.Container.Base.Object.Instances
 

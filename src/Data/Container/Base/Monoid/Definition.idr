@@ -1,13 +1,16 @@
-module Data.Container.Base.Product.Interfaces
+module Data.Container.Base.Monoid.Definition
 
 import public Data.List.Quantifiers
 
 import Data.Container.Base.Object.Definition
 import Data.Container.Base.Morphism.Definition
 import Data.Container.Base.Extension.Definition
-import Data.Container.Base.Product.Definitions
+import Data.Container.Base.Product.Definition
+
+-- Temporary, Instances will not be imported here after a refactor
+-- defining monoidal categories in `Data.CT`
 import Data.Container.Base.Object.Instances
-import Data.Container.Base.Morphism.Instances
+
 
 ||| Its extension is an applicative functor
 ||| All Naperian containers, BinTree, BinTreeLeaf, List, Maybe,...
@@ -43,11 +46,6 @@ public export
 interface ProdMonoid (0 c : Cont) where
   prodN : UnitCont =%> c
   prodM : c >*< c =%> c
-
-public export
-pairExtensions : Ext c a -> Ext d b -> Ext (c >< d) (a, b)
-pairExtensions (shapeC <| indexC) (shapeD <| indexD)
-  = (shapeC, shapeD) <| \(posC, posD) => (indexC posC, indexD posD)
 
 public export
 liftA2Ext : TensorMonoid c => Ext c a -> Ext c b -> Ext c (a, b)

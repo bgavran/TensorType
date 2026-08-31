@@ -4,7 +4,7 @@ import Data.Fin
 import Data.List.Quantifiers
 
 import Data.Container.Base.Object.Definition
-import Data.Container.Base.Product.Definitions
+import Data.Container.Base.Product.Definition
 import Data.Container.Base.TreeUtils
 
 

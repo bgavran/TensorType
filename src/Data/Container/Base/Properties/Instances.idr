@@ -2,12 +2,15 @@ module Data.Container.Base.Properties.Instances
 
 import Data.Fin
 import Data.Vect
+import Decidable.Equality
+import Data.Fin.Split
+import Data.Finite
 
 import Data.Container.Base.Object.Definition
 import Data.Container.Base.Morphism.Definition
 import Data.Container.Base.Extension.Definition
-import Data.Container.Base.Properties.Definitions
-import Data.Container.Base.Product.Definitions
+import Data.Container.Base.Properties.Definition
+import Data.Container.Base.Product.Definition
 
 import Data.Container.Base.Object.Instances
 import Data.Container.Base.Extension.Instances
@@ -15,11 +18,13 @@ import Data.Container.Base.Morphism.Instances
 
 import Data.Trees
 import Data.Functor.Products
+import Data.Functor.Algebra
 import Data.Container.Base.TreeUtils
 
 import Misc
 
 %hide Data.Vect.fromList
+%hide Prelude.toList
 
 public export
 IsConcrete Scalar where
@@ -102,16 +107,6 @@ namespace Vect
   public export
   toVect : {n : Nat} -> Vect' n a -> Vect n a
   toVect (_ <| index) = Vect.Fin.tabulate index
-
-  public export prefix 0 >##, ##>
-
-  public export
-  (>##) : Vect n a -> Vect' n a
-  (>##) = fromVect
-
-  public export
-  (##>) : {n : Nat} -> Vect' n a -> Vect n a
-  (##>) = toVect
 
   -- public export
   -- test : {n : Nat} -> IsConcrete (Vect n)
@@ -263,3 +258,139 @@ IsFoldable BinTree where
 --     = index' (f <$> xs) i
 -- mapIndexPreserve (x :: xs) FZ = Refl
 -- mapIndexPreserve (x :: xs) (FS j) = mapIndexPreserve xs j
+
+
+-- the idea is that the bottom part of this file will slowly be made obsolete 
+-- as more and more things are implemented in terms of containers
+
+
+||| Any finite container (i.e. whose each set of positions is finite) can be
+||| given an algebra instance simply by summing up all the concrete values
+public export
+algebraFinite : 
+  (0 c : Cont) -> (isFinite : IsFinite c) =>
+  (0 a : Type) -> Num a =>
+  Algebra (Ext c) a
+algebraFinite c {isFinite = MkI p} _
+  = MkAlgebra $ \(shp <| content) => reduce $ values @{p shp} <&> content
+
+
+namespace VectInstances
+  public export
+  {n : Nat} -> Eq x => Eq (Vect' n x) where
+    v == v' = (toVect v) == (toVect v')
+ 
+  -- public export
+  -- {n : Nat} -> Show x => Show (Vect' n x) where
+  --   show v = show (toVect v)
+
+  public export
+  {n : Nat} -> Num a => Algebra (Vect' n) a where
+    reduce v = reduce (toVect v)
+
+  public export
+  {n : Nat} -> Traversable (Vect' n) where
+    traverse f v = fromVect <$> traverse f (toVect v)
+
+  -- Applicative and Naperian instance follow because the set of shapes is ()
+
+  -- analogus to Misc.takeFin, but for Vect'
+  public export 
+  take : {n : Nat} ->
+    (s : Fin (S n)) -> Vect' n a -> Vect' (finToNat s) a
+  take s = fromVect . takeFin s . toVect
+
+  public export
+  (++) : {n : Nat} -> Vect' n a -> Vect' m a -> Vect' (n + m) a
+  (++) v1 v2 = () <| \i => case splitSum i of
+    Left i1 => index v1 i1
+    Right i2 => index v2 i2
+
+{---
+Ideally, all instances would be defined in terms of ConcreteTypes,
+but there are totality checking issues with types whose size isn't known
+at compile time
+---}
+namespace ListInstances
+  ||| Is there a different way to convince Idris' totality checker?
+  public export
+  Eq a => Eq (List' a) where
+    l == l' = assert_total ((toList l) == (toList l'))
+
+  -- ||| Is there a different way to convince Idris' totality checker?
+  -- public export
+  -- Show a => Show (List' a) where
+  --   show x = assert_total (show (toList x))
+
+  public export
+  Num a => Algebra List' a where
+    reduce = reduce {f=List} . toList
+
+
+  -- some attempts at fixing partiality below
+  -- public export
+  -- showListHelper : Show a => List' a -> String
+  -- showListHelper (0 <| _) = ""
+  -- showListHelper (1 <| index) = show $ index FZ
+  -- showListHelper ((S k) <| index)
+  --   = let (s, rest) = headTail index
+  --     in show s ++ ", " ++ showListHelper (k <| rest)
+
+  -- public export
+  -- showListHelper : Show a => List' a -> String
+  -- showListHelper x = show (toList x)
+
+
+namespace BinTreeInstances
+  ||| Is there a different way to convince Idris' totality checker?
+  public export
+  Eq a => Eq (BinTree' a) where
+    t == t' = assert_total (toBinTreeSame t == toBinTreeSame t')
+
+  -- ||| Is there a different way to convince Idris' totality checker?
+  -- public export
+  -- Show a => Show (BinTree' a) where
+  --   show = assert_total (show . toBinTreeSame)
+
+  ||| Summing up nodes and leaves of the tree given by the Num a structure
+  public export
+  Num a => Algebra BinTree' a where
+    reduce = reduce {f=BinTreeSame} . toBinTreeSame
+
+  -- public export
+  -- binTreePosInterface : InterfaceOnPositions BinTree DecEq
+  -- binTreePosInterface = MkI
+
+
+namespace BinTreeLeafInstances
+  ||| Is there a different way to convince Idris' totality checker?
+  public export
+  Eq a => Eq (BinTreeLeaf' a) where
+    t == t' = assert_total (toBinTreeLeaf t == toBinTreeLeaf t')
+
+  -- ||| Is there a different way to convince Idris' totality checker?
+  -- public export
+  -- Show a => Show (BinTreeLeaf' a) where
+  --   show = assert_total (show . toBinTreeLeaf)
+
+  ||| Summing up leaves of the tree given by the Num a structure
+  public export
+  Num a => Algebra BinTreeLeaf' a where
+    reduce = reduce {f=BinTreeLeaf} . toBinTreeLeaf
+
+
+namespace BinTreeNodeInstances
+  ||| Is there a different way to convince Idris' totality checker?
+  public export
+  Eq a => Eq (BinTreeNode' a) where
+    t == t' = assert_total (toBinTreeNode t == toBinTreeNode t')
+
+  -- ||| Is there a different way to convince Idris' totality checker?
+  -- public export
+  -- Show a => Show (BinTreeNode' a) where
+  --   show = assert_total (show . toBinTreeNode)
+
+  ||| Summing up nodes of the tree given by the Num a structure
+  public export
+  Num a => Algebra BinTreeNode' a where
+    reduce = reduce {f=BinTreeNode} . toBinTreeNode
