@@ -27,16 +27,19 @@ modules = Data.Container.Base
         , Data.Container.Base.Extension.Instances
         , Data.Container.Base.Morphism.Definition
         , Data.Container.Base.Morphism.Instances
-        , Data.Container.Base.Properties.Definitions
+        , Data.Container.Base.Properties.Definition
         , Data.Container.Base.Properties.Instances
-        , Data.Container.Base.Product.Definitions
-        , Data.Container.Base.Product.Interfaces
-        , Data.Container.Base.Product.InterfaceImplementations
+        , Data.Container.Base.Endofunctor.Definition
+        , Data.Container.Base.Endofunctor.Instances
+        , Data.Container.Base.Product.Definition
+        , Data.Container.Base.Monoid.Definition
+        , Data.Container.Base.Monoid.Instances
+        , Data.Container.Base.RoseTree.Definition
+        , Data.Container.Base.RoseTree.Instances
         , Data.Container.Base.Display2D.CharacterMap
         , Data.Container.Base.Display2D.Display2D
         , Data.Container.Base.Definitions
         , Data.Container.Base.Instances
-        , Data.Container.Base.InstanceInterfaces
         , Data.Container.Base.TreeUtils
         , Data.Container.Base.Quantifiers
 
@@ -46,16 +49,10 @@ modules = Data.Container.Base
         , Data.Container.Additive.Morphism.Definition
         , Data.Container.Additive.Morphism.Instances
         , Data.Container.Additive.Extension.Definition
-        , Data.Container.Additive.Properties.Definitions
-        , Data.Container.Additive.Product.Definitions
+        , Data.Container.Additive.Properties.Definition
+        , Data.Container.Additive.Product.Definition
         , Data.Container.Additive.Quantifiers
 
-        , Data.Container.Applicative
-        , Data.Container.Applicative.Object.Instances
-        , Data.Container.Applicative.Extension.Instances
-        , Data.Container.Applicative.Properties.Instances
-        , Data.Container.Applicative.Product.Interfaces
-        , Data.Container.Applicative.TreeUtils
 
         , Data.Container.SubTerm
 
@@ -84,12 +81,14 @@ modules = Data.Container.Base
         , Data.Unique.Vect
         , Data.Functor.Algebra
         , Data.Num
+        , Data.Materialise
         , Data.ComMonoid
         , Data.Bag
         , Data.ScientificNotation
 
         , Data.Autodiff
         , Data.Autodiff.Ops
+        , Data.Autodiff.Model
 
         , Control.Monad.Distribution
         , Control.Monad.Sample.Definition
