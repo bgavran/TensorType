@@ -196,27 +196,28 @@ namespace ParametricLenses
   id = trivialParam id
 
   public export
-  GetParam : ParaAddLens a b -> AddCont
-  GetParam (MkPara p _) = p
-
-  public export
   toHomRepresentation : (f : ParaAddLens a b) ->
-    (GetParam f) =%+> InternalLensAdditive a b
+    (Param f) =%+> InternalLensAdditive a b
   toHomRepresentation (MkPara pType f) = !%+ \p =>
     (!%+ \a => (f.fwd (a, p) ** \b' => fst (f.bwd (a, p) b')) **
       \l => foldr (\(a ** b') => pType.Plus p (snd (f.bwd (a, p) b'))) (pType.Zero p) l)
 
   public export
   composePara : a =\\=> b -> b =\\=> c -> a =\\=> c
-  composePara (MkPara p f) (MkPara q g) = MkPara
-    (p >*< q)
-    (assocR %+>> (f >*< id) %+>> g)
+  composePara f g = MkPara
+    (Param f >*< Param g)
+    (assocR %+>> (Run f >*< id) %+>> Run g)
 
   public export
   composeParallel : a =\\=> b -> c =\\=> d -> (a >*< c) =\\=> (b >*< d)
-  composeParallel (MkPara p f) (MkPara q g) = MkPara
-    (p >*< q)
-    (swapMiddle %+>> (f >*< g))
+  composeParallel f g = MkPara
+    (Param f >*< Param g)
+    (swapMiddle %+>> (Run f >*< Run g))
+
+  ||| Postcompose with a lens
+  public export
+  postcomposeLens : a =\\=> b -> b =%+> c -> a =\\=> c
+  postcomposeLens f g = MkPara (Param f) (Run f %+>> g)
 
 
 namespace DependentParametricLenses
