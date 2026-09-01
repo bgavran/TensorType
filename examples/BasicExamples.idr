@@ -2,8 +2,6 @@ module BasicExamples
 
 import Data.Tensor
 
-%hide Syntax.WithProof.prefix.(@@) -- (@@) is used here for indexing
-
 ----------------------------------------
 -- Examples of standard, cubical tensors
 ----------------------------------------
@@ -85,7 +83,7 @@ failing
 ||| Like in numpy, you can safely index into tensors, set values of tensors, and perform slicing:
 ||| This retrieves the value of t- at location [1,2]
 indexExample : Double
-indexExample = myMatrix @@ [1, 2]
+indexExample = myMatrix ^. [1, 2]
 
 -- TODO needs to be fixed
 -- ||| Sets the value of `myMatrix` at location [1, 3] to 99 
@@ -99,7 +97,7 @@ indexExample = myMatrix @@ [1, 2]
 -- Which will all fail if you go out of bounds
 failing
   indexExampleFail : Double
-  indexExampleFail = t1 @@ [7, 2]
+  indexExampleFail = t1 ^. [7, 2]
 
 failing
   sliceFail : Tensor ["j" ~~> 10, "k" ~~> 2] Double
@@ -205,7 +203,7 @@ For instance, we can index into `treeExample1`:
 (-42)  46 
 --------------------}
 indexTreeExample1 : Double
-indexTreeExample1 = treeExample1 @@ [GoRight AtLeaf]
+indexTreeExample1 = treeExample1 ^. [GoRight AtLeaf]
 
 -- This will fail at compile-time if you try to index outside of the tree structure:
 failing
@@ -217,7 +215,7 @@ failing
   (-42)  46    X   <---- indexing here throws an error
   --------------------}
   indexTreeExample1Fail : Double
-  indexTreeExample1Fail = treeExample1 @@ [GoRight (GoRight AtLeaf)]
+  indexTreeExample1Fail = treeExample1 ^. [GoRight (GoRight AtLeaf)]
 
 
 {--------------------
