@@ -3,10 +3,12 @@ module NN.Utils
 import Data.Nat
 import Data.String
 import Data.ScientificNotation
+import Data.Materialise
 import Misc
 
 public export
-runActionUntilMaxSteps : ScientificDisplay p =>
+runActionUntilMaxSteps : Materialise p =>
+  ScientificDisplay p =>
   ScientificDisplay l =>
   {default 100 printEvery : Nat} ->
   (action : p -> IO p) ->
@@ -21,7 +23,8 @@ runActionUntilMaxSteps action maxSteps currStep currVal lossIO
         loss <- lossIO currVal
         putStrLn "  \{dim "step"} \{bold (padLeft stepWidth ' ' (show currStep))} \{dim "│ loss"} \{yellow (showSci loss)}"
       result <- action currVal
-      runActionUntilMaxSteps {printEvery=printEvery} action maxSteps (assert_smaller currStep (currStep + 1)) result lossIO
+      -- we materialise the result between every training step
+      runActionUntilMaxSteps {printEvery=printEvery} action maxSteps (assert_smaller currStep (currStep + 1)) (materialise result) lossIO
     False => do
       loss <- lossIO currVal
       putStrLn rule

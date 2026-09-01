@@ -31,21 +31,20 @@ record Optimiser
   where
   constructor MkOptimiser
   opt : Const paramCont.Shp >< Const stateTy =%> UC paramCont
-  ||| Procedure for initialising parameters
-  initParam : IO paramCont.Shp
-  ||| Procedure for initialising state
+  ||| Initialising the state; parameters are initialised by the model
   initState : IO stateTy
 
+||| An optimiser is a lens: forward reads the parameter, backward updates (parameter, state)
 public export
 (.fwd) : Optimiser p s -> (p.Shp, s) -> p.Shp
-(.fwd) (MkOptimiser opt _ _) = opt.fwd
+(.fwd) (MkOptimiser opt _) = opt.fwd
 
 public export
 (.bwd) : (opt : Optimiser pCont stateTy) ->
   (ps : (pCont.Shp, stateTy)) ->
-  (pCont.Pos (opt.fwd ps)) ->
+  (pCont.PosSet (opt.fwd ps)) ->
   (pCont.Shp, stateTy)
-(.bwd) (MkOptimiser opt _ _) = opt.bwd
+(.bwd) (MkOptimiser opt _) = opt.bwd
 
 ||| From 8.1.3. "Can we compose optimisers?" of https://arxiv.org/abs/2403.13001
 ||| Not used yet
@@ -53,10 +52,9 @@ public export
 composeParallel : Optimiser pCont s ->
   Optimiser qCont t -> 
   Optimiser (pCont >*< qCont) (s, t)
-composeParallel (MkOptimiser o1 initP initS) (MkOptimiser o2 initQ initT) = MkOptimiser
+composeParallel (MkOptimiser o1 initS) (MkOptimiser o2 initT) = MkOptimiser
   (!% \((p, q), (s, t)) => ((o1.fwd (p, s), o2.fwd (q, t)) **
     \(p', q') => let (pUpdated, sUpdated) = o1.bwd (p, s) p'
                      (qUpdated, tUpdated) = o2.bwd (q, t) q'
                  in ((pUpdated, qUpdated), (sUpdated, tUpdated))))
-  [| (initP, initQ) |]
   [| (initS, initT) |]

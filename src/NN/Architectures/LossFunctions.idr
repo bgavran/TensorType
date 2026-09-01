@@ -1,11 +1,14 @@
 module NN.Architectures.LossFunctions
 
 import Data.List
+import Data.Fin
+import Data.Vect
 import Data.Zippable
 
 import Data.Tensor
 import Data.Tensor.Utils
 import Data.Container.Additive
+import Data.Autodiff.Ops
 import Control.Monad.Distribution
 
 import Data.Container.Additive.Quantifiers
@@ -14,120 +17,73 @@ import Data.Para
 
 %hide Data.Container.Base.Morphism.Definition.DependentLenses.(=%>)
 
-||| Loss function alias
+||| A loss is a parametric map whose parameter is the label
+||| It is not a `Model` because there is no concept of initialisation
 public export
-Loss : AddCont -> {default (Const Double) l : AddCont} -> Type
-Loss y = y >*< y =%+> l
+Loss : (y, l : AddCont) -> Type
+Loss y l = y =\\=> l
 
 namespace Combinators
-  ||| Combinator for pairing up loss functions
+  ||| Run two losses in parallel, add their results
   public export
-  pairLossFunctions : {y, z : AddCont} ->
-    {l : Type} -> Num l =>
-    Loss y {l=Const l} -> Loss z {l=Const l} -> Loss (y >*< z) {l=Const l}
-  pairLossFunctions loss1 loss2 = swapMiddle %+>> (loss1 >*< loss2) %+>> sum
+  pairLossFunctions : {y, z : AddCont} -> {l : Type} -> Num l =>
+    Loss y (Const l) -> Loss z (Const l) -> Loss (y >*< z) (Const l)
+  pairLossFunctions f g = postcomposeLens (composeParallel f g) sum
 
+  ||| The loss of a coproduct of choices. When the types don't match, gradient
+  ||| is infinite. In our examples we don't expect this to happen; but loss type
+  ||| should be refined to exclude it eventually
   public export
-  lossSame : {a, b : AddCont} ->
-    (a >+< b) >*< (a >+< b) =%+> (a >*< a) >+< (b >*< b)
-  lossSame = !%+ \case
-    (Left x1, Left x2) => (Left (x1, x2) ** id)
-    (Right y1, Right y2) => (Right (y1, y2) ** id)
-    (_, _) => believe_me "Should not happen"
+  chosenBranchLoss : {n : Nat} -> {branches : Vect n AddCont} ->
+    {default branches labels : Vect n AddCont} ->
+    {0 lc : AddCont} -> Fractional lc.Shp =>
+    (losses : (i : Fin n) -> index i branches >*< index i labels =%+> lc) ->
+    Loss (Coproduct branches) lc
+  chosenBranchLoss losses = MkPara (Coproduct labels) $
+    !%+ \((i ** x), (j ** y)) => case decEq i j of
+      Yes Refl => (%!+) (losses i) (x, y)
+      No _ => (1 / 0 ** \_ => ((index i branches).Zero x, (index j labels).Zero y))
 
+  ||| The loss variant of `resolveByLabel`. Given a loss on resolved choices we
+  ||| can produce a loss on an effectful output, where the ground-truth label
+  ||| selects the effect
+  ||| This means that the training loop does not need to handle any effects 
+  ||| anymore
   public export
-  pairLossCoproduct : {y, z : AddCont} ->
-    {l : Type} -> Num l =>
-    Loss y {l=Const l} -> Loss z {l=Const l} -> Loss (y >+< z) {l=Const l}
-  pairLossCoproduct l1 l2 = lossSame %+>> (l1 >+< l2) %+>> elim
+  resolveLoss : {distName : AxisName} -> {n : Nat} ->
+    {branches : Vect n AddCont} ->
+    {0 l : AddCont} ->
+    (ChoiceMade distName branches >*< ChoiceMade distName branches =%+> l) ->
+    Loss (ProbabilisticChoice distName branches) l
+  resolveLoss loss = MkPara
+    (ChoiceMade distName branches)
+    (resolveByLabel %+>> loss)
 
+namespace Instances
   public export
-  composeLossFunctions : {y, z, l : AddCont} ->
-    Loss y {l} -> Loss z {l} -> Loss (y >+@ z) {l}
-  composeLossFunctions loss1 loss2 = let tt = loss1 >+@ loss2
-                                     in ?composeLossFunctions_rhs
-
-  public export
-  sequenceLossFunctions : {y, z : AddCont} ->
-    Loss y {l} -> Loss z {l} -> Loss (y >+@ z) {l}
-  sequenceLossFunctions loss1 loss2 = !%+ \(x1, x2) => ?asdf
-
-  public export
-  zipListsBwd : {y : AddCont} ->
-    (l1, l2 : List y.Shp) ->
-    All (y >*< y).Pos (zip l1 l2) -> (All y.Pos l1, All y.Pos l2)
-  zipListsBwd [] l2 [] = ([], allIsComMonoidNeutral l2)
-  zipListsBwd (s1 :: ss1) [] [] = (allIsComMonoidNeutral (s1 :: ss1), [])
-  zipListsBwd (s1 :: ss1) (s2 :: ss2) ((p1, p2) :: rest) =
-    let (ls, rs) = zipListsBwd ss1 ss2 rest
-    in (p1 :: ls, p2 :: rs)
+  SquaredError : {a : Type} -> Num a => Neg a => Loss (Const a) (Const a)
+  SquaredError = MkPara (Const a) SquaredDifference
 
   public export
-  zipLists : {y : AddCont} -> (ListAll y) >*< (ListAll y) =%+> ListAll (y >*< y)
-  zipLists = !%+ \(l1, l2) => (zip l1 l2 ** zipListsBwd l1 l2)
+  MeanSquaredError : {n : Axis} -> IsCubical n => TensorMonoid n.cont =>
+    {a : Type} -> Num a => Neg a => Fractional a => Cast Nat a =>
+    Loss (Const (Tensor [n] a)) (Const (Tensor [] a))
+  MeanSquaredError = MkPara (Const (Tensor [n] a)) meanSquaredDifference
 
-  -- TODO here it can be that we pair different types together!
-  -- so if there is a mismath we have the ability to short circuit?
+  ||| The payoff object is the rank-0 tensor, not `Double`
   public export
-  UniversalMapOutOfCoproduct : Num d =>
-    {n : Nat} -> IsSucc n =>
-    {cs : Vect n AddCont} ->
-    ((i : Fin n) -> Loss (index i cs) {l=Const d}) ->
-    Loss (Any cs) {l=Const d}
-  UniversalMapOutOfCoproduct {n = 1} {cs = [c]} s = !%+ \(Here l, Here r) =>
-    ((s 0).fwd (l, r) ** \d' =>
-    let (l', r') = (s 0).bwd (l, r) d'
-    in (Here l', Here r'))
-  UniversalMapOutOfCoproduct {n = (S (S k))} {cs = (c :: cs)} s
-    = !%+ \case 
-      (Here l, Here r) => ((s 0).fwd (l, r) ** \d' =>
-        let (l', r') = (s 0).bwd (l, r) d'
-        in (Here l', Here r'))
-      (There l, (There r)) =>
-         let restLens = UniversalMapOutOfCoproduct {cs=cs} (\i => s (FS i))
-             d = restLens.fwd (l, r)
-         in (d ** \d' => let (l', r') = restLens.bwd (l, r) d'
-                         in (There l', There r'))
-      -- if branches mismatch we shouldn't be asked this question
-      -- using zeros for now
-      (Here l, (There r)) => (0  ** \_ =>
-        (Here (c.Zero l), There ((Any cs).Zero r)))
-      (There l, (Here r)) => (0 ** \_ =>
-        (There ((Any cs).Zero l), (Here (c.Zero r))))
+  softargmaxCrossEntropyLogits : {name : AxisName} -> {n : Nat} ->
+    Simplex name n >*< Simplex name n =%+> Const (Tensor [] Double)
+  softargmaxCrossEntropyLogits = !%+ \(predicted, labels) =>
+    let logSoftargmaxLogits = logSoftargmax predicted.logits
+        targetProbs = softargmaxImpl labels.logits
+        out = - dot logSoftargmaxLogits targetProbs
+    in (out ** \l' =>
+      ((extract l' *) <$> (Prelude.exp <$> logSoftargmaxLogits) - targetProbs,
+        fill 0)) -- zeros for now
 
-||| Squared error
-public export
-SquaredError : {a : Type} -> Num a => Neg a => Loss (Const a) {l=Const a}
-SquaredError = Additive.Morphism.Instances.SquaredDifference
-
-
--- All of these do a lot of unnecessary wrapping/unwrapping
-
-public export
-Sum : {n : Axis} -> IsCubical n => Num a =>
-  TensorMonoid n.cont =>
-  Const (Tensor [n] a) =%+> Const (Tensor [] a)
-Sum @{MkIsCubical _ n} = !%+ \t => (># reduce t ** \a' => fill (#> a'))
-
-public export
-Div : {a : Type} -> Num a => Fractional a =>
-  (divBy : a) ->
-  Const (Tensor [] a) =%+> Const (Tensor [] a)
-Div divBy = !%+ \x => (x <&> (/ divBy) ** \x' => x' <&> (/ divBy))
-
-public export
-MeanSquaredError : IsCubical n => TensorMonoid n.cont =>
-  {a : Type} -> Num a => Neg a => Fractional a => Cast Nat a =>
-  Loss (Const (Tensor [n] a)) {l=Const (Tensor [] a)}
-MeanSquaredError @{MkIsCubical _ n} = SquaredError %+>> Sum %+>> Div (cast n)
-
-public export
-SoftargmaxCrossEntropyLogits : {name : AxisName} -> {n : Nat} ->
-  Loss (Simplex name n)
-SoftargmaxCrossEntropyLogits = !%+ \(predicted, labels) =>
-  let logSoftargmaxLogits = logSoftargmax predicted.logits
-      targetProbs = softargmaxImpl labels.logits
-      out = - dot logSoftargmaxLogits targetProbs
-  in (extract out ** \l' =>
-    ((l' *) <$> softargmaxImpl predicted.logits - targetProbs,
-      fill 0)) -- zeros for now
+  public export
+  SoftargmaxCrossEntropyLogits : {name : AxisName} -> {n : Nat} ->
+    Loss (Simplex name n) (Const (Tensor [] Double))
+  SoftargmaxCrossEntropyLogits
+    = MkPara (Simplex name n) softargmaxCrossEntropyLogits

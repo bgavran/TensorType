@@ -4,11 +4,11 @@ import Data.Tensor
 import Data.Container.Additive as Additive
 import public Data.ScientificNotation
 import NN.Optimisers
-import NN.Architectures.LossFunctions
 
 import NN.Utils
 import NN.Training.DataLoader
 import Data.Para
+import Data.Autodiff.Model
 
 {-------------------------------------------------------------------------------
 {-------------------------------------------------------------------------------
@@ -39,12 +39,13 @@ b) use monadic lenses
 ||| The optimiser used is allowed to be stateful meaning the result of the
 ||| optimisation is both the final parameter and the state of the optimiser
 public export
-optimiseStep : {p, l : AddCont} -> {e : Cont} -> InterfaceOnPositions l Num =>
+optimiseStep : {p, l : AddCont} -> {e : Cont} ->
+  InterfaceOnPositions l Num =>
   (f : p =%+> e >-+@ l) ->
   (handleEffect : Costate (IO <!> e)) ->
   (optimiser : Optimiser p stateTy) ->
   Costate (IO <!> (Const (p.Shp, stateTy)))
-optimiseStep f handleEffect (MkOptimiser opt _ _) = 
+optimiseStep f handleEffect (MkOptimiser opt _) =
   let closeFunction : p =%+> !* e
       closeFunction = f %+>> (id >-+@ constantOne) %+>> actionToFree
 
@@ -65,21 +66,21 @@ evalFw f handleEffect = toCostate $ \ps => do
   pure $ outGivenEffect e
 
 ||| Iterates `optimiseStep` `numSteps` times, and logs the progress to the 
-||| console
+||| console.  Materialises parameter and state between steps
 public export
-optimise : {p, l : AddCont} -> {e : Cont} -> InterfaceOnPositions l Num =>
+optimise : {p, l : AddCont} -> {e : Cont} ->
+  InterfaceOnPositions l Num =>
   {default 100 printEvery : Nat} ->
-  {default Nothing customInitParam : Maybe p.Shp} ->
+  Materialise p.Shp => Materialise stateTy =>
   ScientificDisplay p.Shp => ScientificDisplay l.Shp => ScientificDisplay stateTy =>
   (f : p =%+> e >-+@ l) ->
   (handleEffect : Costate (IO <!> e)) ->
+  (initParam : IO p.Shp) ->
   (opt : Optimiser p stateTy) ->
   (numSteps : Nat) ->
   IO (p.Shp, stateTy)
-optimise f handleEffect opt numSteps = do
-  currentValue : p.Shp <- case customInitParam of
-    Just p => pure p
-    Nothing => opt.initParam
+optimise f handleEffect initParam opt numSteps = do
+  currentValue <- initParam
   currentState <- opt.initState
   runActionUntilMaxSteps
     {l=l.Shp}
@@ -90,142 +91,96 @@ optimise f handleEffect opt numSteps = do
     (currentValue, currentState)
     (fromCostate $ evalFw (f.fwd . opt.fwd) handleEffect)
 
-||| Given
-||| a) a parametric lens `f : x >< p =%+> y`
-||| b) a loss function `loss : y >< y =%+> l`
-||| builds an effectful lens `p =%+> l`
+||| TODO is the better name here "buildOptimiser"?
 public export
-buildSupervisedLearningSystem : (f : ParaAddLens x y) ->
-  (loss : Loss y {l=l}) ->
-  (GetParam f) =%+> SupervisedData x.Shp y.Shp >-+@ l
-buildSupervisedLearningSystem (MkPara p f) loss =
-  let rebracket : ((x >*< y) >*< p) =%+> ((x >*< p) >*< y)
-      rebracket = assocL %+>> (id >*< swap) %+>> assocR
-  in pushIntoContinuation {d=x>*<y} (rebracket %+>> (f >*< id) %+>> loss)
+buildSupervisedLearningSystem : (f : x =\\=> y) -> (loss : y =\\=> l) ->
+  Materialise (Param f).Shp => InterfaceOnPositions (Param f) Materialise =>
+  Param f =%+> (SupervisedData x.Shp (Param loss).Shp) >-+@ l
+buildSupervisedLearningSystem f loss =
+  let supplied : (a >*< b) >*< c =%+> a >*< (c >*< b)
+      supplied = assocL %+>> (id >*< swap)
+  in materialiseCont %+>> pushIntoContinuation {d=x>*<Param loss}
+       (supplied %+>> (composePara f loss).Run)
 
 
 namespace WithEffect
-  ||| When it comes to effects which involve sampling, where the 'correct' answer
-  ||| is stored in the test data, there are different ways of evaluating the loss
-  ||| One is to use that correct label to force the correct branch to run, but
-  ||| that is impossible with the current type signature
-  ||| Instead, we opt out for the more accurate method of sampling during loss
-  ||| evaluation
+  ||| Evaluating the total loss over test/inference data in an effectul setting 
+  ||| requires a handler for the effect. Usually when the effect is `Dist n`, 
+  ||| the handler is simply sampling. We can't do anything else, really!
   public export
-  totalLoss : Show l.Shp => Num l.Shp =>
-    (f : ParaAddLens x (e >-+@ y)) ->
-    (loss : Loss y {l=l}) ->
-    (p : (GetParam f).Shp) ->
+  totalLoss : Num l.Shp =>
+    (f : x =\\=> e >-+@ y) ->
+    (loss : y =\\=> l) ->
+    (p : (Param f).Shp) ->
     (handleEffect : Costate (IO <!> e)) ->
-    Costate (IO <!> (Const2 (Vect n (x.Shp, y.Shp)) l.Shp))
-  totalLoss (MkPara pCont f) loss p handleEffect = toCostate $ \testData => do
-    let evalFWithLoss : (x.Shp, y.Shp) -> IO l.Shp
-        evalFWithLoss (x, yTrue) = do
-          yPred <- fromCostate (evalFw f.fwd handleEffect) (x, p)
-          pure $ loss.fwd (yPred, yTrue)
-          -- putStrLn "Input: \{show x}, Predicted: \{show yPred}, Loss: \{show lossVal}"
-    losses <- traverse evalFWithLoss testData
-    pure $ Prelude.sum losses
-  
+    Costate (IO <!> (Const2 (Vect n (x.Shp, (Param loss).Shp)) l.Shp))
+  totalLoss (MkPara pCont f) (MkPara z loss) p handleEffect
+    = let evalFWithLoss : (x.Shp, z.Shp) -> IO l.Shp
+          evalFWithLoss (x, yTrue) = do
+            yPred <- fromCostate (evalFw f.fwd handleEffect) (x, p)
+            pure $ loss.fwd (yPred, yTrue)
+            -- putStrLn "Input: \{show x}, Predicted: \{show yPred}, Loss: \{show lossVal}"
+      in toCostate $ \testData => do
+        losses <- traverse evalFWithLoss testData
+        pure $ Prelude.sum losses
+
+  ||| Average loss in test/inference 
   public export
   averageLoss :  {n : Nat} ->
-    Show l.Shp => Num l.Shp => Fractional l.Shp => Cast Nat l.Shp =>
-    (f : ParaAddLens x (e >-+@ y)) ->
-    (loss : Loss y {l=l}) ->
-    (p : (GetParam f).Shp) ->
+    Num l.Shp => Fractional l.Shp => Cast Nat l.Shp =>
+    (f : x =\\=> e >-+@ y) ->
+    (loss : y =\\=> l) ->
+    (p : (Param f).Shp) ->
     (handleEffect : Costate (IO <!> e)) ->
-    Costate (IO <!> (Const2 (Vect n (x.Shp, y.Shp)) l.Shp))
+    Costate (IO <!> (Const2 (Vect n (x.Shp, (Param loss).Shp)) l.Shp))
   averageLoss f loss p handleEffect = toCostate $ \testData => do
     lossSum <- fromCostate (totalLoss f loss p handleEffect) testData
     pure (lossSum / cast n)
   
-  ||| Eval a model and loss with specific parameters, in the presence of an effect
+namespace Model
   public export
-  evalWithLoss : ScientificDisplay x.Shp => ScientificDisplay y.Shp => ScientificDisplay l.Shp =>
-    (f : ParaAddLens x (e >-+@ y)) ->
-    (loss : Loss y {l=l}) ->
-    (p : (GetParam f).Shp) ->
-    (handleEffect : Costate (IO <!> e)) ->
-    Costate (IO <!> (Const2 (Vect n (x.Shp, y.Shp)) Unit))
-  evalWithLoss (MkPara pCont f) loss p handleEffect = toCostate $ \testData => do 
-    let evalFWithLoss : (x.Shp, y.Shp) -> IO ()
-        evalFWithLoss (x, yTrue) = do
-          yPred <- fromCostate (evalFw f.fwd handleEffect) (x, p)
-          let lossVal = loss.fwd (yPred, yTrue)
-          putStrLn "Input: \{showSci x}, Predicted: \{showSci yPred}, Loss: \{showSci lossVal}"
-    _ <- traverse evalFWithLoss testData
-    pure ()
-  
-  ||| Eval a model with specific parameters, in the presence of an effect
+  train : {a, b : AddCont} -> {l : AddCont} ->
+    {default 100 printEvery : Nat} ->
+    (m : a -\-> b) ->
+    (loss : b =\\=> l) ->
+    InterfaceOnPositions l Num =>
+    ScientificDisplay l.Shp =>
+    Materialise m.Params => Materialise stateTy =>
+    ScientificDisplay m.Params => ScientificDisplay stateTy =>
+    (trainData : DataLoader a.Shp (Param loss).Shp) ->
+    (opt : Optimiser (ParamCont m) stateTy) ->
+    (numSteps : Nat) ->
+    IO (m.Params, stateTy)
+  train m loss trainData opt numSteps = optimise {printEvery}
+    (buildSupervisedLearningSystem (toPara m) loss)
+    (handleData trainData)
+    m.init
+    opt
+    numSteps
+
+  ||| Average loss over a dataset
   public export
-  eval : ScientificDisplay x.Shp => ScientificDisplay y.Shp =>
-    (f : ParaAddLens x (e >-+@ y)) ->
-    (p : (GetParam f).Shp) ->
-    (handleEffect : Costate (IO <!> e)) ->
-    Costate (IO <!> (Const2 (Vect n x.Shp) Unit))
-  eval (MkPara _ f) p handleEffect = toCostate $ \testData => do
-    let evalF : x.Shp -> IO ()
-        evalF x = do
-          yPred <- fromCostate (evalFw f.fwd handleEffect) (x, p)
-          putStrLn "Input: \{showSci x}, Predicted: \{showSci yPred}"
-    _ <- traverse evalF testData
-    pure ()
+  averageLoss : {0 a, b, l : AddCont} ->
+    (m : a -\-> b) ->
+    (loss : b =\\=> l) ->
+    Fractional l.Shp => Cast Nat l.Shp =>
+    (p : m.Params) ->
+    (dl : DataLoader a.Shp (Param loss).Shp) ->
+    l.Shp
+  averageLoss m (MkPara z loss) p dl =
+    let pointLoss : (a.Shp, z.Shp) -> l.Shp
+        pointLoss (x, yTrue) = loss.fwd (m.fwd x p, yTrue)
+    in Prelude.sum (pointLoss <$> dl.dataset) / cast dl.datasetSize
 
-namespace WithoutEffect
+  ||| Print a model's predictions on a dataset's inputs
   public export
-  trivialEffect : {y : AddCont} ->
-    ParaAddLens x y -> ParaAddLens x (Scalar >+@ y)
-  trivialEffect (MkPara p f) = MkPara p
-    (f %+>> leftUnitInv)
+  evalPrint : {0 a, b : AddCont} ->
+    ScientificDisplay a.Shp => ScientificDisplay b.Shp =>
+    (m : a -\-> b) -> (p : m.Params) ->
+    DataLoader a.Shp b.Shp -> IO ()
+  evalPrint m p dl = for_ dl.dataset $ \(x, _) =>
+    putStrLn "Input: \{showSci x}, Predicted: \{showSci (m.fwd x p)}"
 
-  public export
-  handleTrivial : Costate (IO <!> Scalar)
-  handleTrivial = toCostate $ \() => pure ()
-
-
-  ||| Eval a model with specific parameters
-  public export
-  eval : {y : AddCont} -> ScientificDisplay x.Shp => ScientificDisplay y.Shp =>
-    (f : ParaAddLens x y) ->
-    (p : (GetParam f).Shp) ->
-    Costate (IO <!> (Const2 (Vect n x.Shp) Unit))
-  eval (MkPara pCont f) p
-    = eval {e=Scalar} (MkPara pCont (f %+>> unitor)) p handleTrivial
-
-  public export
-  averageLoss :  {y : AddCont} -> {n : Nat} ->
-    Show l.Shp => Num l.Shp => Fractional l.Shp => Cast Nat l.Shp =>
-    (f : ParaAddLens x y) ->
-    (loss : Loss y {l=l}) ->
-    (p : (GetParam f).Shp) ->
-    Costate (IO <!> (Const2 (Vect n (x.Shp, y.Shp)) l.Shp))
-  averageLoss (MkPara pCont f) loss p = averageLoss {e=Scalar}
-    (MkPara pCont (f %+>> unitor))
-    loss
-    p
-    handleTrivial
-  
-
-{-
-public export
-train : {x, y, l : AddCont} -> InterfaceOnPositions l Num => IsFlat l =>
-  {default 100 printEvery : Nat} ->
-  (f : ParaAddLens x y) ->
-  Show (GetParam f).Shp => Num l.Shp =>
-  Show x.Shp => Show y.Shp => Show stateTy => Show l.Shp =>
-  {default Nothing initParam : Maybe (GetParam f).Shp} ->
-  (loss : (y >< y) =%> l) ->
-  (handleData : Costate (IO <!> (pushDown (x >< y)))) ->
-  (opt : Optimiser (GetParam f) stateTy) ->
-  (numSteps : Nat) ->
-  IO ((GetParam f).Shp, stateTy)
-train f loss handleData = optimise
-  {e=pushDown (x><y)}
-  {printEvery=printEvery}
-  {initParam=initParam}
-  (buildSupervisedLearningSystem f loss)
-  handleData
--}
 
 {-
 -- todo write a variant of this with effects?
@@ -246,15 +201,3 @@ debugPrint name (MkPara pCont f) = MkPara
     putStrLn "\{name} output: \{show y}"
     putStrLn "--------------------------------"
     pure (y ** ky))
-
--- namespace Additive
---   ||| Evaluates a the forward pass of some effectful lens
---   public export
---   evalFw : {0 a, e, b : AddCont} ->
---     (f : a =%> (e >@ b)) ->
---     (handleEffect : Costate (IO <!> e)) ->
---     Costate (IO <!> (Const2 a.Shp b.Shp))
---   evalFw f handleEffect = toCostate $ \ps => do
---     let (eInp <| outGivenEffect) = f.fwd ps 
---     e <- fromCostate handleEffect eInp
---     pure $ outGivenEffect e
