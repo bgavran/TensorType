@@ -325,9 +325,9 @@ namespace CompositionAction
       c2 =%+> d2 ->
       c1 >-+@ c2 =%+> d1 >-+@ d2
     (>-+@) f g = !%+ \ex =>
-      (f.fwd (shapeExt ex) <| g.fwd . (index ex) . f.bwd (shapeExt ex) **
-        map (\(dp ** dp2) => (f.bwd (shapeExt ex) dp **
-          g.bwd ((index ex) (f.bwd (shapeExt ex) dp)) dp2)))
+      let (y ** ky) = (%!) f (shapeExt ex)
+      in (y <| g.fwd . (index ex) . ky **
+          map (\(dp ** dp2) => (ky dp ** g.bwd (index ex (ky dp)) dp2)))
 
 namespace CompositionProduct
   ||| Composition product of additive containers

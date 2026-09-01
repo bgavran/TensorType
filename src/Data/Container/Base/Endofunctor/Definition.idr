@@ -33,7 +33,8 @@ namespace Morphism
   (<!>) : (f : Type -> Type) -> Functor f =>
     c =%> d ->
     f <!> c =%> f <!> d
-  f <!> l = !% \x => (l.fwd x ** map (l.bwd x))
+  f <!> l = !% \x => let (y ** ky) = (%!) l x
+                     in (y ** map ky)
 
 ||| Comonad of the adjunction between Cont and Cont_Mon
 ||| BANG. List on positions, always has a monoid structure

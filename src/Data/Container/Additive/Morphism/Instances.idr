@@ -92,7 +92,7 @@ namespace CategoricalProduct
     (ip : InterfaceOnPositions c Materialise) =>
     c =%+> c
   materialiseCont {ip=MkI i} = !%+ \x => (materialise x ** \x' =>
-    replace {p=c.PosSet} materialiseIsId (materialise @{i (materialise x)} x'))
+    materialise @{i x} (replace {p=c.PosSet} materialiseIsId x'))
 
   ||| Generally used for pairing up parameters
   public export
