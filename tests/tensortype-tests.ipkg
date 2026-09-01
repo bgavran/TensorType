@@ -23,9 +23,10 @@ modules = Display2D.Instances
         , Tensor.Indexing
         , Tensor.Axis
         , Tensor.Softargmax
-        , Tensor.Contractions
         , Train.LinearRegression
         , Train.Optimisers
+        , Train.Model
+        , Train.TensorPrimitives
         , Sampling
         , Main
 
