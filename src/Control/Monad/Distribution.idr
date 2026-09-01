@@ -1,6 +1,8 @@
 module Control.Monad.Distribution
 
 import Data.Vect
+import Data.Fin
+import Data.Bag
 
 import Data.Num
 import public Data.Tensor
@@ -52,9 +54,36 @@ namespace Cont
 ||| direction in the gradient logit space that does not affect output
 public export
 Simplex : AxisName -> Nat -> AddCont
-Simplex name n = MkAddCont $ (_ : Dist name n) !> (Tensor [name ~~> n] Double)
+Simplex name n = MkAddCont (Dist name n)
+  (\_ => (Tensor [name ~~> n] Double ** numIsMonoid))
 
 ||| Distributions are shown as probabilities (via softargmax), not as logits
 public export
 {axisName : AxisName} -> {i : Nat} -> Show (Dist axisName i) where
   show (MkDist xs) = show (softargmaxImpl xs)
+
+||| A distribution over `n` branches together with, contingent on a choice made
+||| by the environment, the chosen branch's content
+||| TODO do we think of distr. on the fw pass as being part of Simplex or Nap?
+public export
+ProbabilisticChoice : {n : Nat} -> (distName : AxisName) -> 
+  (branches : Vect n AddCont) -> AddCont
+ProbabilisticChoice distName branches
+  = Simplex distName n >*< (Vect n >-+@ Coproduct branches)
+
+||| The choice made: a distribution over the branches and the chosen branch's content
+public export
+ChoiceMade : {n : Nat} -> (distName : AxisName) ->
+  (branches : Vect n AddCont) -> AddCont
+ChoiceMade distName branches = Simplex distName n >*< Coproduct branches
+
+||| Resolve probabilistic choice through the ground truth label. The labelled 
+||| branch is selected, and its gradient goes back as a singleton bag
+public export
+resolveByLabel : {distName : AxisName} ->
+  {branches : Vect n AddCont} ->
+  ProbabilisticChoice distName branches >*< ChoiceMade distName branches
+    =%+> ChoiceMade distName branches >*< ChoiceMade distName branches
+resolveByLabel = !%+ \((dist, ex), y@(distTrue, yTrue)) =>
+  (((dist, index ex (fst yTrue)), y) ** \((d', g'), yGrad) =>
+      ((d', MkBag [(fst yTrue ** g')]), yGrad))

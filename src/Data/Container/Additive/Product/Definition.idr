@@ -128,7 +128,7 @@ namespace CategoricalCoproduct
       (Right y) => (Right (g.fwd y) ** g.bwd y)
 
   namespace Vect
-    ||| N-ary coproduct of a finite family indexed by `Fin n`
+    ||| N-ary coproduct of a finite family
     public export
     Coproduct : {n : Nat} -> (branches : Vect n AddCont) -> AddCont
     Coproduct branches = MkAddCont

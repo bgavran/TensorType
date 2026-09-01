@@ -314,14 +314,16 @@ namespace Traversals
   inorder = extToVector . extMap BinTreeNode.inorder . vectorToExt
 
 namespace Random
+  ||| Sampling a tensor is sampling each entry
+  ||| Probably can be done more efficiently
   public export
   {shape : TensorShape rank} ->
   Random a =>
-  Applicative (Tensor shape) => -- again, should we need this?
+  AllC TensorMonoid shape =>
   Traversable (Tensor shape) =>
   Random (Tensor shape a) where
     randomIO = sequence (pure randomIO)
-    randomRIO = ?qhwhwh
+    randomRIO (lo, hi) = traverse randomRIO [| MkPair lo hi |]
 
 
   tta : Applicative (Tensor ["a" ~~> 1])
@@ -333,6 +335,9 @@ namespace Random
   ttd : Random Double
   ttd = %search
 
+  randTensorShape : Random (Tensor ["a" ~~> 2, "b" ~~> 3] Double)
+  randTensorShape = %search
+
 -- Idris can't find the parametric randomIO interface so reimpementing here
 public export
 random : Num a => Random a => HasIO io =>
@@ -342,71 +347,3 @@ random : Num a => Random a => HasIO io =>
   Traversable (Tensor shape) => 
   io (Tensor shape a)
 random shape = sequence $ pure $ randomRIO (0, 1)
-
-tt : Traversable (Vect 2)
-tt = %search
-
-ttt : Traversable (Ext (Vect 2))
-ttt = %search
-
-tttt : Traversable (Tensor ["i" ~~> 2])
-tttt = %search
-
--- testRand : IO (Tensor ["i" ~~> 2, "j" ~~> 3] Double)
--- testRand = do 
---   t <- random ["i" ~~> 2, "j" ~~> 3]
---   printLn $ show t
---   pure t
-
-testRand2 : IO (Tensor ["i" ~~> 5] Double)
-testRand2 = random ["i" ~~> 5]
-
-testRand3 : IO Unit
-testRand3 = randomIO
-
-public export
-exMatrix : Ext (Vect 3 >< Vect 3) Double
-exMatrix = ((), ()) <| \case
-        (0, 0) => 0
-        (0, 1) => 1
-        (0, 2) => 2
-        (1, 0) => 3
-        (1, 1) => 4
-        (1, 2) => 5
-        (2, 0) => 6
-        (2, 1) => 7
-        (2, 2) => 8
-
-public export
-applMap : {n : Nat} -> Ext (Vect n >< Vect n) Double -> Ext (Vect n) Double
-applMap = extMap tensorM
-
-allPos : (BinTreePosLeaf (NodeS LeafS LeafS), BinTreePosLeaf (NodeS (NodeS LeafS LeafS) LeafS)) -> Double
-allPos ((GoLeft AtLeaf), (GoLeft (GoLeft AtLeaf))) = 0
-allPos ((GoRight AtLeaf), (GoLeft (GoLeft AtLeaf))) = 1
-allPos ((GoLeft AtLeaf), (GoLeft (GoRight AtLeaf))) = 2
-allPos ((GoRight AtLeaf), (GoLeft (GoRight AtLeaf))) = 3
-allPos ((GoLeft AtLeaf), (GoRight AtLeaf)) = 4
-allPos ((GoRight AtLeaf), (GoRight AtLeaf)) = 5
-
-exTree : Ext (BinTreeLeaf >< BinTreeLeaf) Double
-exTree = (NodeS LeafS LeafS, NodeS (NodeS LeafS LeafS) LeafS) <| allPos
-
-applMapTree : Ext (BinTreeLeaf >< BinTreeLeaf) Double -> Ext (BinTreeLeaf) Double
-applMapTree = extMap tensorM
-
-ff : Tensor ["v" ~~> 4, "v" ~~> 4] Double -> Tensor ["v" ~~> 4] Double
-ff t = let g = extMap {a=Double} (tensorM {c=Vect 4})
-       in ?ff_rhs
-
-||| Now you can construct Tensors directly:
-t0 : Tensor ["j" ~~> 3, "k" ~~> 4] Double
-t0 = ># [ [0, 1, 2, 3]
-        , [4, 5, 6, 7]
-        , [8, 9, 10, 11]]
-
-t1 : Tensor ["i" ~~> 6] Double
-t1 = arange
-
-exMatrix2 : Tensor ["v" ~~> 3, "v" ~~> 3] Double
-exMatrix2 = reshape $ arange {stop="l" ~~> 9}

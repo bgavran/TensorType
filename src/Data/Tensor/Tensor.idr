@@ -10,9 +10,10 @@ import public Data.Fin.Split
 import public Data.Finite
 
 import public Data.Container.Base
-import public Data.Container.Applicative
 import public Data.Container.Base.Object.Instances as Cont
 import public Data.Num
+import public Data.Materialise
+import Data.ScientificNotation
 
 import public Data.Layout
 import public Data.Tensor.Shape.Axis
@@ -21,8 +22,6 @@ import public Data.Tensor.Shape.Shape
 import public Misc
 import Data.Container.Base.Display2D.CharacterMap
 import Data.List.Quantifiers
-
-%hide Syntax.WithProof.prefix.(@@) -- used here for indexing
 
 {-------------------------------------------------------------------------------
 {-------------------------------------------------------------------------------
@@ -96,6 +95,7 @@ public export
   (axisName : AxisName) ->
   (newAxisName : AxisName) ->
   Elem axisName shape =>
+  (fresh : NotElem newAxisName shape) =>
   Tensor (rename shape axisName newAxisName) a
 (.renameAxis) (MkT t) axisName newAxisName
   = MkT $ replace
@@ -290,6 +290,15 @@ namespace TensorFromConcrete
     Tensor shape a -> funcTensor shape a
   (#>) = toConcreteTy
 
+  ||| Evaluate the delayed computation within a tensor
+  public export
+  {shape : TensorShape rank} ->
+  AllC IsConcrete shape =>
+  Materialise (Tensor shape a) where
+    materialise t = ># (#> t)
+    materialiseIsId {shape = []} {x = (MkT t)} = believe_me "tensor_materialise"
+    materialiseIsId {shape = (s :: ss)} {x} = believe_me "tensor_materialise2"
+
   public export infixr 0 >#>, #>#
 
   public export
@@ -424,6 +433,12 @@ namespace TensorInstances
 
     public export
     {shape : TensorShape rank} ->
+    AllC TensorMonoid shape => Cast Nat a =>
+    Cast Nat (Tensor shape a) where
+        cast n = pure (cast n)
+
+    public export
+    {shape : TensorShape rank} ->
     Neg a => AllC TensorMonoid shape =>
     Neg (Tensor shape a) where
       negate t = [| negate t |]
@@ -440,6 +455,12 @@ namespace TensorInstances
     Fractional a => AllC TensorMonoid shape =>
     Fractional (Tensor shape a) where
       t / t' = [| t / t' |]
+
+    public export
+    {shape : TensorShape rank} ->
+    Sqrt a => AllC TensorMonoid shape =>
+    Sqrt (Tensor shape a) where
+      sqrt t = [| sqrt t |]
 
     public export
     {shape : TensorShape rank} ->
@@ -1011,6 +1032,16 @@ namespace TensorInstances
     Show (Tensor shape a) where
       show t = assert_total $ showGrid (dispatchTensorDisplay {ce=ce} t)
 
+    ||| Through the 2D renderer; a direct body rather than via `Show`, whose
+    ||| extra search layer inside parameter trees is too slow to elaborate
+    public export
+    {shape : TensorShape rank} ->
+    Num a => AllC TensorMonoid shape =>
+    AllDisplay2D shape a =>
+    (ce : TensorCubEvidence shape) =>
+    ScientificDisplay (Tensor shape a) where
+      showSci t = assert_total $ showGrid (dispatchTensorDisplay {ce=ce} t)
+
 tEx0 : Tensor ["batch" ~~> 3, "features" ~~> 4] Double
 tEx0 = ># [ [0, 1, 2, 3]
           , [4, 5, 6, 7]
@@ -1393,13 +1424,7 @@ namespace SetterGetter
   index {shape = (c :: cs)} t (i :: is) =
     index (index (extractTopExt t) i) is
 
-  public export infixr 9 @@
   public export infixr 9 ^.
-
-  public export
-  (@@) : {shape : TensorShape rank} ->
-    (t : Tensor shape a) -> Index shape t -> a
-  (@@) = index
 
   public export
   (^.) : {shape : TensorShape rank} ->
