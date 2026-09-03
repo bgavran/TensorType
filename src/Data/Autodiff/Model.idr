@@ -6,7 +6,7 @@ import Data.ComMonoid
 import Data.Container.Additive
 import public Data.Para
 import Data.Materialise
-import System.Random
+import public System.Random
 
 {-------------------------------------------------------------------------------
 Towards a typed analogue of nn.Module

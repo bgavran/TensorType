@@ -1,6 +1,6 @@
 module Data.Autodiff.Ops
 
-import System.Random
+import public System.Random
 
 import Data.Tensor
 import Data.Tensor.Utils
