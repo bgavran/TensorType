@@ -30,6 +30,7 @@ uniform : {name : AxisName} -> {i : Nat} ->
 uniform = MkDist (fill 0)
 
 ||| Logit representation of dirac delta
+||| Note that `0` is the canonical choice, as softargmax subtracts the max
 public export
 diracDelta : {name : AxisName} -> {i : Nat} ->
   IsSucc i =>
@@ -54,8 +55,8 @@ namespace Cont
 ||| direction in the gradient logit space that does not affect output
 public export
 Simplex : AxisName -> Nat -> AddCont
-Simplex name n = MkAddCont (Dist name n)
-  (\_ => (Tensor [name ~~> n] Double ** numIsMonoid))
+Simplex name n = Const2 (Dist name n)
+  (Tensor [name ~~> n] Double ** numIsMonoid)
 
 ||| Distributions are shown as probabilities (via softargmax), not as logits
 public export
@@ -79,11 +80,12 @@ ChoiceMade distName branches = Simplex distName n >*< Coproduct branches
 
 ||| Resolve probabilistic choice through the ground truth label. The labelled 
 ||| branch is selected, and its gradient goes back as a singleton bag
+||| TODO do we need the right component of the codomain?
 public export
 resolveByLabel : {distName : AxisName} ->
   {branches : Vect n AddCont} ->
   ProbabilisticChoice distName branches >*< ChoiceMade distName branches
     =%+> ChoiceMade distName branches >*< ChoiceMade distName branches
-resolveByLabel = !%+ \((dist, ex), y@(distTrue, yTrue)) =>
-  (((dist, index ex (fst yTrue)), y) ** \((d', g'), yGrad) =>
-      ((d', MkBag [(fst yTrue ** g')]), yGrad))
+resolveByLabel = !%+ \((dist, ex), y@(distTrue, (iTrue ** _))) =>
+  (((dist, index ex iTrue), y) ** \((d', g'), yGrad) =>
+      ((d', MkBag [(iTrue ** g')]), yGrad))
