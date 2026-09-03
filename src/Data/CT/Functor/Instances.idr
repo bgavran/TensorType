@@ -28,7 +28,7 @@ namespace Fam
 
   public export
   FamMor : {c : Cat} ->
-    {x, y : Type} -> (x -> y) -> Functor (FamObj {c=c} y) (FamObj {c=c} x)
+    {0 x, y : Type} -> (x -> y) -> Functor (FamObj {c=c} y) (FamObj {c=c} x)
   FamMor f = MkFunctor (. f) (\j, xx => j (f xx))
 
   ||| Functor Type -> Cat^op, we will mostly instantiate this for `c=TypeCat`
