@@ -34,6 +34,7 @@ modules = Data.Container.Base
         , Data.Container.Base.Product.Definition
         , Data.Container.Base.Monoid.Definition
         , Data.Container.Base.Monoid.Instances
+        , Data.Container.Base.Fix.Definition
         , Data.Container.Base.RoseTree.Definition
         , Data.Container.Base.RoseTree.Instances
         , Data.Container.Base.Display2D.CharacterMap
