@@ -1,6 +1,6 @@
 export HEDGEHOG_COLOR=1
 
-.PHONY: all build install examples test
+.PHONY: all build install examples test clean
 
 all: build
 
@@ -15,3 +15,9 @@ examples:
 
 test: build examples
 	pack test tensortype
+
+clean:
+	pack clean tensortype
+	cd examples && pack clean && cd ..
+	cd tests && pack clean && cd ..
+
