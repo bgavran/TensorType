@@ -26,6 +26,13 @@ indexShp : {n : Nat} -> {f : Fin n -> AddCont} ->
 indexShp {n = (S k)} FZ (s, _) = s
 indexShp {n = (S k)} {f} (FS y) (_, ss) = indexShp {f = f . FS} y ss
 
+||| Eager form of `Section`, inverse to `indexShp`
+public export
+tabulateShp : {n : Nat} -> {0 f : Fin n -> AddCont} ->
+  ((i : Fin n) -> (f i).Shp) -> (Product f).Shp
+tabulateShp {n = 0} _ = ()
+tabulateShp {n = S k} s = (s 0, tabulateShp {f = f . FS} (\i => s (FS i)))
+
 public export
 injectPos : {n : Nat} -> {f : Fin n -> AddCont} ->
   (j : Fin n) -> (bp : (Product f).Shp) ->

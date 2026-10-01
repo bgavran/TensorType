@@ -151,6 +151,14 @@ namespace Dependent
     (\i => (fs i).fwd (s i) **
      map (\ig => (fst ig ** (fs (fst ig)).bwd (s (fst ig)) (snd ig))))
 
+  public export
+  sectionStrength : {0 g : ix -> AddCont} -> {p : AddCont} ->
+    Section g >*< p =%+> Section (\i => g i >*< p)
+  sectionStrength = !%+ \sq =>
+    (\i => (fst sq i, snd sq) ** \bag =>
+      ( map (\ig => (fst ig ** fst (snd ig))) bag
+      , sum @{UMon p (snd sq)} (map (\ig => snd (snd ig)) bag)))
+
   ||| The universal map out of a dependent pair
   public export
   copair : {0 ix : Type} -> {0 c : ix -> AddCont} -> {0 d : AddCont} ->
