@@ -76,7 +76,9 @@ namespace CategoricalProduct
 
   namespace Morphism
     public export
-    (>*<) : (c1 =%+> d1) -> (c2 =%+> d2) -> (c1 >*< c2) =%+> (d1 >*< d2)
+    (>*<) : c1 =%+> d1 ->
+      c2 =%+> d2 ->
+      c1 >*< c2 =%+> d1 >*< d2
     (>*<) f g = !%+ \(c, d) =>
       let (c1 ** fk) = (%!+) f c
           (d1 ** gk) = (%!+) g d
@@ -128,6 +130,7 @@ namespace Dependent
   ||| Sections of a family, with cotangents the free commutative monoid on the
   ||| fibrewise positions, so a backward pass carries only the indices it was
   ||| asked about
+  ||| TODO this is costate, thought as the internal hom
   public export
   Section : {a : Type} -> (a -> AddCont) -> AddCont
   Section f = MkAddCont

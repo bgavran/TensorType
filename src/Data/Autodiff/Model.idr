@@ -130,17 +130,6 @@ fanOutModel ms = MkModel
   ((id >*< constFinite {ps = \i => (ms i).Params} (\i => (ms i).pMon))
     %+>> fanOut (\i => (id >*< projFinite {f = \i => ParamCont (ms i)} i) %+>> (ms i).run))
 
-||| Act on the first component
-public export
-mapFst : {a, c : AddCont} ->
-  a -\-> b ->
-  a >*< c -\-> b >*< c
-mapFst m = MkModel m.Params @{m.pMon} m.init $
-  assocL {c=ParamCont m}
-    %+>> (id >*< swap {a=c} {b=ParamCont m})
-    %+>> assocR {a} {b=ParamCont m}
-    %+>> (m.run >*< id)
-
 ||| Iterate a model `n` times
 public export
 nTimes : {a : AddCont} ->
