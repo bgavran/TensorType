@@ -80,8 +80,18 @@ AllDisplay2D [a] Double =>
 IsFoldable a.cont =>
 AllAlgebra [a] Double =>
 TensorCubEvidence [a] =>
+Display2D (Dist a) where
+  display2D (MkDist xs) = display2D (softargmaxImpl xs)
+
+public export
+{a : Axis} ->
+AllDisplay2D [a] Double =>
+IsFoldable a.cont =>
+AllAlgebra [a] Double =>
+TensorCubEvidence [a] =>
 Show (Dist a) where
-  show (MkDist xs) = show (softargmaxImpl xs)
+  show = showViaDisplay2D
+
 
 ||| A distribution over a container of branches, together with answers ready 
 ||| when any branch is chosen, computed only when the branch is asked for
