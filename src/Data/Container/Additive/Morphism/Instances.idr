@@ -143,6 +143,14 @@ namespace Dependent
     (\i => (gs i).fwd x **
      fromGenerators {y = c.Pos x} (\(i ** g) => (gs i).bwd x g))
 
+  ||| The action of `Section` on a family of lenses
+  public export
+  mapSection : {0 ix : Type} -> {0 a, b : ix -> AddCont} ->
+    ((i : ix) -> a i =%+> b i) -> Section a =%+> Section b
+  mapSection fs = !%+ \s =>
+    (\i => (fs i).fwd (s i) **
+     map (\ig => (fst ig ** (fs (fst ig)).bwd (s (fst ig)) (snd ig))))
+
   ||| The universal map out of a dependent pair
   public export
   copair : {0 ix : Type} -> {0 c : ix -> AddCont} -> {0 d : AddCont} ->
