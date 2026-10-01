@@ -159,6 +159,20 @@ namespace Dependent
       ( map (\ig => (fst ig ** fst (snd ig))) bag
       , sum @{UMon p (snd sq)} (map (\ig => snd (snd ig)) bag)))
 
+  public export
+  generators : {n : Nat} -> {0 f : Fin n -> AddCont} ->
+    (s : (i : Fin n) -> (f i).Shp) ->
+    (Product f).PosSet (tabulateShp {f} s) ->
+    List (i : Fin n ** (f i).PosSet (s i))
+  generators {n = 0} s () = []
+  generators {n = S k} s (g, gs) = (FZ ** g) ::
+    map (\ig => (FS (fst ig) ** snd ig)) (generators {f = f . FS} (\i => s (FS i)) gs)
+
+  ||| Evaluate a section over `Fin n` at every index
+  public export
+  evalAll : {n : Nat} -> {0 f : Fin n -> AddCont} -> Section f =%+> Product f
+  evalAll = !%+ \s => (tabulateShp {f} s ** \g => MkBag (generators {f} s g))
+
   ||| The universal map out of a dependent pair
   public export
   copair : {0 ix : Type} -> {0 c : ix -> AddCont} -> {0 d : AddCont} ->
