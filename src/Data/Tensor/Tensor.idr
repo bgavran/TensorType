@@ -28,18 +28,16 @@ import Data.List.Quantifiers
 This file defines the main datatype of this repository: `Tensor`, and utilities
 for working with it.
 
-`Tensor` implements and generalies
-1) `np.array` from NumPy 
-2) `torch.Tensor` from PyTorch
-3) `tf.Tensor` from TensorFlow
-to name a few.  
+`Tensor` implements and generalises, to name a few:
+*) `np.array` from NumPy 
+*) `torch.Tensor` from PyTorch
+*) `tf.Tensor` from TensorFlow
 
-In this file `Tensor` is a wrapper around the extension of an eponymous container (`Cont.Tensor`) which also provides functionality for working with
-axis names.
+It is defined as a wrapper around the extension of an eponymous container (`Cont.Tensor`), and it also provides functionality for working with axis names.
 
 Provided instances for `Tensor` include:
 Functor, Applicative, Foldable, Naperian, Algebra, Eq, Show, Num, Neg, Abs,
-Fractional, Exp
+Fractional, Exp ...
 
 General functionality includes:
 * Converting to and from nested tensors
@@ -47,12 +45,17 @@ General functionality includes:
 * Various tensor contractions
 * Slicing for cubical tensors
 * Getters
-* Setters (TODO)
+* Setters
 * Functionality for general reshaping such as views, traversals
 * Concrete reshape for cubical tensors that fails if there is a size mismatch
 
 -------------------------------------------------------------------------------}
 -------------------------------------------------------------------------------}
+
+||| Take a consistently named tensor shape and produce the underlying container 
+public export
+tensorCont : TensorShape rank -> Cont
+tensorCont = Cont.Tensor . conts
 
 ||| Tensor is the core datatype of TensorType.
 ||| Implementation-wise, it's a wrapper around the extension of `Cont.Tensor`
@@ -62,24 +65,43 @@ record Tensor
   (shape : TensorShape rank)
   (a : Type) where
   constructor MkT
-  GetT : Ext (Cont.Tensor (conts shape)) a
+  GetT : Ext (tensorCont shape) a
 
 %name Tensor.Tensor t, t', t''
+
+-- ||| TODO fix
+-- public export
+-- TensorAt : {shape : TensorShape rank} ->
+--   Tensor shape a ->
+--   Type -> Type
+-- TensorAt {shape = []} t = Tensor [] -- --Tensor ["flattened" ~> fixShape (GetT t)]
+-- TensorAt {shape = (a :: as)} (MkT e)
+--   = ?tensor_rhs_2 -- --Tensor ["flattened" ~> fixShape (GetT t)]
 
 public export
 (.shape) : {shape : TensorShape rank} ->
   (0 t : Tensor shape a) -> Vect rank Axis
-(.shape) _ = toVect shape
+_.shape = toVect shape
 
 public export
 (.axisNames) : {shape : TensorShape rank} ->
   (0 t : Tensor shape a) -> Vect rank AxisName
-(.axisNames) _ = axisNames shape
+_.axisNames = axisNames shape
 
 public export
 (.sizes) : {shape : TensorShape rank} ->
   (0 t : Tensor shape a) -> Vect rank Cont
-(.sizes) _ = axisSizes shape
+_.sizes = axisSizes shape
+
+-- public export
+-- (.tensorContShapeType) : {shape : TensorShape rank} ->
+--   Tensor shape a -> Type
+-- _.tensorContShapeType = (tensorCont shape).Shp
+-- 
+-- public export
+-- (.tensorContShapeVal) : {shape : TensorShape rank} ->
+--   (t : Tensor shape a) -> t.tensorContShapeType
+-- t.tensorContShapeVal = shapeExt (GetT t)
 
 public export
 (.indexAxis) : {shape : TensorShape rank} ->
@@ -166,25 +188,45 @@ namespace NestedTensorUtils
 
   ||| This is useful because container composition adds non-trivial data to the
   ||| vector type (i.e. `c >@ Scalar` is not equal to `c`)
+  ||| TODO `vector` is misleading: it's unrelated to the with `Vect` container
+  ||| Perhaps `extToRank1`?
   public export
-  extToVector : Ext c.cont a -> Tensor [c] a
-  extToVector e = MkT $ (shapeExt e <| \_ => ()) <| \(cp ** ()) => index e cp
+  extToRank1 : Ext c.cont a -> Tensor [c] a
+  extToRank1 e = MkT $ (shapeExt e <| \_ => ()) <| \(cp ** ()) => index e cp
 
   public export
-  vectorToExt : Tensor [c] a -> Ext c.cont a
-  vectorToExt (MkT t) = shapeExt (shapeExt t) <| \cp => index t (cp ** ())
+  rank1ToExt : Tensor [c] a -> Ext c.cont a
+  rank1ToExt (MkT t) = shapeExt (shapeExt t) <| \cp => index t (cp ** ())
+
+  ||| The shape of a rank-1 tensor's axis: `indexShapeFw` at the empty path
+  public export
+  (.extractShapeRank1) : {0 ax : Axis} -> Tensor [ax] a -> ax.cont.Shp
+  (.extractShapeRank1) t = shapeExt (rank1ToExt t)
+  
+  public export
+  shapeToRank1Shape : a.cont.Shp -> (tensorCont [a]).Shp
+  shapeToRank1Shape s = s <| const ()
+
+  ||| The entries of a rank-1 tensor listed in the order of a traversal of its
+  ||| axis, as a cubical vector whose size is in the type. Entry `k` is the
+  ||| entry at position `toL.bwd s k`, which also maps indices back
+  public export
+  flatten : {0 ax : Axis} -> (toL : ax.cont =%> ((n : Nat) !> Fin n)) ->
+    (t : Tensor [ax] a) -> Tensor [ax.name ~~> toL.fwd t.extractShapeRank1] a
+  flatten toL t = MkT ((() <| const ()) <| \pp =>
+    index (rank1ToExt t) (toL.bwd (shapeExt (rank1ToExt t)) (fst pp)))
 
   public export
   toNestedTensor : {0 cs : TensorShape rank} ->
     (0 _ : ConsistentWith c cs) =>
     Tensor (c :: cs) a -> Tensor [c] (Tensor cs a)
-  toNestedTensor = extToVector . extractTopExt
+  toNestedTensor = extToRank1 . extractTopExt
 
   public export
   fromNestedTensor : {0 cs : TensorShape rank} ->
     (0 _ : ConsistentWith c cs) =>
     Tensor [c] (Tensor cs a) -> Tensor (c :: cs) a
-  fromNestedTensor = embedTopExt . vectorToExt 
+  fromNestedTensor = embedTopExt . rank1ToExt 
 
   ||| TODO generalise to function operating on an axis name instead of index
   public export
@@ -205,6 +247,17 @@ namespace NestedTensorUtils
     (f : Tensor cs a -> Tensor ds a) ->
     Tensor (c :: cs) a -> Tensor (c :: ds) a
   (<-$>) = tensorMapFirstAxis
+
+
+||| Analogue of `Pick` from `Base.Extension.Instances`
+public export
+Pick : TensorShape rank -> Type -> Cont
+Pick shape a = Const2 (Tensor shape a) a
+
+||| Analogue of `pick` from `Base.Morphism.Instances`
+public export
+pick : Pick shape a =%> tensorCont shape
+pick = (!% \t => (GetT t ** id)) %>> pick
 
 
 namespace TensorFromConcrete
@@ -322,6 +375,7 @@ namespace TensorFromConcrete
   (#>#) f t = ># (f (#> t))
 
 
+
 namespace Reshape
   ||| A wrapper around `extMap`
   ||| Allows us to define views, traversals and general reshaping
@@ -331,6 +385,23 @@ namespace Reshape
     tensorShapesConsistent cs ds =>
     Tensor cs a -> Tensor ds a
   restructure f = MkT . extMap f . GetT
+
+  ||| The action of a lens on only one axis
+  ||| TODO just like map one one axis, rethink the design of this?
+  ||| Make it use named axes?
+  public export
+  restructureAxis : {0 ax, newAx : Axis} -> {0 cs : TensorShape rank} ->
+    (0 _ : ax `ConsistentWith` cs) =>
+    (0 _ : newAx `ConsistentWith` cs) =>
+    ax.cont =%> newAx.cont ->
+    Tensor (ax :: cs) a -> Tensor (newAx :: cs) a
+  restructureAxis l = MkT . extMap (l >@ id) . GetT
+
+  public export 
+  unrestrict : {s : ax.cont.Shp} ->
+    Tensor [ax.name ~> At {c = ax.cont} s] x -> Tensor [ax] x
+  unrestrict = restructureAxis (atShape s)
+
 
   ||| Reshape is `restructure` for cubical tensors that leaves number of 
   ||| elements unchanged.  This is currently by
@@ -363,25 +434,30 @@ namespace Reshape
 namespace TensorInstances
   namespace ApplicativeInstance
     public export
+    tensorReplicateAt : {shape : TensorShape rank} ->
+      (tensorCont shape).Shp -> (x : a) -> Tensor shape a
+    tensorReplicateAt sh x = MkT (sh <| const x)
+
+    public export
+    tensorUnitShape : {shape : TensorShape rank} ->
+      (allAppl : AllC TensorMonoid shape) =>
+      (tensorCont shape).Shp
+    tensorUnitShape
+      = (tensorN @{tensorPreservesTensorMonoid @{toAll allAppl}}).fwd ()
+
+    public export
     tensorReplicate : {shape : TensorShape rank} ->
       (allAppl : AllC TensorMonoid shape) =>
       (x : a) -> Tensor shape a
-    tensorReplicate {shape = []} = embed
-    tensorReplicate {shape = (_ :: _), allAppl = _ :: _}
-      = fromExtensionComposition
-      . pure
-      . toExtensionComposition
-      . tensorReplicate
+    tensorReplicate = tensorReplicateAt tensorUnitShape
 
     public export
     liftA2Tensor : {shape : TensorShape rank} ->
       (allAppl : AllC TensorMonoid shape) =>
       Tensor shape a -> Tensor shape b -> Tensor shape (a, b)
-    liftA2Tensor {shape = [], allAppl=[]} (MkT t) (MkT t')
-      = embed (index t (), index t' ())
-    liftA2Tensor {shape = (s :: ss), allAppl = _ :: _} t t'
-      = embedTopExt [| liftA2Tensor (extractTopExt t) (extractTopExt t') |]
-      
+    liftA2Tensor (MkT t) (MkT t') = MkT $ liftA2Ext
+      @{tensorPreservesTensorMonoid @{toAll allAppl}} t t'
+
     public export
     {shape : TensorShape rank} ->
     (allAppl : AllC TensorMonoid shape) =>
@@ -395,7 +471,7 @@ namespace TensorInstances
       (a : Type) -> Type where
       Nil : Eq a => AllEq [] a
       Cons : {c : Axis} -> {cs : TensorShape k} ->
-        (eq : Eq (c.cont `fullOf` Tensor cs a)) => -- hmm, can be simplified? this would cause unification regarding AllConsistent to become much simpler?
+        (eq : Eq (c.cont.filledWith (Tensor cs a))) => -- hmm, can be simplified? this would cause unification regarding AllConsistent to become much simpler?
         (ne : c `ConsistentWith` cs) =>
         AllEq (c :: cs) a
 
@@ -595,7 +671,7 @@ namespace TensorInstances
     -- public export
     -- {c : Cont} -> Algebra (Ext c) a =>
     -- Algebra (CTensor [c]) (CTensor [] a) where
-    --   reduce t = embed $ reduce $ vectorToExt $ extract <$> t
+    --   reduce t = embed $ reduce $ rank1ToExt $ extract <$> t
 
     -- The comment below is probably not as relevant anymore
     -- ||| Since we have non-unique axis labels, this likely needs to be 
@@ -882,7 +958,7 @@ namespace TensorInstances
     public export
     positions : {0 c : Axis} ->
       {sh : c.cont.Shp} -> Tensor [c] (c.cont.Pos sh)
-    positions = extToVector (positionsCont {sh=sh})
+    positions = extToRank1 (positionsCont {sh=sh})
 
   namespace ShowInstance
     ||| Tensor-context rendering of container extensions.
@@ -1403,6 +1479,9 @@ namespace SetterGetter
   ||| Unlike with cubical tensors, where the underlying tensor is not 
   ||| necessary, here we require the data of `t : Tensor shape a` too.
   ||| Based on absolute positions
+  ||| TODO the interface is right, but this technically only requires
+  ||| the shapes of the underlying containers, so it can be factored
+  ||| through that
   public export
   data Index :
     (shape : TensorShape rank) ->
@@ -1417,12 +1496,19 @@ namespace SetterGetter
   
   %name Index is, js
 
+  ||| Turn the `Index` into a position of the underlying container of `t`
+  public export
+  indexToContPos : {shape : TensorShape rank} -> {t : Tensor shape a} ->
+    Index shape t ->
+    (Cont.Tensor (conts shape)).Pos (shapeExt (GetT t))
+  indexToContPos {shape = []} _ = ()
+  indexToContPos {shape = (c :: cs)} {t = (MkT (sh <| ind))} (i :: is)
+    = (i ** indexToContPos is)
+
   public export
   index : {shape : TensorShape rank} ->
     (t : Tensor shape a) -> Index shape t -> a
-  index {shape = []} t [] = extract t
-  index {shape = (c :: cs)} t (i :: is) =
-    index (index (extractTopExt t) i) is
+  index t is = index (GetT t) (indexToContPos is)
 
   public export infixr 9 ^.
 
@@ -1434,20 +1520,46 @@ namespace SetterGetter
   public export 
   set : {shape : TensorShape rank} ->
     (t : Tensor shape a) ->
-    (iop : InterfaceOnPositions (Tensor (conts shape)) Eq) =>
+    (allDec : All IsDecidable (conts shape)) =>
     Index shape t -> a -> Tensor shape a
-  set {shape = []} t is val = MkT $ set (GetT t) () val
-  set {shape = (c :: cs)} t (i :: is) val =
-    let ts = index (extractTopExt t) i
-        -- tg = set ts is val
-    in ?set_rhs_1 -- need to use index here... or even better phrase this using lenses?
-  -- maybe InterfaceOnPositions needs a 'AllInterfaceOnPositions' counterpart?
+  set t is = MkT . set @{tensorIsDecidable} (GetT t) (indexToContPos is)
 
-  -- setC t [] x = MkT $ set (GetT t) () x
-  -- setC {shape=(s::ss)} t (i :: is) x =
-  --   let tNested : Tensor [s] (Tensor ss a) := toNestedTensor t
-  --       ts : Tensor ss a := setC (indexC tNested [i]) is x
-  --   in fromNestedTensor $ MkT $ set (GetT tNested) (i ** ()) ts
+  public export infixl 1 //
+
+  ||| Apply a pending modification to `t`
+  public export
+  (//) : {shape : TensorShape rank} -> (t : Tensor shape a) ->
+    All IsDecidable (conts shape) =>
+    (Index shape t, a -> a) -> Tensor shape a
+  t // (is, f) = set t is (f (t ^. is))
+
+  -- All of these define effectively a pairing operator
+  public export infixr 4 %~, .~, +~, -~, *~
+
+  ||| Modification, an arbitrary function transforming a value
+  public export
+  (%~) : Index shape t -> (a -> a) -> (Index shape t, a -> a)
+  is %~ f = (is, f)
+
+  ||| Overwrite: modification by a constant function
+  public export
+  (.~) : Index shape t -> a -> (Index shape t, a -> a)
+  is .~ v = is %~ const v
+
+  ||| Modify by adding to the value
+  public export
+  (+~) : Num a => Index shape t -> a -> (Index shape t, a -> a)
+  is +~ x = is %~ (+ x)
+
+  ||| Modify by subtracting from the value
+  public export
+  (-~) : Neg a => Index shape t -> a -> (Index shape t, a -> a)
+  is -~ x = is %~ (\y => y - x)
+
+  ||| Modify by multiplying with the value
+  public export
+  (*~) : Num a => Index shape t -> a -> (Index shape t, a -> a)
+  is *~ x = is %~ (* x)
 
 namespace CubicalSetterGetter
   public export

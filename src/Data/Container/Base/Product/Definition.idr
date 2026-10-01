@@ -35,7 +35,7 @@ namespace CategoricalProduct
   ||| Binary version of product
   public export
   (>*<) : Cont -> Cont -> Cont
-  c1 >*< c2 = ((s, s') : (c1.Shp, c2.Shp)) !> Either (c1.Pos s) (c2.Pos s')
+  c1 >*< c2 = (ss : (c1.Shp, c2.Shp)) !> Either (c1.Pos (fst ss)) (c2.Pos (snd ss))
 
   namespace List
     ||| N-ary version of product
@@ -56,8 +56,8 @@ namespace CategoricalProduct
   ||| and a position is either a position of s or a position of p.
   public export
   DPairCart : (s : Cont) -> (p : s.Shp -> Cont) -> Cont
-  DPairCart s p = ((sShp ** pShp) : DPair s.Shp (Shp . p))
-    !> Either (s.Pos sShp) ((p sShp).Pos pShp)
+  DPairCart s p = (sh : DPair s.Shp (Shp . p))
+    !> Either (s.Pos (fst sh)) ((p (fst sh)).Pos (snd sh))
 
 
 ||| Non-categorical product of containers, often also called
@@ -98,8 +98,8 @@ namespace HancockTensorProduct
   ||| and positions are pairs of positions.
   public export
   DPairTensor : (s : Cont) -> (p : s.Shp -> Cont) -> Cont
-  DPairTensor s p = 
-    ((sShp ** pShp) : DPair s.Shp (Shp . p)) !> (s.Pos sShp, (p sShp).Pos pShp)
+  DPairTensor s p =
+    (sh : DPair s.Shp (Shp . p)) !> (s.Pos (fst sh), (p (fst sh)).Pos (snd sh))
 
 ||| Coproduct of containers
 ||| Monoid with Empty

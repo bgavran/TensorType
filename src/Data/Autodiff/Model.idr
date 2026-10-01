@@ -108,45 +108,27 @@ public export
     %+>> swapMiddle {c3=Const p} {c4=Const q}
     %+>> (f >*< g)
 
-||| Fan-out of models
-public export
-dfunFinite : {a : AddCont} -> {n : Nat} -> {0 f : Fin n -> AddCont} ->
-  ((i : Fin n) -> a -\-> f i) -> a -\-> AddContDFunFinite f
-dfunFinite {n = 0} _ = trivialParam terminal
-dfunFinite {n = S k} ms = ms 0 &&& dfunFinite {f = f . FS} (\i => ms (FS i))
 
-||| Only evaluates the head if the index matches it
+||| Initialise every model of a family, into the tuple of their parameters
 public export
-lazyCons : {a : AddCont} ->
-  {0 b : AddCont} -> {0 k : Nat} -> {0 bs : Vect k AddCont} ->
-  a -\-> b -> a -\-> (Vect k >-+@ Coproduct bs) ->
-  a -\-> (Vect (S k) >-+@ Coproduct (b :: bs))
-lazyCons (MkModel p @{pm} ip f) (MkModel q @{qm} iq g) = MkModel
-  (p, q) [| (ip, iq) |] $
-  !%+ \(x, (px, qx)) =>
-    let hd : Lazy (t : b.Shp ** b.PosSet t -> (a >*< Const p).PosSet (x, px))
-        hd = (%!+) f (x, px)
-        rest = (%!+) g (x, qx)
-    in (() <| (\case
-            FZ => (FZ ** fst hd)
-            FS j => (FS (fst (index (fst rest) j)) ** snd (index (fst rest) j)))
-        ** fromGenerators {y = (a >*< Const (p, q)).Pos (x, (px, qx))}
-             (\(i ** gr) => case i of
-                FZ => let (x', p') = snd hd gr
-                      in (x', (p', (Const q).Zero qx))
-                FS j => let (x', q') = snd rest (MkBag [(j ** gr)])
-                        in (x', ((Const p @{pm}).Zero px, q'))))
+initAll : {n : Nat} -> {0 a : AddCont} -> {0 f : Fin n -> AddCont} ->
+  (ms : (i : Fin n) -> a -\-> f i) ->
+  IO (Product (\i => ParamCont (ms i))).Shp
+initAll {n = 0} _ = pure ()
+initAll {n = S k} ms = [| ((ms 0).init, initAll (\i => ms (FS i))) |]
 
-||| Branch models under the choice effect: only the branch the environment asks
-||| for runs. The type of `postcomposeLens (dfunFinite ms) graph`, without its work
+||| A family of models into the section of their codomains: the n-ary lazy
+||| fan-out, a read running only the asked branch, with every branch's
+||| parameters as one tuple
 public export
-lazyBranches : {a : AddCont} -> {n : Nat} -> {0 branches : Vect n AddCont} ->
-  ((i : Fin n) -> a -\-> index i branches) ->
-  a -\-> (Vect n >-+@ Coproduct branches)
-lazyBranches {n = 0} {branches = []} _ = trivialParam $
-  !%+ \x => (() <| (\i => absurd i) ** fromGenerators (\(i ** _) => absurd i))
-lazyBranches {n = S k} {branches = b :: bs} ms
-  = lazyCons (ms 0) (lazyBranches (\i => ms (FS i)))
+fanOutModel : {a : AddCont} -> {n : Nat} -> {0 f : Fin n -> AddCont} ->
+  (ms : (i : Fin n) -> a -\-> f i) -> a -\-> Section f
+fanOutModel ms = MkModel
+  (Product (\i => ParamCont (ms i))).Shp
+  @{finiteShpMon {f = \i => ParamCont (ms i)} (\i => (ms i).pMon)}
+  (initAll ms)
+  ((id >*< constFinite {ps = \i => (ms i).Params} (\i => (ms i).pMon))
+    %+>> fanOut (\i => (id >*< projFinite {f = \i => ParamCont (ms i)} i) %+>> (ms i).run))
 
 ||| Act on the first component
 public export

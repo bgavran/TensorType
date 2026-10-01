@@ -11,6 +11,7 @@ import Data.Materialise
 import Data.Num
 import Data.Container.Additive.Object.Definition
 import Data.Container.Additive.Object.Instances
+import Data.Container.Additive.Product.Instances
 import Data.Container.Additive.Extension.Definition
 import Data.Container.Additive.Morphism.Definition
 import Data.Container.Additive.Product.Definition
@@ -29,14 +30,13 @@ import Misc
 public export
 pushIntoContinuation : {p : AddCont} ->
   (f : d >*< p =%+> l) ->
-  (p =%+> (pushDown d.Shp) >-+@ l)
+  (p =%+> Nap d.Shp >-+@ l)
 pushIntoContinuation f = !%+ \param => (() <| \dShp => f.fwd (dShp, param) **
     fromGenerators (\(dShp ** grad) => snd (f.bwd (dShp, param) grad)))
 
 ||| Categorical product of additive containers
 ||| On underlying containers computed as the hancock tensor product
 namespace CategoricalProduct
-  ||| The unique map to the terminal object; its backward is the zero
   public export
   terminal : {c : AddCont} -> c =%+> UnitCont
   terminal = !%+ \x => (() ** \() => c.Zero x)
@@ -86,6 +86,7 @@ namespace CategoricalProduct
     c =%+> d >*< e
   pairMaps f g = copy %+>> (f >*< g)
 
+
   ||| Materialises both the forward pass and the backward pass
   public export
   materialiseCont : Materialise c.Shp =>
@@ -100,6 +101,25 @@ namespace CategoricalProduct
     Const (s, t) =%+> Const s >*< Const t
   constPair = !%+ \x => (x ** id)
 
+  ||| The n-ary `constPair`
+  public export
+  constFinite : {n : Nat} -> {ps : Fin n -> Type} ->
+    (ms : (i : Fin n) -> ComMonoid (ps i)) ->
+    Const (Product (\i => Const (ps i) @{ms i})).Shp
+      @{finiteShpMon {f = \i => Const (ps i) @{ms i}} ms}
+      =%+> Product (\i => Const (ps i) @{ms i})
+  constFinite {n = 0} _ = !%+ \x => (x ** id)
+  constFinite {n = S k} ms
+    = constPair @{ms FZ} @{finiteShpMon {f = \i => Const (ps (FS i)) @{ms (FS i)}} (\i => ms (FS i))}
+      %+>> (id {c = Const (ps FZ) @{ms FZ}}
+            >*< constFinite {ps = \i => ps (FS i)} (\i => ms (FS i)))
+
+  ||| Projection out of an iterated product; backward is the coprojection
+  public export
+  projFinite : {n : Nat} -> {f : Fin n -> AddCont} ->
+    (i : Fin n) -> Product f =%+> f i
+  projFinite i = !%+ \s => (indexShp {f} i s ** injectPos {f} i s)
+
   public export
   projLeft : {d : AddCont} -> c >*< d =%+> c
   projLeft = !%+ \(x, y) => (x ** \x' => (x', d.Zero y))
@@ -107,6 +127,50 @@ namespace CategoricalProduct
   public export
   projRight : {c : AddCont} -> c >*< d =%+> d
   projRight = !%+ \(x, y) => (y ** \y' => (c.Zero x, y'))
+
+namespace Morphism
+  ||| The action of the `Maybe` functor on lenses
+  public export
+  Maybe : c =%+> d -> Maybe c =%+> Maybe d
+  Maybe f = id >+< f
+
+||| Universal maps of the dependent pair and the section of a family
+namespace Dependent
+  public export
+  fanOut : {c : AddCont} -> {0 ix : Type} -> {0 f : ix -> AddCont} ->
+    ((i : ix) -> c =%+> f i) -> c =%+> Section f
+  fanOut gs = !%+ \x =>
+    (\i => (gs i).fwd x **
+     fromGenerators {y = c.Pos x} (\(i ** g) => (gs i).bwd x g))
+
+  ||| The universal map out of a dependent pair
+  public export
+  copair : {0 ix : Type} -> {0 c : ix -> AddCont} -> {0 d : AddCont} ->
+    ((i : ix) -> c i =%+> d) -> AddContDPair c =%+> d
+  copair fs = !%+ \(i ** x) => (%!+) (fs i) x
+
+  ||| Evaluate a section at the index an indexed value carries and pair it with
+  ||| that value
+  public export
+  evalSection : {0 ix : Type} -> {0 a, p : ix -> AddCont} ->
+    Section a >*< AddContDPair p =%+> AddContDPair (\i => a i >*< p i)
+  evalSection = !%+ \(s, (i ** y)) =>
+    ((i ** (s i, y)) ** \(x', y') => (MkBag [(i ** x')], y'))
+
+  ||| The graph of a section, implemented through effects
+  public export
+  graph : {0 x : Type} -> {0 f : x -> AddCont} ->
+    Section f =%+> Nap x >-+@ AddContDPair f
+  graph = !%+ \s => (() <| (\i => (i ** s i)) ** id)
+
+  ||| A lens from two dependent pairs into one. When they agree
+  ||| on the index they're paired, when they don't we return failure
+  public export
+  matchIndex : DecEq a => {b, l : a -> AddCont} ->
+    AddContDPair b >*< AddContDPair l =%+> Maybe (AddContDPair (\i => b i >*< l i))
+  matchIndex = !%+ \((i ** y), (j ** lab)) => case decEq i j of
+    Yes Refl => (Right (i ** (y, lab)) ** id)
+    No _ => (Left () ** \() => ((b i).Zero y, (l j).Zero lab))
 
 ||| Structure maps of the left action `>-+@` of `(Cont, >@, Scalar)` on AddCont
 ||| They generally use the following components:
@@ -117,20 +181,20 @@ namespace CompositionProductAction
   ||| Backwards pass is ComMon-homomorphism on the nose
   public export
   unitor : {c : AddCont} -> c =%+> Scalar >-+@ c
-  unitor = !% (sumBw @{mon c} %>> (Bag <!> leftUnitInv {c=UC c}))
+  unitor = !% sumBw @{mon c} %>> (Bag <!> leftUnitInv {c=UC c})
 
   ||| Backwards map is a ComMon-homomorphism only through the quotient
   public export
   unitorInv : Scalar >-+@ c =%+> c
-  unitorInv = !% ((Bag <!> leftUnit {c=UC c}) %>> pureBw)
+  unitorInv = !% (Bag <!> leftUnit {c=UC c}) %>> pureBw
 
   public export
-  multiplicator : (m >-+@ (n >-+@ c)) =%+> ((m >@ n) >-+@ c)
-  multiplicator = !% (Bag <!> ((id {c=m} >@ pureBw {c = n >@ UC c}) %>> assocR {a=m, b=n, c=UC c}))
+  multiplicator : m >-+@ n >-+@ c =%+> (m >@ n) >-+@ c
+  multiplicator = !% Bag <!> ((id >@ pureBw {c = n >@ UC c}) %>> assocR {c=UC c})
 
   public export
   multiplicatorInv : ((m >@ n) >-+@ c) =%+> (m >-+@ (n >-+@ c))
-  multiplicatorInv = !% ((Bag <!> assocL {a=m, b=n, c=UC c}) %>> joinBwComp {c=m, d = n >@ UC c})
+  multiplicatorInv = !% (Bag <!> assocL {c=UC c}) %>> joinBwComp {d = n >@ UC c}
 
 ||| `!*` and `- >-+@ Scalar` are isomorphic: they're both right adjoint to 
 ||| `UC`.  They are two presentations of the same free commutative monoid on

@@ -22,20 +22,21 @@ This file contains the derivatives of various useful building blocks
 Eventually will be combined with functionality which functorially assigns these
 to any forward pass
 
+Note, every type declaration involving a `Const (...)` needs to list `Num` directly, even if it is implied by `Neg` or `Fractional`. This is because elaborator can otherwise hang, as I think there are two routes to `Num`
 -------------------------------------------------------------------------------}
 
 public export
-mulModel : {t : Type} -> Neg t => Random t =>
+mulModel : {t : Type} -> Num t => Neg t => Random t =>
   Const t -\-> Const t
 mulModel = fromPara (binaryOpToPara {p = Const t} mul) DefaultInit
 
 public export
-addModel : {t : Type} -> Neg t => Random t =>
+addModel : {t : Type} -> Num t => Neg t => Random t =>
   Const t -\-> Const t
 addModel = fromPara (binaryOpToPara {p = Const t} sum) DefaultInit
 
 public export
-scalarAffine : {t : Type} -> Neg t => Random t => Materialise t =>
+scalarAffine : {t : Type} -> Num t => Neg t => Random t => Materialise t =>
   Const t -\-> Const t
 scalarAffine = mulModel >>> addModel
 
@@ -127,13 +128,13 @@ reluModel = leakyReLUModel 0
 -- Distributions
 
 ||| Interpret a vector as logits of a distribution. The backward pass is
-||| identity: gradients are computed in the sme way
+||| identity, and gradients are computed in the same way
 public export
-fromLogits : {0 name : AxisName} -> {0 n : Nat} ->
-  Const (Tensor [name ~~> n] Double) =%+> Simplex name n
-fromLogits = !%+ \xs => (MkDist xs ** id)
+fromLogits : {a : Axis} -> TensorMonoid a.cont =>
+  Const (Tensor [a] Double) =%+> Simplex a
+fromLogits = !%+ \xs => (MkDist xs ** unrestrict)
 
 public export
-fromLogitsModel : {0 name : AxisName} -> {0 n : Nat} ->
-  Const (Tensor [name ~~> n] Double) -\-> Simplex name n
+fromLogitsModel : {a : Axis} -> TensorMonoid a.cont =>
+  Const (Tensor [a] Double) -\-> Simplex a
 fromLogitsModel = trivialParam fromLogits

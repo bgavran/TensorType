@@ -9,8 +9,8 @@ import Data.Container.Base.TreeUtils
 
 
 {-------------------------------------------------------------------------------
-This file defines a number of different containers
-Some of them are possible to express in terms of each other, but we opt to define all of them directly
+Defines basic containers.
+Some of them are possible to express in terms of each other, but we opt to define most of them directly
 -------------------------------------------------------------------------------}
 
 ||| Constant (non-dependent) container: positions do not depend on shapes
@@ -42,6 +42,11 @@ Flat a = Const2 a Unit
 public export
 Sharp : Type -> Cont
 Sharp a = Const2 a Void
+
+||| Turn a container into a Naperian one by fixing a specific shape
+public export
+At : {c : Cont} -> c.Shp -> Cont
+At s = Nap (c.Pos s)
 
 ||| Empty container, isomorphic to Void
 ||| As a polynomial functor: F(X) = 0
@@ -100,11 +105,18 @@ public export
 List : Cont
 List = (n : Nat) !> Fin n
 
+||| Non-empty lists, container with an arbitrary number of things
+||| As a polynomial functor: F(X) = X + X^2 + X^3 + ...
+public export
+List1 : Cont
+List1 = (n : Nat) !> Fin (S n)
+
+
 ||| Vect, container of a fixed/known number of things
 ||| As a polynomial functor: F(X) = X^n
 public export
 Vect : List .Shp -> Cont
-Vect n = (_ : Unit) !> Fin n
+Vect = At {c=List}
 
 ||| Grid, container of things arranged along two axes
 ||| As a polynomial functor: F(X) = X^(hw)
@@ -159,8 +171,3 @@ CoproductTensor = foldr (>+<) Empty
 public export
 ContUniverse : Cont
 ContUniverse = (_ : (s : Type ** s -> Type)) !> Void
-
-||| Basically an alias for `Nap`
-public export
-pushDown : Type -> Cont
-pushDown = Nap

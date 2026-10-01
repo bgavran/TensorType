@@ -68,6 +68,23 @@ namespace BinaryTrees
 
     %runElab deriveIndexed "BinTreePos" [Eq, Show]
 
+    public export
+    DecEq (BinTreePos b) where
+      decEq AtLeaf AtLeaf = Yes Refl
+      decEq AtNode AtNode = Yes Refl
+      decEq (GoLeft p) (GoLeft q) = case decEq p q of
+        Yes Refl => Yes Refl
+        No contra => No (\Refl => contra Refl)
+      decEq (GoRight p) (GoRight q) = case decEq p q of
+        Yes Refl => Yes Refl
+        No contra => No (\Refl => contra Refl)
+      decEq AtNode (GoLeft _) = No (\case Refl impossible)
+      decEq AtNode (GoRight _) = No (\case Refl impossible)
+      decEq (GoLeft _) AtNode = No (\case Refl impossible)
+      decEq (GoLeft _) (GoRight _) = No (\case Refl impossible)
+      decEq (GoRight _) AtNode = No (\case Refl impossible)
+      decEq (GoRight _) (GoLeft _) = No (\case Refl impossible)
+
     ||| Check if a term is a subterm of another term
     ||| t1 < t2 means that t2 > t1
     public export
@@ -94,6 +111,22 @@ namespace BinaryTrees
       GoRight  : {l, r : BinTreeShape} -> BinTreePosNode r -> BinTreePosNode (NodeS l r)
 
     %runElab deriveIndexed "BinTreePosNode" [Eq, Show]
+
+    public export
+    DecEq (BinTreePosNode b) where
+      decEq AtNode AtNode = Yes Refl
+      decEq (GoLeft p) (GoLeft q) = case decEq p q of
+        Yes Refl => Yes Refl
+        No contra => No (\Refl => contra Refl)
+      decEq (GoRight p) (GoRight q) = case decEq p q of
+        Yes Refl => Yes Refl
+        No contra => No (\Refl => contra Refl)
+      decEq AtNode (GoLeft _) = No (\case Refl impossible)
+      decEq AtNode (GoRight _) = No (\case Refl impossible)
+      decEq (GoLeft _) AtNode = No (\case Refl impossible)
+      decEq (GoLeft _) (GoRight _) = No (\case Refl impossible)
+      decEq (GoRight _) AtNode = No (\case Refl impossible)
+      decEq (GoRight _) (GoLeft _) = No (\case Refl impossible)
 
     public export
     {b : BinTreeShape} -> Finite (BinTreePosNode b) where
@@ -124,6 +157,18 @@ namespace BinaryTrees
       GoRight : {l, r : BinTreeShape} -> BinTreePosLeaf r -> BinTreePosLeaf (NodeS l r)
 
     %runElab deriveIndexed "BinTreePosLeaf" [Eq, Show]
+
+    public export
+    DecEq (BinTreePosLeaf b) where
+      decEq AtLeaf AtLeaf = Yes Refl
+      decEq (GoLeft p) (GoLeft q) = case decEq p q of
+        Yes Refl => Yes Refl
+        No contra => No (\Refl => contra Refl)
+      decEq (GoRight p) (GoRight q) = case decEq p q of
+        Yes Refl => Yes Refl
+        No contra => No (\Refl => contra Refl)
+      decEq (GoLeft _) (GoRight _) = No (\case Refl impossible)
+      decEq (GoRight _) (GoLeft _) = No (\case Refl impossible)
 
     ||| Assumes a choice of traversal
     public export

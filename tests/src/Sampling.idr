@@ -13,5 +13,5 @@ export
 samplingGroup : Group
 samplingGroup = MkGroup "Sampling"
   [ ("Sampling a Dirac delta with pickMax returns the index", property1 $
-      runIdentity (sample @{pickMax} (diracDelta {name="test"} {i=5} 2)) === 2)
+      runIdentity (fromCostate (sample @{pickMax}) (diracDelta {a="test" ~~> 5} 2)) === 2)
   ]

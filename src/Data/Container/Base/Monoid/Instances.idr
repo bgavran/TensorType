@@ -68,12 +68,28 @@ IsNaperian c => TensorMonoid c where
   tensorN @{(MkIsNaperian _)} = toState ()
   tensorM @{(MkIsNaperian _)} = !% \((), ()) => (() ** \i => (i, i))
 
+public export
+[compositeTensorMonoid]
+TensorMonoid c => TensorMonoid d => TensorMonoid (c >@ d) where
+  tensorN = leftUnitInv %>> (tensorN >@ tensorN)
+  tensorM = duoidal %>> (tensorM >@ tensorM)
+
 ||| When a container `c` is Naperian, then `c >< c` is isomorphic to `c >@ c`
 ||| Meaning this interface follows directly
 ||| Vectors also form a *graded* monad, which isn't implemented here
 export
 IsNaperian c => SeqMonoid c where
   seqM @{MkIsNaperian pos} = compToTensor {d=c} %>> tensorM
+
+
+||| Tensor preserves TensorMonoid/Applicative
+public export
+tensorPreservesTensorMonoid : {shape : List Cont} ->
+  (allAppl : All TensorMonoid shape) =>
+   TensorMonoid (Tensor shape)
+tensorPreservesTensorMonoid {shape = []} = %search
+tensorPreservesTensorMonoid {shape = (_ :: _), allAppl = (p :: _)}
+  = compositeTensorMonoid @{p} @{tensorPreservesTensorMonoid}
 
 
 ||| experiment, does this work?

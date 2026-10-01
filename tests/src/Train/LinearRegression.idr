@@ -9,11 +9,11 @@ import Data.Container.Additive
 import Data.Autodiff
 import NN.Architectures
 import NN.Training
-import NN.Training.Examples.LinearRegression
+import LinearRegression
 
 export
 trainGroup : IO Group
 trainGroup = do
-  loss <- linearRegression scalarAffine 10000
+  loss <- linearRegression scalarAffine 1000 0.01
   pure $ MkGroup "Neural network training"
     [ ("Linear regression", property1 $ diff loss (<) 0.0001) ]

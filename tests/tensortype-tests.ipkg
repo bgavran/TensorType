@@ -14,6 +14,7 @@ authors = "Bruno Gavranovic"
 
 -- packages to add to search path
 depends = tensortype
+        , tensortype-examples
         , hedgehog
 
 -- modules to install
@@ -26,6 +27,7 @@ modules = Display2D.Instances
         , Train.LinearRegression
         , Train.Optimisers
         , Train.Model
+        , Train.Choice
         , Train.TensorPrimitives
         , Sampling
         , Main

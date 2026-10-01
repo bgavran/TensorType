@@ -16,7 +16,8 @@ authors = "Bruno Gavranovic"
 depends = tensortype
 
 -- modules to install
-modules = BasicExamples
+modules = TensorManipulation
+        , LinearRegression
         , ApplicativeLinearAlgebra
         , Attention
 
@@ -26,7 +27,7 @@ modules = BasicExamples
 -- name of executable
 -- executable =
 -- opts =
--- sourcedir = "src
+sourcedir = "."
 -- builddir =
 -- outputdir =
 

@@ -16,6 +16,7 @@ export typebind infixr 0 !>
 
 %name Cont c, c', c''
 
+||| Also, states for charts
 public export
 DPair : Cont -> Type
 DPair c = (x : c.Shp ** c.Pos x)

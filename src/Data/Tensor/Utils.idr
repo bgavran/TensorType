@@ -3,6 +3,7 @@ module Data.Tensor.Utils
 import Data.Nat -- Add import for Cast
 import Data.List
 import System.Random
+import Control.Monad.State
 
 import Data.Tensor.Tensor
 import Data.Container.Additive
@@ -42,23 +43,42 @@ namespace CommonNames
   Matrix row col a = Tensor [row, col] a
 
 namespace FillZerosOnes
+  ||| Fills a tensor of a given shape with value `x`
+  ||| Simple an alias for `tensorReplicateAt`
   public export
-  fill : Num a => {shape : TensorShape rank} ->
+  fillAt : {shape : TensorShape rank} ->
+    (tensorCont shape).Shp -> (x : a) -> Tensor shape a
+  fillAt = tensorReplicateAt
+
+  public export
+  fill : {shape : TensorShape rank} ->
     AllC TensorMonoid shape =>
     a -> Tensor shape a
-  fill x = tensorReplicate x
+  fill = tensorReplicate
+
+  public export
+  zerosAt : Num a => {shape : TensorShape rank} ->
+    (tensorCont shape).Shp ->
+    Tensor shape a
+  zerosAt s = fillAt s (fromInteger 0)
 
   public export
   zeros : Num a => {shape : TensorShape rank} ->
     AllC TensorMonoid shape => 
     Tensor shape a
-  zeros = fill (fromInteger 0)
+  zeros = zerosAt tensorUnitShape
+
+  public export
+  onesAt : Num a => {shape : TensorShape rank} ->
+    (tensorCont shape).Shp ->
+    Tensor shape a
+  onesAt s = fillAt s (fromInteger 1)
 
   public export
   ones : Num a => {shape : TensorShape rank} ->
     AllC TensorMonoid shape => 
     Tensor shape a
-  ones = fill (fromInteger 1)
+  ones = onesAt tensorUnitShape
 
   ||| An identity matrix with True on the diagonal and False elsewhere
   public export
@@ -97,7 +117,7 @@ namespace Range
     arangeFromTo : {default (TTInternalName ~~> 0) start : Axis} ->
       {0 stop : Axis} ->
       (cStart : IsCubical start) => (cStop : IsCubical stop) =>
-      Cast Nat a => Tensor [stop.name ~~> minus (dim stop) (dim start)] a
+      Cast Nat a => Tensor [stop.name ~~> minus (stop.dim) (start.dim)] a
     arangeFromTo {cStart=(MkIsCubical _ n)} {cStop=(MkIsCubical _ m)}
       = cast . (+n) . finToNat <$> positions {sh=()}
 
@@ -116,12 +136,12 @@ namespace Concatenate
   public export
   concat : {shape : TensorShape rank} -> {l : AxisName} ->
     {x, y : Axis} -> IsCubical x => IsCubical y =>
-    ConsistentWith (l ~~> dim x + dim y) shape =>
+    ConsistentWith (l ~~> x.dim + y.dim) shape =>
     ConsistentWith x shape =>
     ConsistentWith y shape =>
     Tensor (x :: shape) a ->
     Tensor (y :: shape) a ->
-    Tensor ((l ~~> dim x + dim y) :: shape) a
+    Tensor ((l ~~> x.dim + y.dim) :: shape) a
   concat @{MkIsCubical _ n} @{MkIsCubical _ m} t t'
     = embedTopExt $ extractTopExt t ++ extractTopExt t'
 
@@ -172,19 +192,17 @@ namespace Max
   max = max . flatten
 
 namespace ArgMinMax
-  ||| At the moment this simply reuses the vect implementation
-  ||| To be revised at some point later
   public export
-  argmax : {name : AxisName} -> {n : Nat} -> IsSucc n => Ord a =>
-    Tensor [name ~~> n] a -> Fin n
-  argmax = Vect.argmax . (#>)
+  argmax : {i : Axis} -> Ord a => IsFoldable i.cont => IsNonEmpty i.cont =>
+    (t : Tensor [i] a) -> i.cont.Pos t.extractShapeRank1
+  argmax t = argmax (rank1ToExt t)
 
   ||| At the moment this simply reuses the vect implementation
   ||| To be revised at some point later
   public export
-  argmin : {name : AxisName} -> {n : Nat} -> IsSucc n => Ord a =>
-    Tensor [name ~~> n] a -> Fin n
-  argmin = Vect.argmin . (#>)
+  argmin : {i : Axis} -> Ord a => IsFoldable i.cont => IsNonEmpty i.cont =>
+    (t : Tensor [i] a) -> i.cont.Pos t.extractShapeRank1
+  argmin = argmax @{Reverse}
 
 namespace AllClose
   ||| Scalar approximate equality, following NumPy's `isclose`:
@@ -205,7 +223,7 @@ namespace AllClose
 namespace OneHot
   public export
   oneHot : {0 c : Axis} -> IsCubical c =>
-    (i : Fin (dim c)) ->
+    (i : Fin (c.dim)) ->
     Num a =>  Tensor [c] a
   oneHot @{MkIsCubical _ n} i = set zeros [i] 1 
 
@@ -259,41 +277,35 @@ namespace Triangular
   maskedFill t mask fill = liftA2Tensor mask t <&>
     (\(maskVal, tVal) => if maskVal then fill else tVal)
 
-namespace Misc
-  public export
-  sum : {shape : TensorShape rank} ->
-    Algebra (Tensor shape) a =>
-    Tensor shape a -> a
-  sum = reduce
+public export
+sum : {shape : TensorShape rank} ->
+  Algebra (Tensor shape) a =>
+  Tensor shape a -> a
+sum = reduce
 
-  public export
-  mean : {shape : TensorShape rank} ->
-    All IsCubical (toVect shape) =>
-    Cast Nat a =>
-    Fractional a => 
-    Algebra (Tensor shape) a =>
-    Tensor shape a -> a
-  mean t = sum t / cast (Cubical.size t)
+public export
+mean : {shape : TensorShape rank} ->
+  All IsCubical (toVect shape) =>
+  Cast Nat a =>
+  Fractional a => 
+  Algebra (Tensor shape) a =>
+  Tensor shape a -> a
+mean t = sum t / cast (Cubical.size t)
 
-  public export
-  variance : {c : Axis} -> IsCubical c =>
-    Neg a => Fractional a => Cast Nat a =>
-    Tensor [c] a -> a
-  variance @{MkIsCubical _ n} t =
-    let inputMinusMean = t - pure (mean t)
-    in mean (inputMinusMean * inputMinusMean)
+public export
+variance : {c : Axis} -> IsCubical c =>
+  Neg a => Fractional a => Cast Nat a =>
+  Tensor [c] a -> a
+variance @{MkIsCubical _ n} t =
+  let inputMinusMean = t - pure (mean t)
+  in mean (inputMinusMean * inputMinusMean)
 
-  public export
-  cumulativeSum : {c : Axis} -> Num a =>
-    (isCubical : IsCubical c) =>
-    Tensor [c] a -> Tensor [c] a
-  cumulativeSum {isCubical=(MkIsCubical _ n)} t
-    = (#>#) (scanl1 (+)) t
-    
-    -- let tt = n -- map {f=Vect n} (scanl1 (+)) (#> t)
-    --       
-    --   in ?qwerrr -- #> ((scanl1 (+)) (#> t))  --(#>#) 
-
+-- TODO can we be more pragmatic instead of manually wrapping and unwrapping?
+public export
+cumulativeSum : {c : Axis} -> Num a =>
+  Traversable (Ext c.cont) =>
+  Tensor [c] a -> Tensor [c] a
+cumulativeSum = extToRank1 . cumulativeSum . rank1ToExt
 
 
 
@@ -311,7 +323,7 @@ namespace TensorComMonoid
 namespace Traversals
   public export
   inorder : Tensor [b ~> BinTreeNode] a -> Tensor [l ~> List] a
-  inorder = extToVector . extMap BinTreeNode.inorder . vectorToExt
+  inorder = extToRank1 . extMap BinTreeNode.inorder . rank1ToExt
 
 namespace Random
   ||| Sampling a tensor is sampling each entry

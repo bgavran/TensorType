@@ -2,6 +2,7 @@ module Data.Container.Base.Properties.Instances
 
 import Data.Fin
 import Data.Vect
+import Data.List.Quantifiers
 import Decidable.Equality
 import Data.Fin.Split
 import Data.Finite
@@ -32,6 +33,13 @@ IsConcrete Scalar where
   functorInstance = MkFunctor id
   fromConcreteTy = pure
   toConcreteTy (() <| f) = f ()
+
+public export
+IsConcrete UnitCont where
+  func = const Unit
+  functorInstance = MkFunctor (\f, () => ())
+  fromConcreteTy () = () <| absurd
+  toConcreteTy _ = ()
 
 public export
 IsConcrete Maybe where
@@ -214,20 +222,68 @@ namespace BinTreeLeaf
     toConcreteTy = toBinTreeLeaf
 
 
+-- Decidable instances for common containers
+
+%hint
 public export
-foldList : (a -> b -> b) -> b -> List' a -> b
-foldList f z (0 <| _) = z
-foldList f z l@((S k) <| content)
-  = f (head content) $ foldList f z
-    (assert_smaller l (k <| tail content))
+maybeIsDecidable : IsDecidable Maybe
+maybeIsDecidable = MkI decPos
+  where decPos : (b : Bool) -> DecEq (if b then Unit else Void)
+        decPos False = %search
+        decPos True = %search
+
+%hint
+public export
+maybeTwoIsDecidable : IsDecidable MaybeTwo
+maybeTwoIsDecidable = MkI decPos
+  where decPos : (b : Bool) -> DecEq (if b then Fin 2 else Void)
+        decPos False = %search
+        decPos True = %search
 
 public export
-IsFoldable c => Foldable (Ext c) where
-  foldr @{(MkIsFoldable toL)} f z = foldList f z . extMap toL 
+compositionIsDecidable : IsDecidable c => IsDecidable d => IsDecidable (c >@ d)
+compositionIsDecidable @{cd} @{dd} = MkI $ \ex => DecEqDPair
+  @{GetInterface cd (shapeExt ex)} @{\cp => GetInterface dd (index ex cp)}
+
+||| Positions are pairs of positions
+public export
+hancockIsDecidable : IsDecidable c => IsDecidable d => IsDecidable (c >< d)
+hancockIsDecidable @{cd} @{dd} = MkI $ \ss =>
+  let decC = GetInterface cd (fst ss)
+      decD = GetInterface dd (snd ss)
+  in %search
+
+||| Positions are a position of one or of the other
+public export
+cartesianIsDecidable : IsDecidable c => IsDecidable d => IsDecidable (c >*< d)
+cartesianIsDecidable @{cd} @{dd} = MkI $ \ss =>
+  let decC = GetInterface cd (fst ss)
+      decD = GetInterface dd (snd ss)
+  in %search
+
+||| Positions are those of whichever container the shape comes from
+public export
+coproductIsDecidable : IsDecidable c => IsDecidable d => IsDecidable (c >+< d)
+coproductIsDecidable @{cd} @{dd} = MkI decPos
+  where decPos : (es : Either c.Shp d.Shp) -> DecEq (either c.Pos d.Pos es)
+        decPos (Left s) = GetInterface cd s
+        decPos (Right s) = GetInterface dd s
+
+||| `cs` can't be inferred from `Tensor cs`, so pass it as `{cs = ...}`.
+||| The `All` itself is found by search when the containers in `cs` are
+public export
+tensorIsDecidable : All IsDecidable cs => IsDecidable (Tensor cs)
+tensorIsDecidable @{[]} = %search
+tensorIsDecidable @{cd :: cds}
+  = compositionIsDecidable @{cd} @{tensorIsDecidable @{cds}}
 
 public export
 IsFoldable List where
   mapToList = id
+
+public export
+IsFoldable List1 where
+  mapToList = !% \n => (S n ** id)
 
 public export
 {n : Nat} -> IsFoldable (Vect n) where
@@ -246,6 +302,12 @@ IsFoldable BinTreeNode where
 public export
 IsFoldable BinTree where
   mapToList = inorder
+
+||| A non-empty list of shape `n` is a vector of length `S n`
+public export
+Traversable (Ext List1) where
+  traverse f (n <| g) = (\v => n <| index (fromVect v)) <$> traverse f (toVect (() <| g))
+
 
 -- old
 -- ||| Indexing an element of `xs` and then applying `f` to it is the same as
@@ -273,6 +335,11 @@ algebraFinite :
   Algebra (Ext c) a
 algebraFinite c {isFinite = MkI p} _
   = MkAlgebra $ \(shp <| content) => reduce $ values @{p shp} <&> content
+
+public export
+algebraFoldable : {f : Type -> Type} ->
+  Foldable f => Num a => Algebra f a
+algebraFoldable = MkAlgebra sum
 
 
 namespace VectInstances

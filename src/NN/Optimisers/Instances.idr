@@ -6,25 +6,23 @@ import Data.Num
 import NN.Optimisers.Definition
 import NN.Utils
 
+
+||| Gradient ascent optimiser. Has trivial state
+||| @lr is the learning rate
+public export
+GA : Num pType => (mon : ComMonoid pType) => FromDouble pType =>
+  {default 0.001 lr : pType} -> Optimiser (Const pType) Unit
+GA = MkOptimiser
+  (!% \(p, ()) => (p ** \p' => (p + lr * p', ())))
+  (pure ())
+
 ||| Gradient descent optimiser. Has trivial state
 ||| @lr is the learning rate
 public export
 GD : Neg pType =>
   (mon : ComMonoid pType) => FromDouble pType =>
   {default 0.001 lr : pType} -> Optimiser (Const pType) Unit
-GD = MkOptimiser
-  (!% \(p, ()) => (p ** \p' => (p - lr * p', ())))
-  (pure ())
-
-||| Gradient ascent optimiser. Has trivial state
-||| @lr is the learning rate
-public export
-GA : Neg pType =>
-  (mon : ComMonoid pType) => FromDouble pType =>
-  {default 0.001 lr : pType} -> Optimiser (Const pType) Unit
-GA = MkOptimiser
-  (!% \(p, ()) => (p ** \p' => (p + lr * p', ())))
-  (pure ())
+GD = GA {lr = negate lr}
 
 namespace Momentum
   public export
@@ -85,7 +83,7 @@ namespace Adam
         vHat = fromDouble (1 / (1 - b2p')) * v'
     in (p - lr * mHat / (sqrt vHat + epsilon), m', v', b1p', b2p')
 
-  ||| Adam optimiser (Kingma & Ba, 2014)
+  ||| Adam optimiser
   ||| State: the two moments and the two scalar bias-correction powers
   ||| @lr is the learning rate
   ||| @beta1 is the exponential decay rate for the first moment estimate

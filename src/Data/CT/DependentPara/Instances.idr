@@ -157,7 +157,7 @@ namespace ParametricLenses
   record ParaAddLens (a, b : AddCont) where
     constructor MkPara
     Param : AddCont
-    Run : (a >*< Param) =%+> b
+    Run : a >*< Param =%+> b
 
   ||| Infix notation for non-dependent parametric additive lenses
   ||| Compared to `-\-->`, every line is doubled, meant to be interpreted as 
@@ -218,6 +218,13 @@ namespace ParametricLenses
   public export
   postcomposeLens : a =\\=> b -> b =%+> c -> a =\\=> c
   postcomposeLens f g = MkPara (Param f) (Run f %+>> g)
+
+  public export
+  reparam : {q : AddCont} ->
+    (f : a =\\=> b) ->
+    q =%+> Param f ->
+    a =\\=> b
+  reparam f r = MkPara q $ (id >*< r) %+>> Run f
 
 
 namespace DependentParametricLenses

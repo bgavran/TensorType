@@ -54,8 +54,8 @@ namespace Cubical
 
   ||| Extract the dimension from an axis which we know is cubical
   public export
-  dim : (0 a : Axis) -> IsCubical a => Nat
-  dim _ @{ic} = dimHelper ic
+  (.dim) : (0 a : Axis) -> IsCubical a => Nat
+  (.dim) _ @{ic} = dimHelper ic
 
   ||| Extract the dimensions of cubical axes, with shape implicit
   public export

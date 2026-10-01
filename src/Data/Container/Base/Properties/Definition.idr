@@ -1,7 +1,9 @@
 module Data.Container.Base.Properties.Definition
 
+import public Decidable.Equality
 import Data.Fin
 import Data.Finite
+import Data.Vect
 
 import Data.Container.Base.Object.Definition
 import Data.Container.Base.Morphism.Definition
@@ -10,44 +12,56 @@ import Data.Container.Base.Extension.Definition
 import Misc
 
 {-------------------------------------------------------------------------------
-States various properties a container can have
+{-------------------------------------------------------------------------------
+Properties of containers expressed as type-level predicates.
 Some of these mirror aliases in `Object.Definitions`, they're purposefully 
 separated with imports, and don't refer to each other
 
 These are thought of as extensional declarations: we need not know anything 
 about concrete instances to define these?
-
+-------------------------------------------------------------------------------}
 -------------------------------------------------------------------------------}
 
-||| Convenience datatype for storing the data that a container `c` has an
-||| interface `i` on its positions
+||| Stores the data of a container `c` with an interface `i` on its positions
+||| TODO relationship to `Costate (i <!> c)`?
 public export
-data InterfaceOnPositions : (0 c : Cont) -> (i : Type -> Type) -> Type where
+record InterfaceOnPositions (0 c : Cont) (i : Type -> Type) where
+  constructor MkI
   ||| For every shape `s` the set of positions `c.Pos s` has that interface
-  MkI : ((s : c.Shp) -> i (c.Pos s)) -> InterfaceOnPositions c i
-
-public export
-GetInterface : InterfaceOnPositions c i -> (s : c.Shp) -> i (c.Pos s)
-GetInterface (MkI f) = f
+  GetInterface : (s : c.Shp) -> i (c.Pos s)
 
 ||| A container is finite when for every shape the set of positions is finite.
 ||| Examples: vectors, lists, but also finite binary trees.
-||| Note, provision of a finite instance for trees requires a choice of a tree
-||| traversal. (All of these choices are isomorphic, but necessary to make)
+||| Note, this also requires provision of a particular order. That is, trees 
+||| require a choice of a tree traversal. (All of these choices are isomorphic, 
+||| but here necessary to make). An alternative would have been a bag instead of
+||| a list.
 public export
 IsFinite : Cont -> Type
 IsFinite c = InterfaceOnPositions c Finite
+
+||| A container is decidable if for every shape its set of positions has 
+||| decidable equality
+public export
+IsDecidable : Cont -> Type
+IsDecidable c = InterfaceOnPositions c DecEq
+
+||| A container is non-empty when for every shape the set of positions is
+||| non-empty. It's witnessed constructively by choosing a position for every
+||| shape. It's also the same data as a costate of a container.
+||| TODO can this be done without a specific witness?
+public export
+IsNonEmpty : Cont -> Type 
+IsNonEmpty c = InterfaceOnPositions c id
+
+public export
+ChosenPositions : Cont -> Type
+ChosenPositions = IsNonEmpty
 
 ||| A container is non-dependent when positions do not depend on shapes
 public export
 data IsNonDep : Cont -> Type where
   MkIsNonDep : (s, p : Type) -> IsNonDep ((_ : s) !> p)
-
-||| Used in learning, where we want to know that the tangent space over a
-||| particular parameter is equal to the parameter space itself
-public export
-data IsConst : Cont -> Type where
-  ItIsConst : (p : Type) -> IsConst ((_ : p) !> p)
 
 ||| Following the flat-sharp terminology
 public export
@@ -57,6 +71,14 @@ data IsFlat : Cont -> Type where
 public export
 data IsSharp : Cont -> Type where
   ItIsSharp : (s : Type) -> IsSharp ((_ : s) !> Void)
+
+||| Used in learning, where we want to know that the tangent space over a
+||| particular parameter is equal to the parameter space itself
+||| Follows the terminology of `Const` used in `Object.Instances`
+public export
+data IsConst : Cont -> Type where
+  ItIsConst : (p : Type) -> IsConst ((_ : p) !> p)
+
 
 namespace Naperian
   ||| Will be removed later, temp fix for now as otherwise the coverage 
@@ -127,6 +149,21 @@ namespace IsFoldable
   interface IsFoldable (0 c : Cont) where
     constructor MkIsFoldable
     mapToList : c =%> ((n : Nat) !> Fin n)
+
+  public export
+  IsFoldable c => Foldable (Ext c) where
+    foldr @{(MkIsFoldable toL)} f z e = foldr
+      (\p, acc => f (index e p) acc)
+      z
+      (tabulate (toL.bwd (shapeExt e)))
+
+
+  {-
+  todo there is a relationship:
+  IsFoldable <=> IsFinite
+  IsCubical => IsFoldable
+  -}
+
 
 
 namespace IsConcrete

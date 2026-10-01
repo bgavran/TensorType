@@ -31,8 +31,8 @@ testParam2 = (3.0, 0.0)
 affineComp2 : Const Double -\-> (Const Double) >*< (Const Double)
 affineComp2 = affineM &&& affineM
 
-fanOut : (Double, Double)
-fanOut = affineComp2.fwd 2.0 ((1.0, 0.0), (1.0, 0.0))
+fanOutResult : (Double, Double)
+fanOutResult = affineComp2.fwd 2.0 ((1.0, 0.0), (1.0, 0.0))
 
 export
 modelGroup : Group
@@ -43,5 +43,5 @@ modelGroup = MkGroup "Model tests"
     , ("Basic sequential", property1 $
         do affineComp.fwd 1.0 (testParam, testParam2) === 9.0
            affineComp.bwd 1.0 (testParam, testParam2) testGrad === (6.0, ((3.0, 3.0), (3.0, 1.0))))
-    , ("Basic fan-out", property1 $ fanOut === (2.0, 2.0))
+    , ("Basic fan-out", property1 $ fanOutResult === (2.0, 2.0))
     ]

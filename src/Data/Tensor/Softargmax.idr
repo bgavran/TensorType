@@ -13,11 +13,10 @@ Used by both `Control.Monad.Distribution` and `NN.Architetures.Softargmax`
 public export
 logSumExp : {i : Axis} -> Exp a => Ord a => Neg a =>
   Foldable (Tensor [i]) =>
-  (allAlg : AllAlgebra [i] a) =>
   Tensor [i] a -> Maybe a
 logSumExp t = do
   c <- max t
-  pure $ c + log (reduce (t <&> (\x => exp $ x - c)))
+  pure $ c + log (reduce @{algebraFoldable} (t <&> (\x => exp $ x - c)))
 
 ||| Log(softargmax(x)), but computationally efficient and numerically stable
 ||| Used for computing cross-entropy loss
@@ -25,18 +24,17 @@ logSumExp t = do
 public export
 logSoftargmax : {i : Axis} -> Exp a => Ord a => Neg a =>
   Foldable (Tensor [i]) =>
-  (allAlg : AllAlgebra [i] a) =>
   Tensor [i] a -> Tensor [i] a
 logSoftargmax t = case logSumExp t of
   Just lse => t <&> (\x => x - lse) -- Non-empty: subtract LSE from each element
   Nothing  => t                     -- t is empty
 
 ||| Commonly known as 'softmax'
-||| When `temperature=0` it reduces to `argmax`
+||| As `temperature->0` it reduces to `argmax`
+||| TODO fix numerics when temperature=0
 public export
 softargmaxImpl : {i : Axis} -> Fractional a => Exp a => Ord a => Neg a =>
   IsFoldable i .cont =>
-  (allAlg : AllAlgebra [i] a) =>
   {default 1 temperature : a} ->
   Tensor [i] a -> Tensor [i] a
 softargmaxImpl {temperature} t

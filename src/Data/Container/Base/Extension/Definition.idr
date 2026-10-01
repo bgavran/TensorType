@@ -13,11 +13,15 @@ record Ext (0 c : Cont) (x : Type) where
   shapeExt : c.Shp
   index : c.Pos shapeExt -> x
 
-||| In `Ext c x`, the container `c` is said to be "full off" values of type `x`
-||| `fullOf` is sometimes used as infix operator to aid readability
+||| In `Ext c x`, the container `c` is said to be "full off" values of type `x`.
+||| (.filledWith) is a type alias for `Ext` to aid readability
 public export
-fullOf : Cont -> Type -> Type
-fullOf c x = Ext c x 
+(.filledWith) : Cont -> Type -> Type
+c.filledWith a = Ext c a
+
+public export
+(.ext) : Cont -> Type -> Type
+c.ext a = Ext c a
 
 ||| Every extension is a functor : Type -> Type
 public export
@@ -38,18 +42,18 @@ extMap : c =%> d -> Ext c a -> Ext d a
 extMap f (sh <| index) = let (y ** ky) = (%!) f sh
                          in y <| (index . ky)
 
-||| Postfix version of extension
-public export
-(.ext) : c =%> d -> Ext c a -> Ext d a
-(.ext) = extMap
-
+namespace Morphism
+  ||| Postfix version of extension
+  public export
+  (.ext) : c =%> d -> Ext c a -> Ext d a
+  (.ext) = extMap
 
 namespace ExtProofs
   ||| Mapping over an extension preserves its shape 
   public export
   mapShapeExt : {0 c : Cont} ->
     {0 f : a -> b} ->
-    (l : c `fullOf` a) ->
+    (l : c.filledWith a) ->
     shapeExt (f <$> l) = shapeExt l
   mapShapeExt {c=shp !> pos} (sh <| _) = Refl
 
@@ -58,7 +62,7 @@ namespace ExtProofs
   public export
   mapIndexCont : {c : Cont} ->
     {0 f : a -> b} -> 
-    (l : c `fullOf` a) ->
+    (l : c.filledWith a) ->
     (ps : c.Pos (shapeExt (f <$> l))) ->
     f (index l (rewrite sym (mapShapeExt {f=f} l) in ps))
       = index (f <$> l) ps

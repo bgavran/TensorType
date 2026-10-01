@@ -31,12 +31,13 @@ public export infixr 3 <%>
 The category Cont of ordinary containers has four interesting monoidal 
 products: categorical product, hancock tensor product, coproduct, and composition product.
 
-We can understand the category AddCont in terms of the monoidal products of its
-underlying containers:
-* Categorical product of ordinary containers is not possible to define (positions do not form a monoid)
-* Hancock tensor product is possible to define, which becomes the categorical product
-* Coproduct is possible to define, and stays the coproduct
-* Composition product is very tricky, and becomes (left)-skew monoidal
+The category AddCont can be understood in terms of the monoidal products of its 
+underlying containers;
+* Categorical product of ordinary containers does not make an additive container
+ (positions do not form a monoid)
+* Hancock tensor product is an additive container, and it becomes the categorical product
+* Coproduct is an additive container, and stays the coproduct
+* Composition product tricky, and becomes (left)-skew monoidal
 
 Notably, the forgetful functor AddCont -> Cont with hancock product on domain and categorical product on codomain is not monoidal in any sense: it is not strict, strong, lax nor oplax.
 
@@ -108,6 +109,32 @@ namespace TensorProduct
 
 ||| Same as in ordinary containers
 ||| Monoid with Empty
+||| Dependent pair and dependent function of a family of additive containers
+||| indexed by a type
+namespace Dependent
+  ||| One index, with the content at that index
+  public export
+  AddContDPair : {a : Type} -> (a -> AddCont) -> AddCont
+  AddContDPair f = MkAddCont
+    (x : a ** (f x).Shp)
+    (\sh => (f (fst sh)).Pos (snd sh))
+
+  ||| Container of the fibrewise positions of a family at a section
+  public export
+  fibreCont : {a : Type} -> {f : a -> AddCont} ->
+    ((x : a) -> (f x).Shp) -> AddCont
+  fibreCont s = MkAddCont a (\x => (f x).Pos (s x))
+
+  ||| Sections of a family, with cotangents the free commutative monoid on the
+  ||| fibrewise positions, so a backward pass carries only the indices it was
+  ||| asked about
+  public export
+  Section : {a : Type} -> (a -> AddCont) -> AddCont
+  Section f = MkAddCont
+    ((x : a) -> (f x).Shp)
+    (\s => (DPair (fibreCont s) ** bagIsMonoid))
+
+
 namespace CategoricalCoproduct
   ||| Coproduct
   public export
@@ -128,28 +155,19 @@ namespace CategoricalCoproduct
       (Right y) => (Right (g.fwd y) ** g.bwd y)
 
   namespace Vect
-    ||| N-ary coproduct of a finite family
+    ||| N-ary coproduct of a finite family, given as an extension of `Vect n`
     public export
-    Coproduct : {n : Nat} -> (branches : Vect n AddCont) -> AddCont
-    Coproduct branches = MkAddCont
-      (i : Fin n ** (index i branches).Shp)
-      (\sh => (index (fst sh) branches).Pos (snd sh))
+    Coproduct : {n : Nat} -> (branches : Vect' n AddCont) -> AddCont
+    Coproduct branches = AddContDPair (index branches)
 
-    lookupAll : {0 p : a -> Type} -> {0 xs : Vect n a} ->
-      (i : Fin n) -> All p xs -> p (index i xs)
-    lookupAll FZ (px :: _) = px
-    lookupAll (FS i) (_ :: pxs) = lookupAll i pxs
-
+    ||| Show a coproduct's shape from a `Show` for every branch's shapes.
+    ||| Search can't provide these for an abstract index, so a `Show` instance
+    ||| for a particular coproduct is written at its use site
     export
-    showCoproduct : {branches : Vect n AddCont} ->
-      All (\b => Show b.Shp) branches -> (Coproduct branches).Shp -> String
-    showCoproduct sh (i ** x) = show @{lookupAll i sh} x
-
-    public export
-    {branches : Vect n AddCont} ->
-    All (\b => Show b.Shp) branches =>
-    Show (Coproduct branches).Shp where
-      show = showCoproduct %search
+    showCoproduct : {branches : Vect' n AddCont} ->
+      ((i : Fin n) -> Show (index branches i).Shp) ->
+      (Coproduct branches).Shp -> String
+    showCoproduct sh (i ** x) = show @{sh i} x
 
   namespace List
     ||| N-ary version of coproduct
@@ -293,12 +311,12 @@ namespace Morphism
   (!*) : c =%> d -> !* c =%+> !* d
   (!*) f = (!%) (Bag <!> f)
 
-||| Forward direction of the hom-set isomorphism
+||| Forward direction of the hom-set isomorphism of the Cont-AddCont adjunction
 public export
 addContTranspose : {c : AddCont} -> UC c =%> d -> c =%+> !* d
 addContTranspose f = !% (sumBw @{mon c} %>> Bag <!> f)
 
-||| Backward direction of the hom-set isomorphism
+||| Backward direction of the hom-set isomorphism of the Cont-AddCont adjunction
 public export
 addContTransposeInv : c =%+> !* d -> UC c =%> d
 addContTransposeInv f = ULens f %>> pureBw
@@ -332,7 +350,7 @@ namespace CompositionAction
 namespace CompositionProduct
   ||| Composition product of additive containers
   ||| Not fully monoidal, but left-skew monoidal
-  ||| TODO add one extra argument
+  ||| TODO add one extra argument?
   public export
   (>+@) : AddCont -> AddCont -> AddCont
   c >+@ d = (UC c) >-+@ d
@@ -358,20 +376,10 @@ namespace CartesianClosure
   public export
   curry : {c : AddCont} -> (c >*< d) =%+> e -> c =%+> (InternalLensAdditive d e)
   curry f = !%+ \x => (!%+ \y => (f.fwd (x, y) ** snd . f.bwd (x, y)) **
-    \l => foldr (\(y ** b') => c.Plus x (fst (f.bwd (x, y) b'))) (c.Zero x) l)
+    fromGenerators {y = c.Pos x} (\(d ** b') => fst (f.bwd (x, d) b')))
 
   public export
   uncurry : {c : AddCont} ->
     c =%+> (InternalLensAdditive d e) -> (c >*< d) =%+> e
   uncurry f = !%+ \(x, y) => ((f.fwd x).fwd y **
     \e' => (f.bwd x (MkBag [(y ** e')]), (f.fwd x).bwd y e'))
-
-
-||| Must produce all shapes (branches), expects a response from any subset of
-||| branches, accumulated as a list. I.e. we might get more than one response
-||| in a particular branch. Represented as a list.
-||| No additive structure on input containers is required, nor is there a way
-||| to use it.
-public export
-PreparedChoice : {n : Nat} -> Vect n Cont -> AddCont
-PreparedChoice xs = !* (AllAny xs)

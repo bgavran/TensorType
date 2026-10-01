@@ -23,6 +23,12 @@ public export
 Loss : (y, l : AddCont) -> Type
 Loss y l = y =\\=> l
 
+||| The "parameter" object of the loss function is the type of supervised
+||| learning labels
+public export
+Label : Loss y l -> Type
+Label loss = (Param loss).Shp
+
 namespace Combinators
   ||| Run two losses in parallel, add their results
   public export
@@ -30,34 +36,27 @@ namespace Combinators
     Loss y (Const l) -> Loss z (Const l) -> Loss (y >*< z) (Const l)
   pairLossFunctions f g = postcomposeLens (composeParallel f g) sum
 
-  ||| The loss of a coproduct of choices. When the types don't match, gradient
-  ||| is infinite. In our examples we don't expect this to happen; but loss type
-  ||| should be refined to exclude it eventually
+  ||| The loss of a section against a labelled branch
+  ||| We always choose the branch the label chooses
   public export
-  chosenBranchLoss : {n : Nat} -> {branches : Vect n AddCont} ->
-    {default branches labels : Vect n AddCont} ->
-    {0 lc : AddCont} -> Fractional lc.Shp =>
-    (losses : (i : Fin n) -> index i branches >*< index i labels =%+> lc) ->
-    Loss (Coproduct branches) lc
-  chosenBranchLoss losses = MkPara (Coproduct labels) $
-    !%+ \((i ** x), (j ** y)) => case decEq i j of
-      Yes Refl => (%!+) (losses i) (x, y)
-      No _ => (1 / 0 ** \_ => ((index i branches).Zero x, (index j labels).Zero y))
+  chosenBranchLoss : {n : Nat} -> {branches : Vect' n AddCont} ->
+    {0 lc : AddCont} ->
+    (losses : (i : Fin n) -> Loss (index branches i) lc) ->
+    Loss (Section (index branches)) lc
+  chosenBranchLoss losses = MkPara (AddContDPair (\i => Param (losses i)))
+    (evalSection {a = index branches} {p = \i => Param (losses i)}
+      %+>> copair (\i => Run (losses i)))
 
-  ||| The loss variant of `resolveByLabel`. Given a loss on resolved choices we
-  ||| can produce a loss on an effectful output, where the ground-truth label
-  ||| selects the effect
-  ||| This means that the training loop does not need to handle any effects 
-  ||| anymore
+  ||| Same as above, except we take an already chosen branch, and fail if 
+  ||| label disagrees with it
   public export
-  resolveLoss : {distName : AxisName} -> {n : Nat} ->
-    {branches : Vect n AddCont} ->
-    {0 l : AddCont} ->
-    (ChoiceMade distName branches >*< ChoiceMade distName branches =%+> l) ->
-    Loss (ProbabilisticChoice distName branches) l
-  resolveLoss loss = MkPara
-    (ChoiceMade distName branches)
-    (resolveByLabel %+>> loss)
+  matchedBranchLoss : {n : Nat} -> {branches : Vect' n AddCont} ->
+    {0 lc : AddCont} ->
+    (losses : (i : Fin n) -> Loss (index branches i) lc) ->
+    Loss (Coproduct branches) (Maybe lc)
+  matchedBranchLoss losses = MkPara (AddContDPair (\i => Param (losses i)))
+    (matchIndex {b = index branches} {l = \i => Param (losses i)}
+      %+>> Maybe (copair (\i => Run (losses i))))
 
 namespace Instances
   public export
@@ -71,19 +70,22 @@ namespace Instances
   MeanSquaredError = MkPara (Const (Tensor [n] a)) meanSquaredDifference
 
   ||| The payoff object is the rank-0 tensor, not `Double`
+  ||| TODO the prediction and the label can be distributions of different shapes!
+  ||| Right now they're restricted to cubical axes
   public export
-  softargmaxCrossEntropyLogits : {name : AxisName} -> {n : Nat} ->
-    Simplex name n >*< Simplex name n =%+> Const (Tensor [] Double)
-  softargmaxCrossEntropyLogits = !%+ \(predicted, labels) =>
+  softargmaxCrossEntropyLogits : {a : Axis} -> (ic : IsCubical a) =>
+    Simplex a >*< Simplex a =%+> Const (Tensor [] Double)
+  softargmaxCrossEntropyLogits @{MkIsCubical _ n} = !%+ \(predicted, labels) =>
     let logSoftargmaxLogits = logSoftargmax predicted.logits
         targetProbs = softargmaxImpl labels.logits
         out = - dot logSoftargmaxLogits targetProbs
     in (out ** \l' =>
       ((extract l' *) <$> (Prelude.exp <$> logSoftargmaxLogits) - targetProbs,
-        fill 0)) -- zeros for now
+       -- the derivative in the label's logits, though training discards it
+       (extract l' *) <$> negate (targetProbs * ((+ extract out) <$> logSoftargmaxLogits))))
 
   public export
-  SoftargmaxCrossEntropyLogits : {name : AxisName} -> {n : Nat} ->
-    Loss (Simplex name n) (Const (Tensor [] Double))
+  SoftargmaxCrossEntropyLogits : {a : Axis} -> (ic : IsCubical a) =>
+    Loss (Simplex a) (Const (Tensor [] Double))
   SoftargmaxCrossEntropyLogits
-    = MkPara (Simplex name n) softargmaxCrossEntropyLogits
+    = MkPara (Simplex a) softargmaxCrossEntropyLogits

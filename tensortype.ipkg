@@ -52,8 +52,8 @@ modules = Data.Container.Base
         , Data.Container.Additive.Extension.Definition
         , Data.Container.Additive.Properties.Definition
         , Data.Container.Additive.Product.Definition
+        , Data.Container.Additive.Product.Instances
         , Data.Container.Additive.Quantifiers
-
 
         , Data.Container.SubTerm
 
@@ -115,7 +115,6 @@ modules = Data.Container.Base
         , NN.Training.Training
         , NN.Training.DataLoader
         , NN.Utils
-        , NN.Training.Examples.LinearRegression
 
         , Misc
         , TensorType

@@ -4,9 +4,15 @@ import Data.Tensor
 import Data.Container.Additive
 import NN.Utils
 
--- We can make a choice in optimisation:
--- a) either the parameter can depend on the input, in which case we can't use the hom representation of a learner
--- b) or it doesn't, meaning we can curry the learner and treat it as something we optimise
+{-------------------------------------------------------------------------------
+{-------------------------------------------------------------------------------
+
+We have two choices in how we model optimisation:
+a) either the parameter type can depend on the input value (in which case we can't use the hom representation of a learner)
+b) or it can't (meaning we can curry the learner and treat it as something we optimise)
+
+-------------------------------------------------------------------------------}
+-------------------------------------------------------------------------------}
 
 
 ||| Dependent stateful optimiser, modelled as a dependent lens

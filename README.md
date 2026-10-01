@@ -149,7 +149,7 @@ Like in NumPy, you can safely index into tensors, set values of tensors, and per
 ```idris
 ||| Retrieves the value of `myMatrix` at location [1, 2]
 indexExample : Double
-indexExample = myMatrix @@ [1, 2]
+indexExample = myMatrix ^. [1, 2]
 
 ||| Sets the value of `myMatrix` at location [1, 3] to 99 
 setExample : Tensor ["j" ~~> 3, "k" ~~> 4] Double
@@ -164,7 +164,7 @@ which will all fail if you go out of bounds:
 ```idris
 failing
   indexExampleFail : Double
-  indexExampleFail = t1 @@ [7, 2]
+  indexExampleFail = t1 ^. [7, 2]
 
 failing
   sliceFail : Tensor ["j" ~~> 10, "k" ~~> 2] Double
@@ -333,7 +333,7 @@ For instance, we can index into `treeExample1`:
 └─ 2.0     <---- indexing here is okay
 -}
 indexTreeExample1 : Double
-indexTreeExample1 = treeExample1 @@ [GoRight AtLeaf]
+indexTreeExample1 = treeExample1 ^. [GoRight AtLeaf]
 ```
 
 This will fail _at compile-time_ if you try to index outside of the tree structure:
@@ -354,7 +354,7 @@ failing
       └─ X  <---- indexing here throws an error
   -}
   indexTreeExample1Fail : Double
-  indexTreeExample1Fail = treeExample1 @@ [GoRight (GoRight AtLeaf)]
+  indexTreeExample1Fail = treeExample1 ^. [GoRight (GoRight AtLeaf)]
 ```
 
 Likewise, you can perform reshapes, views, reversals, sorting and traversals of non-cubical tensors.

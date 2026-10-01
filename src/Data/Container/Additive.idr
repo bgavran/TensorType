@@ -14,4 +14,5 @@ import public Data.Container.Additive.Product.Definition
 import public Data.Container.Additive.Properties.Definition
 
 import public Data.Container.Additive.Object.Instances
+import public Data.Container.Additive.Product.Instances
 import public Data.Container.Additive.Morphism.Instances

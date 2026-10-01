@@ -3,6 +3,7 @@ module Data.Tensor.Shape.Shape
 import public Decidable.Equality
 import Data.Vect.Elem
 import Data.Vect.Quantifiers
+import Data.List.Quantifiers
 
 import Data.Container.Base
 import Data.Tensor.Shape.Axis
@@ -213,6 +214,13 @@ public export
 conts : TensorShape k -> List Cont
 conts ts = cont <$> toList ts
 
+||| A property of every axis's container, as a property of the list `conts`
+public export
+toAll : {0 shape : TensorShape k} ->
+  AllC p shape -> List.Quantifiers.All.All p (conts shape)
+toAll [] = []
+toAll (x :: xs) = x :: toAll xs
+
 ||| Renaming the shape preserves the underlying data
 public export
 renamePreservesConts : (shape : TensorShape rank) ->
@@ -257,8 +265,6 @@ size shape = size (conts shape)
 public export
 0 TensorCubEvidence : TensorShape k -> Type
 TensorCubEvidence shape = Either (All IsCubical shape) ()
-      
-
 
 
 

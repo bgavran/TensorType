@@ -51,6 +51,16 @@ public export
 (.Zero) : (c : AddCont) -> (s : c.Shp) -> c.PosSet s
 (.Zero) c s = neutral (UMon c s)
 
+||| The Pi type of an additive container: a position at every shape, added
+||| pointwise. When `c.Shp` is finite this is the quotient of `DPair c` below
+public export
+DFun : AddCont -> Type
+DFun c = (s : c.Shp) -> c.PosSet s
+
+public export
+dfunIsMonoid : (c : AddCont) -> ComMonoid (DFun c)
+dfunIsMonoid c = MkComMonoid (\l, r => \s => c.Plus s (l s) (r s)) (\s => c.Zero s)
+
 ||| Given a container `c`, i.e. a`c.Shp`-indexed family of sets, it is
 ||| straightforward to compute the coproduct of this family/its Sigma type:
 ||| It is simply the type of dependent pairs `(s : c.Shp ** c.Pos s)`.

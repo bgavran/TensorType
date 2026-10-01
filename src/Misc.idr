@@ -9,21 +9,22 @@ import Data.Fin
 import Data.List1
 import Data.List.Quantifiers
 import Data.Vect.Quantifiers
-import Decidable.Equality
+import public Decidable.Equality
 import Decidable.Equality.Core
 import Data.List
 import Data.String
+import Control.ANSI.SGR
+import Control.Monad.State
 
 %hide Builtin.infixr.(#)
 %hide Data.Vect.Quantifiers.All.index
 
 {-------------------------------------------------------------------------------
 {-------------------------------------------------------------------------------
-Various utilities necessary for TensorType, but that don't fit anywhere else
-Does not depend on any other file within this project.
+Various utilities necessary for TensorType, which don't fit anywhere else.
+This file does not depend on any other file within this project.
 
 Some of these feel like they should be in the Idris standard library
-
 -------------------------------------------------------------------------------}
 -------------------------------------------------------------------------------}
 
@@ -46,8 +47,15 @@ applyWhen False f a = a
 applyWhen True f a = f a
 
 public export
-updateAt : Eq a => (a -> b) -> (a, b) -> (a -> b)
-updateAt f (i, val) i' = if i == i' then val else f i'
+runIf: HasIO io => Bool -> io () -> io ()
+runIf True action = action
+runIf False action = pure ()
+
+public export
+updateAt : DecEq a => (a -> b) -> (a, b) -> (a -> b)
+updateAt f (i, val) i' = case decEq i i' of
+  Yes _ => val
+  No _ => f i'
 
 ||| Graph of a dependent function
 public export
@@ -62,8 +70,32 @@ public export
 dependentMap : Functor f => {t : a -> Type} ->
   (g : (x : a) -> t x) ->
   f a -> f (x : a ** t x)
-dependentMap g fa = map (graph g) fa
+dependentMap g fa = (graph g) <$> fa
 
+||| Dependent parametric traverse
+public export
+dTraverse : Applicative f =>
+  ((p : pType) -> f (q p)) ->
+  (xs : Vect n pType) ->
+  f (All q xs)
+dTraverse f [] = pure []
+dTraverse f (p :: ps) = [| f p :: dTraverse f ps |]
+
+
+||| The empty type has (vacuously) decidable equality
+public export
+DecEq Void where
+  decEq x _ = absurd x
+
+||| This should probably be in `Decidable.Equality`?
+||| Though search cannot find this, so often we have to pass this explicitly
+public export
+[DecEqDPair] DecEq a => ((x : a) -> DecEq (p x)) => DecEq (DPair a p) where
+  decEq (x ** px) (y ** py) = case decEq x y of
+    Yes Refl => case decEq px py of
+      Yes Refl => Yes Refl
+      No contra => No (\Refl => contra Refl)
+    No contra => No (\Refl => contra Refl)
 
 namespace IsNo
   ||| The proof that a decidable property leads to a contradiction
@@ -197,19 +229,6 @@ namespace Vect
     Nothing => Just x
     Just y => Just (max x y)
 
-  public export
-  argmax : Ord a => IsSucc n => Vect n a -> Fin n 
-  argmax [x] = FZ
-  argmax (x :: x' :: xs) =
-    let maxRest = argmax (x' :: xs)
-    in case x > index maxRest (x' :: xs) of 
-      True => FZ
-      False => FS maxRest
-  
-  public export
-  argmin : Ord a => IsSucc n => Vect n a -> Fin n
-  argmin = argmax @{Reverse} 
-  
   ||| Dual to concat from Data.Vect
   public export
   unConcat : {n, m : Nat} -> Vect (n * m) a -> Vect n (Vect m a)
@@ -508,6 +527,10 @@ allSuccThenProdSucc : (xs : List Nat) ->
 allSuccThenProdSucc [] {ps = []} = ItIsSucc
 allSuccThenProdSucc (_ :: xs') {ps = p :: _} = multSucc p (allSuccThenProdSucc xs')
 
+public export
+cumulativeSum : Traversable t => Num a => t a -> t a
+cumulativeSum = evalState (the a 0) . traverse (\x => modify (+ x) >> get)
+
 ||| Data structure storing a lower and upper bound during a search
 record Range (n : Nat) where
   constructor MkRange
@@ -577,17 +600,6 @@ findBin : Ord a => {n : Nat} -> (is : IsSucc n) =>
 findBin {is = ItIsSucc {n=k}} xs x
   = findBinBetween xs x (MkRange 0 last {prf=lastBiggerThanOthers {n=k} 0})
  
-
--- t : Double -> Type
--- t 4 = Double
--- t _ = String
--- 
--- th : (x : Double ** t x)
--- th = (4 ** 5)
--- 
--- thh : (x : Double) -> Show (t x)
--- thh x = ?thh_rhs
-
 public export
 mkDepPairShow : Show a => (ss : (x : a) -> Show (b x)) => (DPair a b -> String)
 mkDepPairShow = \(x ** y) => "\{show x} ** \{show (y)}"
@@ -595,11 +607,6 @@ mkDepPairShow = \(x ** y) => "\{show x} ** \{show (y)}"
 public export
 Show a => ((x : a) -> Show (b x)) => Show (DPair a b) where
    show = mkDepPairShow
-
-public export
-runIf: HasIO io => Bool -> io () -> io ()
-runIf True action = action
-runIf False action = pure ()
 
 namespace RandomUtils
   public export
@@ -612,13 +619,6 @@ namespace RandomUtils
     randomIO = [| (randomIO, randomIO) |]
     randomRIO ((loA, loB), (hiA, hiB))
       = [| (randomRIO (loA, hiA), randomRIO (loB, hiB)) |]
-
--- Probably there's a faster way to do this
--- public export
--- {n : Nat} -> Random a => Random (Vect n a) where
---   randomIO = sequence $ replicate n randomIO
---   randomRIO (lo, hi) = sequence $ zipWith (\l, h => randomRIO (l, h)) lo hi
-
 
 namespace All
   namespace Vect
@@ -656,17 +656,6 @@ namespace All
   constantToVect [] = []
   constantToVect (bb :: bbs) = bb :: constantToVect bbs
 
-
-||| Dependent parametric traverse
-public export
-dTraverse : Applicative f =>
-  ((p : pType) -> f (q p)) ->
-  (xs : Vect n pType) ->
-  f (All q xs)
-dTraverse f [] = pure []
-dTraverse f (p :: ps) = [| f p :: dTraverse f ps |]
-
-
 public export
 record Iso (a, b : Type) where
   constructor MkIso
@@ -683,34 +672,31 @@ index FZ (x :: xs) = x
 index (FS j) (x :: xs) = index j xs
 
 namespace TerminalStyling
-  public export
-  ansi : (code : String) -> String -> String
-  ansi code s = pre ++ code ++ "m" ++ s ++ pre ++ "0m"
-    where
-      pre : String
-      pre = singleton (chr 27) ++ "["
-  
-  public export
+  ||| Used to color/style terminal output. Wraps a string in the given SGR 
+  ||| attributes from `Control.ANSI.SGR`
+  export
+  styled : List SGR -> String -> String
+  styled sgrs s = escapeSGR sgrs ++ s ++ escapeSGR [Reset]
+
+  export
   dim : String -> String
-  dim = ansi "2"
-  
-  public export
+  dim = styled [SetStyle Faint]
+
+  export
   bold : String -> String
-  bold = ansi "1"
-  
-  public export
+  bold = styled [SetStyle Bold]
+
+  export
   cyan : String -> String
-  cyan = ansi "36"
-  
-  public export
+  cyan = styled [SetForeground Cyan]
+
+  export
   yellow : String -> String
-  yellow = ansi "33"
-  
-  public export
+  yellow = styled [SetForeground Yellow]
+
+  export
   green : String -> String
-  green = ansi "32"
-
-
+  green = styled [SetForeground Green]
 
 {-
 
@@ -731,8 +717,7 @@ outer : {f : Type -> Type} -> {a : Type}
   => f a -> f a -> f (f a)
 outer xs ys = let t = liftA2 xs ys
               in ?outer_rhs 
-  
- -}
+-}
 
 |||| filter' works without `with`?
 filter' : (a -> Bool) -> Vect n a -> (p ** Vect p a)
@@ -751,10 +736,6 @@ Prelude.absurd : Uninhabited t => t -> a
 believe_me : a -> b
 -}
 
-
-
-
-
 namespace Linearity
   ll1 : {n : Nat} -> Vect n a -> Nat
   ll1 {n} _ = n
@@ -768,18 +749,6 @@ namespace Linearity
   ll2 {n=S t} (x :: xs) = 1 + ll2 xs
 
 
-
-public export
-testFun : Nat -> (m : Nat ** Vect m Nat)
-
-testFun2 : Nat -> Vect m Nat
-
-consume : Vect m a -> Type
-
-composed : (p : a -> Bool) ->
-  (xs : Vect n a) ->
-  consume (snd (filter p xs))
-composed p xs = ?composed_rhs
 
 -- public export
 -- filter : (elem -> Bool) -> Vect len elem -> (p ** Vect p elem)
@@ -858,4 +827,3 @@ filter2 f xs = ?filter2_rhs
 --       if isPrefixOf old xs
 --         then new ++ replaceInList old new (drop (length old) xs)
 --         else x :: replaceInList old new rest
-

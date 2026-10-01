@@ -11,6 +11,7 @@ import Display2D.Expected
 import Train.LinearRegression
 import Train.Optimisers
 import Train.Model
+import Train.Choice
 import Train.TensorPrimitives
 import Sampling
 
@@ -37,5 +38,6 @@ main = do
     , listTensorsGroup
 
     , modelGroup
+    , choiceGroup
     , tensorPrimitivesGroup
     , trainGr ]

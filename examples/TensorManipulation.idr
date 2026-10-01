@@ -1,4 +1,4 @@
-module BasicExamples
+module TensorManipulation
 
 import Data.Tensor
 
@@ -43,7 +43,6 @@ failing
   failReshape = arange {n=7}
 
 -- They will also fail if you incosistently bind axis name, for instane if you bind the same name to two different sizes:
-
 failing
   failBinding : Tensor ["j" ~~> 3, "j" ~~> 4] Double
   failBinding = ># [ [0, 1, 2, 3]
@@ -81,27 +80,27 @@ failing
   matMulFail = matMul myMatrix t1
 
 ||| Like in numpy, you can safely index into tensors, set values of tensors, and perform slicing:
-||| This retrieves the value of t- at location [1,2]
+||| This retrieves the value of `myMatrix` at location [1,2]
 indexExample : Double
 indexExample = myMatrix ^. [1, 2]
 
--- TODO needs to be fixed
--- ||| Sets the value of `myMatrix` at location [1, 3] to 99 
--- setExample : Tensor [3, 4]
--- setExample = set `myMatrix` [1, 3] 99
+||| Sets the value of `myMatrix` at location [1, 3] to 99 
+setExample : Tensor ["j" ~~> 3, "k" ~~> 4] Double
+setExample = myMatrix // [1, 3] .~ 99
 
+-- TODO needs to be fixed
 -- ||| Takes the first two rows, and 1st column of t0
 -- sliceExample : Tensor ["j" ~~> 2, "k" ~~> 1] Double
--- sliceExample = take [2, 1] `myMarix`
+-- sliceExample = take [2, 1] myMatrix
 
 -- Which will all fail if you go out of bounds
 failing
   indexExampleFail : Double
   indexExampleFail = t1 ^. [7, 2]
 
-failing
-  sliceFail : Tensor ["j" ~~> 10, "k" ~~> 2] Double
-  sliceFail = take [10, 2] myMatrix
+-- failing
+--   sliceFail : Tensor ["j" ~~> 10, "k" ~~> 2] Double
+--   sliceFail = take [10, 2] myMatrix
 
 {---------------------------------------
 **And most importantly, you can do all of this with *non-cubical* tensors.** These describe tensors whose shape isn't rectangular/cubical, but can be branching/recursive/higher-order. 

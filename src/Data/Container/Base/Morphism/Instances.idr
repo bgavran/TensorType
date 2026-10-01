@@ -14,6 +14,7 @@ import Data.Container.Base.Product.Definition
 import Data.Container.Base.Endofunctor.Definition
 
 import Data.Container.Base.Object.Instances
+import Data.Container.Base.Extension.Instances
 
 import Data.Container.Base.Quantifiers
 import Data.Container.Base.TreeUtils
@@ -29,9 +30,9 @@ import Misc
 |||  ├──────┤
 |||  │  Ps  │
 |||  └──────┘
-||| then `pushDown` is interpreted as pushing down the container,
-||| pruning anything that goes out of the box, and using `Unit` for
-||| anything new that appears:
+||| then `pushDown` is interpreted as keeping the box frame in place while
+||| pushing down the container: pruning any part of the container that goes 
+||| out of the box, and using `Unit` for anything new that appears:
 |||  ┌──────┐
 |||  │ Unit │
 |||  ├──────┤
@@ -443,6 +444,27 @@ namespace TransformIntoHancockTensor
         let (tShp ** recBack) = (%!) transformFromHancock hShp
         in (() <| (\_ => tShp) ** \(p ** restPos) => (p, recBack restPos))
 
+public export
+pick : Pick c a =%> c
+pick = !% \e => (shapeExt e ** index e)
+
+||| Every extension of a foldable container indexes as a list
+public export
+index : IsFoldable c => Pick c a =%> List
+index = pick %>> mapToList
+
+||| The point of `c` at a shape: the Naperian container on that shape's
+||| positions maps into `c` by choosing the shape (the shape's image under
+||| Yoneda). At `c := Pick c' a` a shape is an extension `e : Ext c' a`, and
+||| `atShape e %>> pick : Nap a =%> c'` is that extension seen as a lens
+public export
+atShape : (s : c.Shp) -> Nap (c.Pos s) =%> c
+atShape s = !% \() => (s ** id)
+
+||| A vector of positive length is a non-empty list
+public export
+vectToList1 : {k : Nat} -> Vect (S k) =%> List1
+vectToList1 = !% \() => (k ** id)
     
 
   -- ||| Technically this is Unit, but hard to prove
@@ -566,38 +588,6 @@ maybeToList : Maybe =%> List
 maybeToList = !% \b => case b of 
   False => (0 ** absurd)
   True => (1 ** \_ => ())
-
--- TODO here maybe need to uncomment during merge?
--- public export
--- selectShape : {cs : Vect k Cont} ->
---   (shapes : All Shp cs) -> (i : Fin k) -> Any Shp cs
--- selectShape (s :: _) FZ = Here s
--- selectShape (_ :: ss) (FS j) = There (selectShape ss j)
--- 
--- ||| Extract the position from an AnyPos at a given index
--- public export
--- extractPos : {n : Nat} -> {xs : Vect n Cont} ->
---   {shapes : All Shp xs} ->
---   (i : Fin n) ->
---   AnyShpPos (selectShape shapes i) ->
---   AnyPos shapes
--- extractPos {shapes = (_ :: _)} FZ (Here x) = Here x
--- extractPos {shapes = (_ :: _)} (FS j) (There rest)
---   = There $ extractPos j rest
--- 
--- public export
--- SampleAndChoose : {n : Nat} -> {xs : Vect n Cont} ->
---   ConvexComb xs =%> (Sample n >@ Any xs)
--- SampleAndChoose = !% \(d, shapes) =>
---   (d <| selectShape shapes ** \(i ** grad) => (0, [extractPos i grad]))
-
--- SampleAndChooseWithDist = !% \(d, shapes) =>
---   (d <| electShape shapes ** \(i ** grad) => (0, [(i ** extractPos i grad)]))
-
--- public export
--- GetDist : {n : Nat} -> {xs : Vect n Cont} ->
---   ConvexComb xs =%> Simplex n
--- GetDist = !% \(d, shapes) => (d ** \d' => (d', ?GetDist_rhs))
 
 public export
 handleEffect : Monad m =>

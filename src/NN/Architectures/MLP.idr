@@ -102,3 +102,4 @@ public export
 exampleOutput : Tensor [2] Double
 exampleOutput = Run (simpleNLayerNet 2) exampleInput
   ((layerParam ** ()) ** layerParam)
+-}

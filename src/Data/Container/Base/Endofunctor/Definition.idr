@@ -1,7 +1,7 @@
 module Data.Container.Base.Endofunctor.Definition
 
 import Data.List.Quantifiers
-import Decidable.Equality
+import public Decidable.Equality
 
 import Data.Container.Base.Object.Definition
 import Data.Container.Base.Morphism.Definition
@@ -109,12 +109,17 @@ namespace FunctorsOnCont
     List : c =%> d -> ListAll c =%> ListAll d
     List f = !% \cs => (f.fwd <$> cs ** bww f cs)
 
-||| Derivative of a container
-||| Given c=(Shp !> pos) the derivative can be thought of as
-||| a shape s : Shp, a distinguished position p : pos s, and the set of *all other positions*
+||| A pointed container additionally in its shape contains the data of also one
+||| distinguished position
+||| Unlike with `Deriv` below, decidability is not needed
 public export
-Deriv : (c : Cont) ->
-  InterfaceOnPositions c DecEq =>
-  Cont
-Deriv (shp !> pos) @{MkI _}
-  = ((s ** p) : DPair shp pos) !> (p' : pos s ** IsNo (decEq p p'))
+Pointed : Cont -> Cont
+Pointed c = (dp : DPair c) !> c.Pos (fst dp)
+
+||| The derivative of a container `c` can be thought of as a shape `s : c.Shp`, 
+||| a distinguished position `p : c.Pos s`, and the set of *all other positions*
+||| Technically, this is an endofunctor only on cartesian containers
+public export
+Deriv : (c : Cont) -> IsDecidable c => Cont
+Deriv c @{MkI dec}
+  = ((s ** p) : DPair c) !> (p' : c.Pos s ** IsNo (decEq @{dec s} p p'))

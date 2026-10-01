@@ -38,7 +38,7 @@ affinePara = MkPara
 
 public export
 affineModel : {x, y : Axis} -> {a : Type} ->
-  Neg a =>
+  Num a => Neg a =>
   y `ConsistentWith` [x] =>
   AllAlgebra [x] a =>
   TensorMonoid x.cont => TensorMonoid y.cont =>

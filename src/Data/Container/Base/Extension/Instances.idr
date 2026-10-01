@@ -4,17 +4,19 @@ import Data.DPair
 import Data.Vect
 
 import Data.Container.Base.Object.Definition
+import Data.Container.Base.Morphism.Definition
 import Data.Container.Base.Extension.Definition
+import Data.Container.Base.Product.Definition
 import Data.Container.Base.Properties.Definition
 
 import Data.Container.Base.Object.Instances
-import Data.Container.Base.Product.Definition
 
 -- import Data.Functor.Naperian
 import Misc
 
 %hide Prelude.(<|)
 
+-- todo are these necessary still?
 namespace ExtensionsOfMainExamples
   ||| Isomorphic to the Identity
   public export
@@ -82,6 +84,16 @@ public export
 composeExtensions : List Cont -> Type -> Type
 composeExtensions = foldr (\c, f => (Ext c) . f) (Ext Scalar)
 
+public export
+fixShape : {c : Cont} ->
+  Ext c a -> Cont
+fixShape e = At {c=c} (shapeExt e)
+
+||| Continer describing how from an extension of another we can get a value out
+public export
+Pick : Cont -> Type -> Cont
+Pick c a = Const2 (Ext c a) a
+
 namespace ComposeExtensionsVect
   public export
   composeExtensions : Vect n Cont -> Type -> Type
@@ -116,11 +128,10 @@ public export
 positionsCont : {0 c : Cont} -> {sh : c.Shp} -> Ext c (c.Pos sh)
 positionsCont = sh <| id
 
-
-||| The `index` field of an extension defines a "getter" for a container
-||| This is the container setter
 public export
-set : InterfaceOnPositions c Eq =>
-  (e : Ext c x) -> c.Pos (shapeExt e) -> x -> Ext c x
-set {c=(s !> p)} @{MkI _} (sh <| contentAt) i x
-  = sh <| updateAt contentAt (i, x)
+argmax : Ord a => (isF : IsFoldable c) => (ne : IsNonEmpty c) =>
+  (e : Ext c a) -> c.Pos (shapeExt e)
+argmax e = foldr
+  (\p, best => if index e p >= index e best then p else best)
+  (GetInterface ne (shapeExt e))
+  positionsCont

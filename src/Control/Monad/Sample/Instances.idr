@@ -7,38 +7,42 @@ import Data.Tensor
 import Control.Monad.Distribution
 import Control.Monad.Sample.Definition
 
-||| Trivial sampler, always picks the first element
-public export
-[pickFirst] MonadSample Identity where
-  sample {i = (S k)} (MkDist xs) = Id FZ
-
 ||| Max sampler, always picks the element with the highest logit
 public export
 [pickMax] MonadSample Identity where
-  sample {i = (S k)} d = Id (argmax d.logits)
+  sample = toCostate $ \d => Id (argmax d.logits)
 
 ||| Min sampler, always picks the element with the lowest logit
 public export
 [pickMin] MonadSample Identity where
-  sample {i = (S k)} d = Id (argmin d.logits)
+  sample = toCostate $ \d => Id (argmin d.logits)
 
+||| Sample an index of a cubical distribution
+||| Compute the cumulative distribution, draw uniformly, find the right bin 
+public export
+sampleCubical : {n : Nat} -> {name : AxisName} ->
+  Tensor [name ~~> n] Double -> IO (Maybe (Fin n))
+sampleCubical {n = Z} _ = pure Nothing
+sampleCubical {n = S k} logits = do
+  let cumSum = Utils.cumulativeSum (softargmaxImpl logits)
+  r <- randomRIO (0.0, 1.0)
+  pure $ findBin (#> cumSum) r
 
-||| Computes the cumulative distribution, samples randomly, finds the right bin
+||| Flattens a container distribution, sample the cubicla, map the index back
 public export
 MonadSample IO where
-  sample {i = S j} (MkDist xs) = do
-    let dist = softargmaxImpl xs
-        cumSum = cumulativeSum dist
-    r <- randomRIO (0.0, 1.0)
-    case findBin (#> cumSum) r of
-      Nothing => pure FZ -- should never happen!
-      Just i => pure i
+  sample @{ne} @{MkIsFoldable toL} = toCostate $ \d => do
+    Just k <- sampleCubical (flatten toL d.logits)
+      | Nothing => pure (GetInterface ne d.logits.extractShapeRank1) -- should never happen
+    pure (toL.bwd d.logits.extractShapeRank1 k)
 
+{-
+-- todo move to tests
 testIO : IO ()
 testIO = do
   let logits : Dist "coin" 2
       logits = MkDist (># [-(1.099), 1.099]) -- this produces the dist [0.1, 0.9]
-  is <- sequence (replicate 1000 (sample logits))
+  is <- sequence (replicate 1000 ((fromCostate sample) logits))
   -- printLn is
   printLn (count (== 0) is) -- should be ~100
   printLn (count (== 1) is) -- should be ~900
@@ -48,6 +52,6 @@ testDirac : IO ()
 testDirac = do
   let index = 4
   let logits = diracDelta {name="dirac"} {i=10} index
-  inds <- sequence (replicate 1000 (sample logits))
+  inds <- sequence (replicate 1000 ((fromCostate sample) logits))
   printLn (take 10 inds)
   printLn (count (== index) inds)
