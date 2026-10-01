@@ -370,6 +370,7 @@ Display2D a => Display2D b => Display2D (a, b) where
     [ singleValue (left AsciiPairSyntax)
     , display2D x
     , singleValue (separator AsciiPairSyntax)
+    , singleValue padCharacter
     , display2D y
     , singleValue (right AsciiPairSyntax) ]
 
