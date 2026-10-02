@@ -10,13 +10,11 @@ import Data.List1
 import Data.List.Quantifiers
 import Data.Vect.Quantifiers
 import public Decidable.Equality
-import Decidable.Equality.Core
 import Data.List
 import Data.String
 import Control.ANSI.SGR
 import Control.Monad.State
 
-%hide Builtin.infixr.(#)
 %hide Data.Vect.Quantifiers.All.index
 
 {-------------------------------------------------------------------------------
@@ -177,7 +175,7 @@ namespace NotElem
   ||| If an element `i` is in the singleton list `[j]`, then `j` is in the 
   ||| singleton list `[i]`
   public export
-  elemSym : DecEq a => {i, j : a} -> Vect.Elem.Elem i [j] ->
+  elemSym : {i, j : a} -> Vect.Elem.Elem i [j] ->
     Vect.Elem.Elem j [i]
   elemSym Here = Here
 
@@ -265,8 +263,7 @@ namespace Vect
   namespace DropElem
     ||| Drop all the elements up and until the element `x` from a vector
     public export
-    drop : DecEq a =>
-      (xs : Vect n a) ->
+    drop : (xs : Vect n a) ->
       (elem : Elem x xs) ->
       Vect (n `minus` (finToNat (FS (elemToFin elem)))) a
     drop {n=S k} (_ :: xs) Here = rewrite minusZeroRight k in xs
@@ -546,7 +543,7 @@ record Range (n : Nat) where
 ||| `findBinBetween [2,7,10] 3 (MkRange 0 2) = Just 1`
 ||| `findBinBetween [2,7,10] 9 (MkRange 0 2) = Just 2`
 ||| `findBinBetween [2,7,10] 7 (MkRange 0 2) = Just 2`
-||| `findbinbetween [2,7,15] 7 (MkRange 0 2) = Nothing`
+||| `findBinBetween [2,7,10] 15 (MkRange 0 2) = Nothing`
 ||| `findBinBetween [1,2,3,4,5] 6 (MkRange 0 4) = Nothing`
 ||| Done using binary search
 public export
