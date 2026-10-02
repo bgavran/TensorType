@@ -1,7 +1,7 @@
 
 # TensorType
 
-[![build](https://github.com/bgavran/TypeSafe_Tensors/actions/workflows/build.yml/badge.svg)](https://github.com/bgavran/TypeSafe_Tensors/actions/workflows/build.yml)
+[![build](https://github.com/bgavran/TensorType/actions/workflows/build.yml/badge.svg)](https://github.com/bgavran/TensorType/actions/workflows/build.yml)
 
 > TLDR; NumPy reimagined with dependent types: native support for trees, braching and interaction
 
@@ -24,7 +24,7 @@ At the moment its main purpose is enabling rapid prototyping of structured neura
 
 ## Examples
 
-(taken from `examples/BasicExamples.idr`)
+(taken from `examples/TensorManipulation.idr`)
 
 Import `Data.Tensor` at the top of your file.
 
@@ -50,11 +50,11 @@ myMatrix = ># [ [0, 1, 2, 3]
 
 This is a matrix with dimensions `3 x 4` with its axes named "j" and "k". In both examples them `>#` is used to populate the tensor with concrete values.
 
-If you load these up in the REPL (`pack repl examples/BasicExamples.idr`), you can print them:
+If you load these up in the REPL (`pack repl examples/TensorManipulation.idr`), you can print them:
 ```idris
-BasicExamples> :exec printLn myVector
+TensorManipulation> :exec printLn myVector
 [1.0 2.0 3.0 4.0 5.0]
-BasicExamples> :exec printLn myMatrix
+TensorManipulation> :exec printLn myMatrix
 [[ 0.0  1.0  2.0  3.0]
  [ 4.0  5.0  6.0  7.0]
  [ 8.0  9.0 10.0 11.0]]
@@ -72,9 +72,9 @@ t2 = reshape t1
 
 These do what you might expect if you're familiar with NumPy:
 ```idris
-BasicExamples> :exec printLn t1
+TensorManipulation> :exec printLn t1
 [0.0 1.0 2.0 3.0 4.0 5.0]
-BasicExamples> :exec printLn t2
+TensorManipulation> :exec printLn t2
 [[0.0 1.0 2.0]
  [3.0 4.0 5.0]]
 ```
@@ -125,9 +125,9 @@ transposeExample = transposeMatrix myMatrix
 ```
 
 ```idris
-BasicExamples> :exec printLn dotExample
+TensorManipulation> :exec printLn dotExample
 130.0
-BasicExamples> :exec printLn matMulExample
+TensorManipulation> :exec printLn matMulExample
 [[20.0 23.0 26.0 29.0]
  [56.0 68.0 80.0 92.0]]
 ```
@@ -199,7 +199,7 @@ treeExample1 = ># Node 60 (Node 7 (Leaf (-42)) (Leaf 46)) (Leaf 2)
 
 We can print it out in the same way, and observe its branching shape:
 ```idris
-BasicExamples> :exec printLn treeExample1
+TensorManipulation> :exec printLn treeExample1
 60.0
 │
 ├─ 7.0
@@ -219,7 +219,7 @@ treeExample2 = ># Node 5 (Leaf 100) (Leaf 4)
 ```
 
 ```idris
-BasicExamples> :exec printLn treeExample2
+TensorManipulation> :exec printLn treeExample2
 5.0
 │
 ├─ 100.0
@@ -235,7 +235,7 @@ dotProductTree = dot treeExample1 treeExample2
 ```
 
 ```idris
-BasicExamples> :exec printLn dotProductTree
+TensorManipulation> :exec printLn dotProductTree
 1408.0
 ```
 
@@ -247,7 +247,7 @@ treeLeafExample = ># Node' (Node' (Leaf (-42)) (Leaf 46)) (Leaf 2)
 ```
 
 ```idris
-BasicExamples> :exec printLn treeLeafExample
+TensorManipulation> :exec printLn treeLeafExample
 ·
 │
 ├─ ·
@@ -267,7 +267,7 @@ treeNodeExample = ># Node 60 (Node 7 Leaf' Leaf')  Leaf'
 ```
 
 ```idris
-BasicExamples> :exec printLn treeNodeExample
+TensorManipulation> :exec printLn treeNodeExample
 60.0
 │
 ├─ 7.0
@@ -298,7 +298,7 @@ treeExample4 = >#
 
 
 ```idris
-BasicExamples> :exec printLn treeExample4
+TensorManipulation> :exec printLn treeExample4
 ╔════════════════╗
 ║·               ║
 ║│               ║
@@ -366,7 +366,7 @@ traversalExample = restructure (wrapIntoVector inorder) treeExample1
 ```
 
 ```idris
-BasicExamples> :exec printLn traversalExample
+TensorManipulation> :exec printLn traversalExample
 [-42.0, 7.0, 46.0, 60.0, 2.0]
 ```
 
@@ -378,7 +378,7 @@ It is recommended to manage the installation of this package (and generally, Idr
 
 **If you want to just try it out in the REPL:**
 1. Clone the repository, and `cd` into it.
-2. Run `pack repl examples/BasicExamples.idr`.
+2. Run `pack repl examples/TensorManipulation.idr`.
 3. That's it!
 
 **To use TensorType in your project:**
