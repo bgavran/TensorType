@@ -13,13 +13,14 @@ import Train.Optimisers
 import Train.Model
 import Train.Choice
 import Train.TensorPrimitives
-import Sampling
+import Distribution.Sampling
 
 public export
 main : IO ()
 main = do
   -- the Hedgehog port has no evalIO, so groups that train are run here
   trainGr <- trainGroup
+  samplingIOGr <- samplingIOGroup
   test
     [ cubicalIndexingGroup
     , indexingGroup
@@ -29,6 +30,7 @@ main = do
     , softargmaxGroup
     , optimisersGroup
     , samplingGroup
+    , samplingIOGr
 
     -- printing stuff
     , cubicalTensorGroup

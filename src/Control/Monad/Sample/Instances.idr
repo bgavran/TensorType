@@ -35,23 +35,3 @@ MonadSample IO where
     Just k <- sampleCubical (flatten toL d.logits)
       | Nothing => pure (GetInterface ne d.logits.extractShapeRank1) -- should never happen
     pure (toL.bwd d.logits.extractShapeRank1 k)
-
-{-
--- todo move to tests
-testIO : IO ()
-testIO = do
-  let logits : Dist "coin" 2
-      logits = MkDist (># [-(1.099), 1.099]) -- this produces the dist [0.1, 0.9]
-  is <- sequence (replicate 1000 ((fromCostate sample) logits))
-  -- printLn is
-  printLn (count (== 0) is) -- should be ~100
-  printLn (count (== 1) is) -- should be ~900
-
-public export
-testDirac : IO ()
-testDirac = do
-  let index = 4
-  let logits = diracDelta {name="dirac"} {i=10} index
-  inds <- sequence (replicate 1000 ((fromCostate sample) logits))
-  printLn (take 10 inds)
-  printLn (count (== index) inds)

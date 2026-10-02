@@ -29,7 +29,7 @@ modules = Display2D.Instances
         , Train.Model
         , Train.Choice
         , Train.TensorPrimitives
-        , Sampling
+        , Distribution.Sampling
         , Main
 
 -- main file (i.e. file to load at REPL)
