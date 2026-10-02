@@ -41,14 +41,14 @@ tensorBang = !% \(x, y) => ((x, y) ** \(mx', my') => [| (mx', my') |])
 
 public export
 compositionBang : Monoid d.Shp => !! (c >@ d) =%> !! c >@ !! d
-compositionBang = !% \(cShp <| cPosTodShp) => (cShp <| ?extract **
+compositionBang = !% \(cShp <| cPosTodShp) => (cShp <| ?compositionBang_fwd **
   \(ma ** mb) => do
-    ?fifif)
+    ?compositionBang_bwd)
 
 public export
 compositionBangBack : Monad m => (m <!> c) >@ (m <!> d) =%> m <!> (c >@ d)
 compositionBangBack = !% \ex => (shapeExt ex <| (index ex) . pure **
-  \mdp => ?hmm)
+  \mdp => ?compositionBangBack_bwd)
 
 
 -- public export

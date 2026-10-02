@@ -120,7 +120,7 @@ diagonal = join
 public export
 codiagonal : TensorMonoid c =>
   Tensor [c] =%> Tensor [c, c]
-codiagonal = ?cojoinn
+codiagonal = ?codiagonalTensorMonoid_rhs
 
 
 namespace BinTreeUtils

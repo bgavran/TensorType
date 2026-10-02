@@ -59,7 +59,7 @@ TensorMonoid c => Applicative (Ext c) where
 public export
 [FromSeq] SeqMonoid c => Applicative (Ext c) where
   pure x = tensorN.fwd () <| const x
-  (f <| f') <*> (x <| x') = ?notAThing
+  (f <| f') <*> (x <| x') = ?fromSeqApNotAThing
 
 public export
 SeqMonoid c => Monad (Ext c) using FromSeq where
@@ -69,7 +69,7 @@ SeqMonoid c => Monad (Ext c) using FromSeq where
 public export
 [FromProd] ProdMonoid c => Applicative (Ext c) where
   pure x = prodN.fwd () <| const x
-  (<*>) = ?notAThing2
+  (<*>) = ?fromProdApNotAThing
 
 public export
 ProdMonoid c => Alternative (Ext c) using FromProd where

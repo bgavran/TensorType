@@ -16,7 +16,7 @@ sigmoid x = ex / (1 + ex) where ex = exp x
 
 namespace Tensor
   public export
-  relu : Ord a => Num a => {shape : TensorShape rank} ->
+  relu : Ord a => Num a => {0 shape : TensorShape rank} ->
     Tensor shape a -> Tensor shape a
   relu t = relu <$> t
  

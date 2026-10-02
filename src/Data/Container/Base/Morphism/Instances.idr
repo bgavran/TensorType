@@ -261,7 +261,7 @@ namespace Costate
 
   public export
   pairCostate : Costate c -> Costate d -> Costate (c >< d)
-  pairCostate f g = (f >< g) %>> leftUnit {c=Scalar} %>> id
+  pairCostate f g = (f >< g) %>> leftUnit {c=Scalar}
   
 public export
 fromNapCostateToState : Costate (Nap c.Shp) -> State c
