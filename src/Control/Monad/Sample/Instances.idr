@@ -9,13 +9,13 @@ import Control.Monad.Sample.Definition
 
 ||| Max sampler, always picks the element with the highest logit
 public export
-[pickMax] MonadSample Identity where
-  sample = toCostate $ \d => Id (argmax d.logits)
+[pickMax] Monad m => MonadSample m where
+  sample = toCostate $ \d => pure (argmax d.logits)
 
 ||| Min sampler, always picks the element with the lowest logit
 public export
-[pickMin] MonadSample Identity where
-  sample = toCostate $ \d => Id (argmin d.logits)
+[pickMin] Monad m => MonadSample m where
+  sample = toCostate $ \d => pure (argmin d.logits)
 
 ||| Sample an index of a cubical distribution
 ||| Compute the cumulative distribution, draw uniformly, find the right bin 
