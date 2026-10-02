@@ -2,7 +2,6 @@ module NN.Optimisers.Definition
 
 import Data.Tensor
 import Data.Container.Additive
-import NN.Utils
 
 {-------------------------------------------------------------------------------
 {-------------------------------------------------------------------------------

@@ -5,7 +5,6 @@ import Data.CT.Category.Instances
 import Data.CT.Functor.Definition
 import Data.CT.Functor.Instances
 import Data.CT.DependentAction.Definition
-import Data.CT.DependentAction.Instances
 
 ||| Data structure holding the morphisms of dependent para
 public export

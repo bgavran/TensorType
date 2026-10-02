@@ -187,7 +187,7 @@ showAsScientific n = trimTrailingZeros $
   showDoubleScientific defaultScientificPrecision (cast n)
 
 ||| Format a Double for display: fixed notation for values in the range
-||| `[scientificLowerMagnitude, scientificUpperMagnitude)`, scientific
+||| `[sciLowerM, sciUpperM)`, scientific
 ||| notation outside that range, with redundant trailing zeros removed.
 public export
 ScientificDisplay Double where

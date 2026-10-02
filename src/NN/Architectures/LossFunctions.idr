@@ -15,8 +15,6 @@ import Data.Container.Additive.Quantifiers
 
 import Data.Para
 
-%hide Data.Container.Base.Morphism.Definition.DependentLenses.(=%>)
-
 ||| A loss is a parametric map whose parameter is the label
 ||| It is not a `Model` because there is no concept of initialisation
 public export

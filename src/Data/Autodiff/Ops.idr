@@ -14,8 +14,6 @@ import Data.Materialise
 
 import Misc
 
-%hide Data.Container.Base.Morphism.Definition.DependentLenses.(=%>)
-
 {-------------------------------------------------------------------------------
 This file contains the derivatives of various useful building blocks
 

@@ -23,7 +23,6 @@ public export infixr 3 >*< -- categorical product
 public export infixr 3 >+< -- coproduct
 public export infixr 3 >+@  -- composition
 public export infixr 3 >-+@ -- composition action
-public export infixr 3 <%> 
 
 
 {-------------------------------------------------------------------------------

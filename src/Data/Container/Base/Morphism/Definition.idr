@@ -17,9 +17,9 @@ their map on positions is an isomorphism
 export infixr 1 =%> -- (closed) dependent lens
 export infixr 1 =&> -- (closed) dependent chart
 export infixr 1 =:> -- (closed) cartesian morphism
-export prefix 0 !% -- constructor the (closed) dependent lens
-export prefix 0 !& -- constructor the (closed) dependent chart
-export prefix 0 !: -- constructor the (closed) cartesian morphism
+export prefix 0 !% -- constructor of the (closed) dependent lens
+export prefix 0 !& -- constructor of the (closed) dependent chart
+export prefix 0 !: -- constructor of the (closed) cartesian morphism
 public export prefix 0 %!
 public export prefix 0 &!
 public export prefix 0 :!
@@ -31,7 +31,7 @@ namespace DependentLenses
   ||| Forward-backward container morphisms
   |||
   |||                  ┌─────────────┐
-  |||  (x : c.Shp)  ──►┤             ├──► (y : c.Shp)
+  |||  (x : c.Shp)  ──►┤             ├──► (y : d.Shp)
   |||                  │    lens     │
   |||     c.Pos x   ◄──┤             ├◄── d.Pos y
   |||                  └─────────────┘
@@ -86,7 +86,7 @@ namespace DependentCharts
   ||| Forward-forward container morphisms
   |||
   |||                  ┌─────────────┐
-  |||  (x : c.Shp)  ──►┤             ├──► (y : c.Shp)
+  |||  (x : c.Shp)  ──►┤             ├──► (y : d.Shp)
   |||                  │    chart    │
   |||     c.Pos x   ──►┤             ├──► d.Pos y
   |||                  └─────────────┘

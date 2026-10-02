@@ -4,7 +4,7 @@ import Data.Tensor.Tensor
 import Data.Tensor.Utils
 
 {-------------------------------------------------------------------------------
-Used by both `Control.Monad.Distribution` and `NN.Architetures.Softargmax`
+Used by both `Control.Monad.Distribution` and `NN.Architectures.Softargmax`
 -------------------------------------------------------------------------------}
 
 ||| Numerically stable log-sum-exp operation

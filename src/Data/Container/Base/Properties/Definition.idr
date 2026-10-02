@@ -14,7 +14,7 @@ import Misc
 {-------------------------------------------------------------------------------
 {-------------------------------------------------------------------------------
 Properties of containers expressed as type-level predicates.
-Some of these mirror aliases in `Object.Definitions`, they're purposefully 
+Some of these mirror aliases in `Object.Instances`, they're purposefully 
 separated with imports, and don't refer to each other
 
 These are thought of as extensional declarations: we need not know anything 

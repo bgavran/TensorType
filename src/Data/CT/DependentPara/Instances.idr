@@ -44,8 +44,6 @@ public export infixr 1 =\\=> -- non-dependent parametric lenses
   
 -- Dependent parametric function composition
 public export infixr 10 \>>
--- Dependent parametric lens composition
-public export infixr 10 &>>
 
 ||| The 2-category `Para(Set)`
 namespace ParametricFunctions

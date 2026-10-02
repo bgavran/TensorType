@@ -4,7 +4,6 @@ import Data.Materialise
 import Data.Container.Additive
 import Data.Num
 import NN.Optimisers.Definition
-import NN.Utils
 
 
 ||| Gradient ascent optimiser. Has trivial state

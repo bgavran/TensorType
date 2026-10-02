@@ -6,9 +6,7 @@ import Data.Vect.Quantifiers
 import Data.Container.Base
 import Data.ComMonoid
 import public Data.Container.Additive.Object.Definition
-import Data.Container.Additive.Extension.Definition
 import Data.Container.Additive.Product.Definition
-import Data.Container.Additive.Properties.Definition
 
 ||| Constant (non-dependent) add. container, positions not dependent on shapes
 ||| As a polynomial functor: F(Y) = aY^b

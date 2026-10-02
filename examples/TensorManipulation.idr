@@ -112,7 +112,7 @@ myMatrixAgain : Tensor ["j" ~> Vect 3, "k" ~> Vect 4] Double
 myMatrixAgain = myMatrix
 
 {--------------------
-Here `Vect` does not refer to `Vect` from `Data.Vect`, but rather the `Vect` container implemented [here](https://github.com/bgavran/TensorType/blob/main/src/Data/Container/Object/Instances.idr#L68).
+Here `Vect` does not refer to `Vect` from `Data.Vect`, but rather the `Vect` container implemented [here](https://github.com/bgavran/TensorType/blob/main/src/Data/Container/Base/Object/Instances.idr#L118).
 
 Everything we've seen above can be recast with this new type explicitly:
 --------------------}
@@ -171,7 +171,7 @@ and here's a tree-tensor with values only on its nodes:
 treeNodeExample : Tensor ["myTree" ~> BinTreeNode] Double
 treeNodeExample = ># Node 60 (Node 7 Leaf' Leaf')  Leaf'
 
-||| And this can get very complex and nested, as `exTree3` and `exTree4` show.
+||| And this can get very complex and nested, as `treeExample3` and `treeExample4` show.
 ||| But it still fully type-checked, and working as you'd expect.
 treeExample3 : Tensor ["myTree" ~> BinTreeNode, "j" ~> Vect 2] Double
 treeExample3 = ># Node [4,1] (Node [17, 4] Leaf' Leaf') Leaf'

@@ -4,7 +4,6 @@ import Data.Tensor
 import Data.Para
 
 import NN.Architectures.Affine
-import NN.Architectures.Activations
 
 
 ||| N-layer multi-layer perceptron with a specified activation function,

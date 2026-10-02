@@ -5,7 +5,6 @@ import Language.Reflection
 import Derive.Prelude
 import Data.Finite
 
-import Data.Container.Base.Object.Definition
 import Data.Container.Base.Extension.Definition
 
 import Data.Container.SubTerm

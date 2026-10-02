@@ -2,7 +2,6 @@ module Data.Unique.Vect
 
 import Data.Vect
 import Decidable.Equality
-import Decidable.Equality.Core
 import Misc
 
 %hide Misc.NotElem.NotElem
@@ -91,7 +90,7 @@ notElem {xs = []} f = NotInEmptyVect x
 notElem {xs = (y :: ys)} f with (decEq x y)
   _ | (Yes Refl) = absurd (f Here)
   _ | (No neq) = NotInNonEmptyVect
-    {neq=(proofIneqIsNo neq)} ys (notElem (\e => f ?bb))
+    {neq=(proofIneqIsNo neq)} ys (notElem (\e => f ?notElem_there))
 
 public export
 toVect : DecEq a => UniqueVect n a -> Vect n a
@@ -288,7 +287,7 @@ mutual
     (ys : UniqueVect m a) ->
     UniqueVect (numSymmetricDifference xs ys) a
   symmetricDifference [] ys = ys
-  symmetricDifference (x :: xs) ys = ?aaa
+  symmetricDifference (x :: xs) ys = ?symmetricDifference_rhs
   
   -- with (decElemInUniqueVect x ys)
     -- _ | Yes p = ?aaa

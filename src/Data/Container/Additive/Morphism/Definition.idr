@@ -6,12 +6,12 @@ import Data.Container.Additive.Object.Definition
 
 export infixr 1 =%+> -- (closed) additive dependent lens
 export infixr 1 =&+> -- (closed) additive dependent chart
-export prefix 0 !% -- constructor the (closed) dependent lens
-export prefix 0 !& -- constructor the (closed) dependent chart
+export prefix 0 !% -- constructor of the (closed) dependent lens
+export prefix 0 !& -- constructor of the (closed) dependent chart
 public export prefix 0 %!
 public export prefix 0 &!
-public export prefix 0 !%+ -- constructor the additive closed dlens
-public export prefix 0 !&+ -- constructor the additive closed dlens
+public export prefix 0 !%+ -- constructor of the additive closed dlens
+public export prefix 0 !&+ -- constructor of the additive closed dchart
 export infixl 5 %+>> -- composition of dependent lenses
 export infixl 5 &+>> -- composition of dependent charts
 
