@@ -3,9 +3,6 @@ module Data.ComMonoid
 import public Data.Num
 import public Data.Bag
 
-%hide Prelude.Semigroup
-%hide Prelude.Monoid
-
 ||| Commutative monoid
 ||| Not encoding monoid laws, nor commutativity here
 public export
