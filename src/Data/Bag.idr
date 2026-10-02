@@ -28,8 +28,6 @@ namespace Bag
   multiplicities = multiplicities . toList
 
 
-export infixr 7 ++
-
 public export
 (++) : Bag a -> Bag a -> Bag a
 (MkBag xs) ++ (MkBag ys) = MkBag (xs ++ ys)
