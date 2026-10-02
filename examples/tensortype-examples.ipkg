@@ -26,7 +26,7 @@ modules = TensorManipulation
 
 -- name of executable
 -- executable =
--- opts =
+opts = "--total"
 sourcedir = "."
 -- builddir =
 -- outputdir =
