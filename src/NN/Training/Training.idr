@@ -156,16 +156,21 @@ namespace WithEffect
     lossSum <- fromCostate (totalLoss f loss p handleEffect) testData
     pure (lossSum / cast n)
 
-  ||| Print a model's predictions on a dataset's inputs, handling its effect
+  ||| Print a model's predictions on a dataset's inputs, handling its effect.
+  ||| By default it also prints the shape of the effect
   public export
-  evalPrint : {0 a, y : AddCont} -> {0 e : Cont} -> {0 lab : Type} ->
-    Show a.Shp => Show y.Shp =>
+  evalPrint : {0 a, y : AddCont} -> {0 e : Cont} ->
+    {default True printEffect : Bool} ->
+    Show a.Shp => Show e.Shp => Show y.Shp =>
     (m : a -\-> e >-+@ y) -> (p : m.Params) ->
     (handleEffect : Costate (IO <!> e)) ->
     Dataset a.Shp lab -> IO ()
-  evalPrint m p handleEffect dl = for_ dl $ \(x, _) => do
-    y <- fromCostate (evalFw m.run.fwd handleEffect) (x, p)
-    putStrLn "Input: \{show x}, Predicted: \{show y}"
+  evalPrint {printEffect} m p handleEffect dl = for_ dl $ \(x, _) => do
+    let out = m.fwd x p
+    answer <- fromCostate handleEffect (shapeExt out)
+    let asked : String -- without the type annotation there's an error
+        asked = if printEffect then ", Effect out: \{show (shapeExt out)}" else ""
+    putStrLn "Input: \{show x}\{asked}, Predicted: \{show (index out answer)}"
 
   public export
   evalLoss : {0 a, y, l : AddCont} -> {0 e : Cont} ->
