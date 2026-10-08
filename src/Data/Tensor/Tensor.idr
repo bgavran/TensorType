@@ -399,7 +399,7 @@ namespace Reshape
 
   public export 
   unrestrict : {s : ax.cont.Shp} ->
-    Tensor [ax.name ~> At {c = ax.cont} s] x -> Tensor [ax] x
+    Tensor [ax `At` s] x -> Tensor [ax] x
   unrestrict = restructureAxis (atShape s)
 
 
@@ -681,8 +681,8 @@ namespace TensorInstances
       ||| Reduces a tensor along an axis appearing only once in the shape.
       ||| In the presence of multiple axes (at least in the Naperian case) we
       ||| first have to transpose them to the front, and then diagonalise.
-      ||| Using `IsFinite` instead of `Algebra` because `IsFinite` allows us to
-      ||| refer to only the container, instead of the underlying type `a`
+      ||| Using `IsFoldable` instead of `Algebra` because `IsFoldable` allows us
+      ||| to refer to only the container, instead of the underlying type `a`
       public export 
       reduceSingleAxis : {rank : Nat} ->
         {shape : TensorShape (S rank)} ->
@@ -691,14 +691,14 @@ namespace TensorInstances
         (t : Tensor shape a) ->
         AllC TensorMonoid shape =>
         Num a =>
-        (isFinite : IsFinite (index shape toReduce)) =>
+        (isFoldable : IsFoldable (index shape toReduce)) =>
         Tensor (Unique.removeAxis toReduce shape) a
       reduceSingleAxis {shape = (ax :: as)} toReduce t @{Here} @{_ :: tms}
-        = let tAlg = algebraFinite ax.cont @{isFinite} (Tensor as a)
+        = let tAlg = algebraFoldable {f = Ext ax.cont} {a = Tensor as a}
           in reduce (extractTopExt t)
-      reduceSingleAxis {shape = (ax :: as)} toReduce t @{There @{ItIsSucc}} @{_ :: _} {isFinite=isFinite}
+      reduceSingleAxis {shape = (ax :: as)} toReduce t @{There @{ItIsSucc}} @{_ :: _} {isFoldable=isFoldable}
         = tensorMapFirstAxis {cds=consistentAfterRemoving ax as toReduce}
-            (\t' => reduceSingleAxis toReduce t' {isFinite=isFinite}) t
+            (\t' => reduceSingleAxis toReduce t' {isFoldable=isFoldable}) t
       
       -- temporary
       public export
@@ -709,7 +709,7 @@ namespace TensorInstances
         (t : Tensor shape a) ->
         AllC TensorMonoid shape =>
         Num a =>
-        (isFinite : IsFinite (index shape toReduce)) =>
+        (isFoldable : IsFoldable (index shape toReduce)) =>
         Tensor (Unique.removeAxis toReduce shape) a
       reduceAxis = reduceSingleAxis
 

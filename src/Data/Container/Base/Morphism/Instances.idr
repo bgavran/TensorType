@@ -453,12 +453,9 @@ public export
 index : IsFoldable c => Pick c a =%> List
 index = pick %>> mapToList
 
-||| The point of `c` at a shape: the Naperian container on that shape's
-||| positions maps into `c` by choosing the shape (the shape's image under
-||| Yoneda). At `c := Pick c' a` a shape is an extension `e : Ext c' a`, and
-||| `atShape e %>> pick : Nap a =%> c'` is that extension seen as a lens
+||| A lens from a container specialised to a shape to the container itself
 public export
-atShape : (s : c.Shp) -> Nap (c.Pos s) =%> c
+atShape : (s : c.Shp) -> At c s =%> c
 atShape s = !% \() => (s ** id)
 
 ||| A vector of positive length is a non-empty list

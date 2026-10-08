@@ -87,7 +87,7 @@ composeExtensions = foldr (\c, f => (Ext c) . f) (Ext Scalar)
 public export
 fixShape : {c : Cont} ->
   Ext c a -> Cont
-fixShape e = At {c=c} (shapeExt e)
+fixShape e = At c (shapeExt e)
 
 ||| Continer describing how from an extension of another we can get a value out
 public export

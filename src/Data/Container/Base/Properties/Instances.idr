@@ -289,6 +289,11 @@ public export
 {n : Nat} -> IsFoldable (Vect n) where
   mapToList = vectToList
 
+||| A foldable container restricted to one of its shapes is foldable
+public export
+foldableAt : IsFoldable c => (s : c.Shp) -> IsFoldable (At c s)
+foldableAt s = MkIsFoldable (atShape s %>> mapToList {c})
+
 ||| Requires making a choice of traversal order
 ||| Is there a good reason to prefer a particular order?
 public export

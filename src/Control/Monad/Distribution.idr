@@ -71,7 +71,7 @@ public export
 Simplex : Axis -> AddCont
 Simplex a = MkAddCont
   (Dist a) (\d =>
-    (Tensor [a.name ~> At d.logits.extractShapeRank1] Double ** numIsMonoid))
+    (Tensor [a.name ~> (a.cont) `At` d.logits.extractShapeRank1] Double ** numIsMonoid))
 
 ||| Distributions are shown as probabilities (via softargmax), not as logits
 public export
@@ -99,7 +99,7 @@ Show (Dist a) where
 public export
 ProbabilisticChoice : (a : Axis) -> a.cont.filledWith AddCont -> AddCont
 ProbabilisticChoice a branches
-  = Simplex (a.name ~> At (shapeExt branches)) >*< Section (index branches)
+  = Simplex (a `At` (shapeExt branches)) >*< Section (index branches)
 
 ||| Each probabilistic choice can be turned into a sequence of producing a 
 ||| distribution, waiting for the response from the environment about which 
@@ -110,9 +110,9 @@ pendingChoice : {a : Axis} ->
   ProbabilisticChoice a branches =%+> Dist a >-+@ AddContDPair (index branches)
 pendingChoice branches =
   let Choice : AddCont
-      Choice = Simplex (a.name ~> At (shapeExt branches))
+      Choice = Simplex (a `At` (shapeExt branches))
   in (id {c = Choice} >*< graph) %+>> distribute
-  {c = Simplex (a.name ~> At (shapeExt branches)),
+  {c = Simplex (a `At` (shapeExt branches)),
    g = AddContDPair (index branches)} (\d => !% \_ =>
   (MkDist (MkT ((shapeExt branches <| const ()) <| \pp =>
      index (GetT d.logits) (fst pp ** ()))) ** id))

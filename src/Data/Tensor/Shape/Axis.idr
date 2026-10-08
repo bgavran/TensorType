@@ -31,6 +31,11 @@ public export
 TTInternalName : AxisName
 TTInternalName = "__tensortype_tempaxis__"
 
+||| Variant of container `At` for axes
+public export
+At : (ax : Axis) -> ax.cont.Shp -> Axis
+At ax s = ax.name ~> ax.cont `At` s
+
 namespace Cubical
   ||| A "constructor" for cubical axes
   public export

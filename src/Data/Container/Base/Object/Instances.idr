@@ -45,8 +45,8 @@ Sharp a = Const2 a Void
 
 ||| Turn a container into a Naperian one by fixing a specific shape
 public export
-At : {c : Cont} -> c.Shp -> Cont
-At s = Nap (c.Pos s)
+At : (c : Cont) -> c.Shp -> Cont
+At c s = Nap (c.Pos s)
 
 ||| Empty container, isomorphic to Void
 ||| As a polynomial functor: F(X) = 0
