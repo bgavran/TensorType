@@ -2,8 +2,9 @@ module Data.Container.Additive.Product.Definition
 
 import Data.Vect
 import Data.Vect.Quantifiers
+import Data.List.Quantifiers
 
-import Data.Container.Base
+import Data.Container.Base.Definitions
 import Data.ComMonoid
 import Data.Num
 import Data.Container.Additive.Object.Definition
@@ -159,17 +160,8 @@ namespace CategoricalCoproduct
   namespace Vect
     ||| N-ary coproduct of a finite family, given as an extension of `Vect n`
     public export
-    Coproduct : {n : Nat} -> (branches : Vect' n AddCont) -> AddCont
+    Coproduct : {c : Cont} -> (branches : c.filledWith AddCont) -> AddCont
     Coproduct branches = AddContDPair (index branches)
-
-    ||| Show a coproduct's shape from a `Show` for every branch's shapes.
-    ||| Search can't provide these for an abstract index, so a `Show` instance
-    ||| for a particular coproduct is written at its use site
-    export
-    showCoproduct : {branches : Vect' n AddCont} ->
-      ((i : Fin n) -> Show (index branches i).Shp) ->
-      (Coproduct branches).Shp -> String
-    showCoproduct sh (i ** x) = show @{sh i} x
 
   namespace List
     ||| N-ary version of coproduct

@@ -4,7 +4,7 @@ import Data.Vect
 import Data.List.Quantifiers
 import Data.Vect.Quantifiers
 
-import Data.Container.Base
+import Data.Container.Base.Definitions
 
 import Data.Container.Additive.Object.Definition
 import Data.ComMonoid

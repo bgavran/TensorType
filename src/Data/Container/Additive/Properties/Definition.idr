@@ -1,7 +1,7 @@
 module Data.Container.Additive.Properties.Definition
 
 import Data.ComMonoid
-import Data.Container.Base
+import Data.Container.Base.Definitions
 import Data.Container.Additive.Object.Definition
 
 ||| Convenience datatype storing the property that

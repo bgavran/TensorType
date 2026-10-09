@@ -1,6 +1,6 @@
 module Data.Container.Additive.Extension.Definition
 
-import Data.Container.Base
+import Data.Container.Base.Definitions
 import Data.Container.Additive.Object.Definition
 import Data.Container.Additive.Morphism.Definition
 import Data.ComMonoid

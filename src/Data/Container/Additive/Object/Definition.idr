@@ -1,6 +1,6 @@
 module Data.Container.Additive.Object.Definition
 
-import Data.Container.Base
+import Data.Container.Base.Definitions
 import Data.ComMonoid
 
 ||| Additive container: a container whose every set of positions is a
