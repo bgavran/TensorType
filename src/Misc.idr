@@ -668,6 +668,15 @@ index : (i : Fin k) -> Vect.Quantifiers.All.All p ts -> p (Vect.index i ts)
 index FZ (x :: xs) = x
 index (FS j) (x :: xs) = index j xs
 
+||| `Fin n` without ordering, i.e. a set. Quotient not implemented, simply a 
+||| wrapped around `Fin n` to make `Bag` and `List` containers not reduce to 
+||| the same type. Once quotient containers are implemented this will not be
+||| necessary.
+public export
+record FiniteSet (n : Nat) where
+  constructor MkFiniteSet
+  toFin : Fin n
+
 namespace TerminalStyling
   ||| Used to color/style terminal output. Wraps a string in the given SGR 
   ||| attributes from `Control.ANSI.SGR`
