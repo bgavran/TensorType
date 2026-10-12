@@ -18,7 +18,6 @@ depends = tensortype
 -- modules to install
 modules = TensorManipulation
         , LinearRegression
-        , ApplicativeLinearAlgebra
         , Attention
 
 -- main file (i.e. file to load at REPL)
