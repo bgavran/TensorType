@@ -234,9 +234,9 @@ namespace Triangular
     (ip : InterfaceOnPositions c.cont MOrd) =>
     TensorMonoid c.cont =>
     (sh : c.cont.Shp) -> Tensor [c, c] Bool
-  cTriBool {ip = MkI p} sh
+  cTriBool sh
     = let cPositions = positions {sh=sh}
-          pp : MOrd (c.cont.Pos sh) := p sh
+          pp : MOrd (c.cont.Pos sh) := GetInterface ip sh
       in outerWith (flip isSubTerm) cPositions cPositions
 
   public export

@@ -50,7 +50,7 @@ namespace Cubical
   ||| Evidence of axis cubicality -> evidence of underlying container cubicality
   public export
   toContCubical : {0 a : Axis} -> IsCubical a -> IsCubical a.cont
-  toContCubical (MkIsCubical _ n) = MkIsCubical n
+  toContCubical (MkIsCubical _ n) = Via n
 
   ||| Extract the dimension from IsCubical with axis implicit
   public export
@@ -90,7 +90,7 @@ namespace Naperian
   %hint
   public export
   toContNaperian : {0 a : Axis} -> IsNaperian a -> IsNaperian a.cont
-  toContNaperian (MkIsNaperian _ pos) = MkIsNaperian pos
+  toContNaperian (MkIsNaperian _ pos) = Via pos
   
   ||| Extract the position type from IsNaperian with axis implicit
   public export

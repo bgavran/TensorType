@@ -31,7 +31,7 @@ sampleCubical {n = S k} logits = do
 ||| Flattens a container distribution, sample the cubicla, map the index back
 public export
 MonadSample IO where
-  sample @{ne} @{MkIsFoldable toL} = toCostate $ \d => do
-    Just k <- sampleCubical (flatten toL d.logits)
+  sample @{ne} @{fold} = toCostate $ \d => do
+    Just k <- sampleCubical (flatten mapToList d.logits)
       | Nothing => pure (GetInterface ne d.logits.extractShapeRank1) -- should never happen
-    pure (toL.bwd d.logits.extractShapeRank1 k)
+    pure (mapToList.bwd d.logits.extractShapeRank1 k)

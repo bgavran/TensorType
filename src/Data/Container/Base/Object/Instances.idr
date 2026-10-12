@@ -7,6 +7,8 @@ import Data.Container.Base.Object.Definition
 import Data.Container.Base.Product.Definition
 import Data.Container.Base.TreeUtils
 
+import Misc
+
 
 {-------------------------------------------------------------------------------
 Defines basic containers.
@@ -111,6 +113,14 @@ public export
 List1 : Cont
 List1 = (n : Nat) !> Fin (S n)
 
+
+||| Bags/multisets, *quotient* containers
+||| As an *analytic* functor: F(X) = 1 + X + X^2 + X^3 + ... / S_n
+||| Not enforcing the quotient at the moment
+||| See also `Data.Bag`
+public export
+Bag : Cont
+Bag = (n : Nat) !> FiniteSet n
 
 ||| Vect, container of a fixed/known number of things
 ||| As a polynomial functor: F(X) = X^n

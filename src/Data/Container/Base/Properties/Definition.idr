@@ -8,37 +8,51 @@ import Data.Vect
 import Data.Container.Base.Object.Definition
 import Data.Container.Base.Morphism.Definition
 import Data.Container.Base.Extension.Definition
+import Data.Container.Base.Endofunctor.Definition
+
+import Data.Container.Base.Object.Instances
+import Data.Container.Base.Morphism.Instances
 
 import Misc
 
 {-------------------------------------------------------------------------------
-{-------------------------------------------------------------------------------
-Properties of containers expressed as type-level predicates.
-Some of these mirror aliases in `Object.Instances`, they're purposefully 
-separated with imports, and don't refer to each other
+Properties of containers expressed in terms of two constructions:
+`MapToWith` and `IsA`.
 
-These are thought of as extensional declarations: we need not know anything 
-about concrete instances to define these?
+`Properties` is the intentional exception to the rule of `Definition` not importing `Instances`, as the definitions here refer to *specific* containers, such as `List`, `Scalar`, and `Bag`.
 -------------------------------------------------------------------------------}
--------------------------------------------------------------------------------}
+
+||| The data of a lens from `d`, with `i` on its positions into `c`. Used to 
+||| generically define `IsFoldable`, `IsSummable`, and `InterfaceOnPositions`
+public export
+interface MapToWith (0 i : Type -> Type) (0 c : Cont) (0 d : Cont) where
+  constructor Along
+  mapTo : i <!> d =%> c
+
+public export
+MapTo : {default id i : Type -> Type} -> Cont -> Cont -> Type
+MapTo c d = MapToWith i c d
 
 ||| Stores the data of a container `c` with an interface `i` on its positions
-||| TODO relationship to `Costate (i <!> c)`?
+||| As a lens `i <!> c =%> Scalar` it is a costate of `i <!> c`
 public export
-record InterfaceOnPositions (0 c : Cont) (i : Type -> Type) where
-  constructor MkI
-  ||| For every shape `s` the set of positions `c.Pos s` has that interface
-  GetInterface : (s : c.Shp) -> i (c.Pos s)
+InterfaceOnPositions : Cont -> (Type -> Type) -> Type
+InterfaceOnPositions c i = MapTo {i} Scalar c
 
-||| A container is finite when for every shape the set of positions is finite.
-||| Examples: vectors, lists, but also finite binary trees.
-||| Note, this also requires provision of a particular order. That is, trees 
-||| require a choice of a tree traversal. (All of these choices are isomorphic, 
-||| but here necessary to make). An alternative would have been a bag instead of
-||| a list.
 public export
-IsFinite : Cont -> Type
-IsFinite c = InterfaceOnPositions c Finite
+MkI : ((s : c.Shp) -> i (c.Pos s)) -> InterfaceOnPositions c i
+MkI f = Along (toCostate f)
+
+||| For every shape `s` the set of positions `c.Pos s` has that interface
+public export
+GetInterface : InterfaceOnPositions c i -> (s : c.Shp) -> i (c.Pos s)
+GetInterface _ = fromCostate mapTo
+
+%hint
+public export
+fromPositions : {0 c : Cont} -> {0 i : Type -> Type} ->
+  (pos : (s : c.Shp) -> i (c.Pos s)) => InterfaceOnPositions c i
+fromPositions @{pos} = MkI pos
 
 ||| A container is decidable if for every shape its set of positions has 
 ||| decidable equality
@@ -54,117 +68,108 @@ public export
 IsNonEmpty : Cont -> Type 
 IsNonEmpty c = InterfaceOnPositions c id
 
+||| Name more accurately reflecting the fact that position choice is arbitrary
 public export
 ChosenPositions : Cont -> Type
 ChosenPositions = IsNonEmpty
 
-||| A container is non-dependent when positions do not depend on shapes
+||| Proof that a container `c` of the form `f x` for some `x`.
+||| Does not work with two arguments, i.e. this 
+||| (https://github.com/bgavran/TensorType/blob/cc67c8b4461467874a55af7756e1b4a7f768c1f0/src/Data/Container/Base/Properties/Definition.idr#L63) does not work with this definition, and would instead 
+||| require a `IsA2`. (That particular example was removed because nothing 
+||| depended on it)
 public export
-data IsNonDep : Cont -> Type where
-  MkIsNonDep : (s, p : Type) -> IsNonDep ((_ : s) !> p)
+data IsA : Cont -> (0 f : a -> Cont) -> Type where
+  Via : (x : a) -> IsA (f x) f
 
-||| Following the flat-sharp terminology
 public export
-data IsFlat : Cont -> Type where
-  ItIsFlat : (s : Type) -> IsFlat ((_ : s) !> Unit)
+IsFlat : Cont -> Type
+IsFlat c = IsA c Flat
 
 public export
-data IsSharp : Cont -> Type where
-  ItIsSharp : (s : Type) -> IsSharp ((_ : s) !> Void)
+IsSharp : Cont -> Type
+IsSharp c = IsA c Sharp
 
 ||| Used in learning, where we want to know that the tangent space over a
 ||| particular parameter is equal to the parameter space itself
-||| Follows the terminology of `Const` used in `Object.Instances`
 public export
-data IsConst : Cont -> Type where
-  ItIsConst : (p : Type) -> IsConst ((_ : p) !> p)
+IsConst : Cont -> Type
+IsConst c = IsA c Const
 
+||| Notably, Naperian does not imply Finite (`Stream` is Naperian)
+public export
+IsNaperian : Cont -> Type
+IsNaperian c = IsA c Nap
 
-namespace Naperian
-  ||| Will be removed later, temp fix for now as otherwise the coverage 
-  ||| checker complains
-  public export
-  NaperianCont : Type -> Cont
-  NaperianCont pos = (_ : Unit) !> pos
-
-  ||| A container is Naperian when the set of shapes is `Unit`, i.e. when it
-  ||| contains only one set of positions.
-  ||| Examples: Scalar, UnitCont, Pair, Vect n, Stream.
-  ||| Notably, Naperian does not imply Finite, as the `Stream` example shows.
-  public export
-  data IsNaperian : Cont -> Type where
-    MkIsNaperian : (pos : Type) -> IsNaperian (NaperianCont pos)
-  
+namespace NaperianHelpers
   public export
   LogHelper : IsNaperian c => Type
-  LogHelper @{MkIsNaperian pos} = pos
+  LogHelper @{Via pos} = pos
   
   public export
   Log : (0 c : Cont) -> IsNaperian c => Type
-  Log _ @{MkIsNaperian pos} = pos
+  Log _ @{Via pos} = pos
   
   public export
   naperianPosEq : IsNaperian c => {0 x, y : c.Shp} -> c.Pos x = c.Pos y
-  naperianPosEq @{MkIsNaperian _} = Refl
+  naperianPosEq @{Via _} = Refl
 
-namespace Cubical
-  ||| Will be removed later, temp fix for now as otherwise the coverage 
-  ||| checker complains
-  public export
-  CubicalCont : Nat -> Cont
-  CubicalCont n = (_ : Unit) !> Fin n
+||| A container is cubical whenever it is Finite and Naperian.
+||| All of such containers are `Vect n`, up to isomorphism. Notably, this also 
+||| includes a container whose positions are the set of positions of a binary 
+||| tree of a particular shape.  This is isomorphic to the `Vect k` container, 
+||| for some `k`, assuming a choice of tree traversal
+public export
+IsCubical : Cont -> Type
+IsCubical c = IsA c Vect
 
-  ||| A container is cubical whenever it is Finite and Naperian
-  ||| Effectively, captures `Vect n` containers, up to isomorphism
-  ||| Examples: for any `n : Nat`, `Vect n`. Those are all the examples, up to
-  ||| isomorphism. Notably, this also includes a container whose unique set of
-  ||| positions is the set of positions of a binary tree of a particular shape.
-  ||| This is isomorphic to the `Vect k` container, for some `k`,  assuming a 
-  ||| choice of tree traversal (though all of them yield the same `k`). Here 
-  ||| `k` corresponds to the number of positions in that binary tree
-  public export
-  data IsCubical : Cont -> Type where
-    MkIsCubical : (n : Nat) -> IsCubical (CubicalCont n)
-    
+namespace CubicalHelpers
   public export
   dimHelper : IsCubical c -> Nat
-  dimHelper (MkIsCubical n) = n
-    
+  dimHelper (Via n) = n
+  
   ||| We call dimension the size of the set of positions of a finite container 
   public export
   dim : (0 c : Cont) -> IsCubical c => Nat
   dim _ @{ic} = dimHelper ic
   
-  ||| Every cubical container is `Nap (Fin n)` with `n = dim ic` (used for rewrites).
+  ||| Every cubical container is `Vect n` with `n = dim ic` (used for rewrites).
   public export
-  isCubicalContEq : IsCubical d -> d = ((_ : Unit) !> (Fin (dim {c=d})))
-  isCubicalContEq (MkIsCubical n) = Refl
+  isCubicalContEq : IsCubical d -> d = Vect (dim {c=d})
+  isCubicalContEq (Via n) = Refl
 
+||| A container is foldable if there exists a lens `c =%> List`
+||| Notably, this isn't required to be an isomorphism. For instance, binary 
+||| trees (with ordered branches) are foldable, but not isomorphic to lists.
+public export
+IsFoldable : Cont -> Type
+IsFoldable c = MapTo List c
 
-namespace IsFoldable
-  ||| A container is foldable if there exists a dependent lens `c =%> List`
-  ||| Notably, we do not require this to be an isomorphism. For instance, 
-  ||| binary trees are foldable, but not not isomorphic to lists.
-  public export
-  interface IsFoldable (0 c : Cont) where
-    constructor MkIsFoldable
-    mapToList : c =%> ((n : Nat) !> Fin n)
+||| A container is summable if there is a dependent lens `c =%> Bag`. That is,
+||| a fold whose order does not matter.
+public export
+IsSummable : Cont -> Type
+IsSummable c = MapTo Bag c
 
-  public export
-  IsFoldable c => Foldable (Ext c) where
-    foldr @{(MkIsFoldable toL)} f z e = foldr
-      (\p, acc => f (index e p) acc)
-      z
-      (tabulate (toL.bwd (shapeExt e)))
+||| The lens of a foldable container into `List`
+||| Ideally we would not need this, but `id <!> c` does not reduce to `c`
+public export
+mapToList : IsFoldable c => c =%> List
+mapToList @{Along toL} = !% (%! toL)
 
+public export
+mapToBag : IsSummable c => c =%> Bag
+mapToBag @{Along toB} = !% (%! toB)
 
-  {-
-  todo there is a relationship:
-  IsFoldable <=> IsFinite
-  IsCubical => IsFoldable
-  -}
-
-
+||| A container is enumerable when at every shape its positions are in
+||| bijection with `Fin n`, i.e. there is a cartesian morphism into `List`
+||| Are these lawful traversables? Every position is visited exactly once, in a 
+||| chosen order.  Unlike with `IsFoldable`, positions can neither be skipped 
+||| nor repeated
+public export
+interface IsEnumerable (0 c : Cont) where
+  constructor MkIsEnum
+  enumerate : c =:> List
 
 namespace IsConcrete
   ||| Many datatypes in the Idris standard library are already

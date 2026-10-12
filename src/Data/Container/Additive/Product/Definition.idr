@@ -305,10 +305,17 @@ namespace Morphism
   (!*) : c =%> d -> !* c =%+> !* d
   (!*) f = (!%) (Bag <!> f)
 
+||| A bag of positions is added up using their monoid structure
+||| This is the underlying lens of the unit of `UC -| !*`, i.e. of
+||| `addContTranspose id`.
+public export
+sumBw : (c : AddCont) -> UC c =%> Bag <!> UC c
+sumBw c = !% \x => (x ** sum @{UMon c x})
+
 ||| Forward direction of the hom-set isomorphism of the Cont-AddCont adjunction
 public export
 addContTranspose : {c : AddCont} -> UC c =%> d -> c =%+> !* d
-addContTranspose f = !% (sumBw @{mon c} %>> Bag <!> f)
+addContTranspose f = !% (sumBw c %>> Bag <!> f)
 
 ||| Backward direction of the hom-set isomorphism of the Cont-AddCont adjunction
 public export

@@ -488,12 +488,6 @@ namespace TensorInstances
       Eq (Tensor shape a) where
         (==) = tensorEq
 
-    -- Turns out only this is sufficient for the setC function to work
-    %hint
-    public export
-    interfacePosEq : {n : Nat} -> InterfaceOnPositions (Cont.Tensor [Vect n]) Eq
-    interfacePosEq = MkI %search -- follows from Data.DPair L57
-
   -- public export
   -- vectInterfacePos : {n : Nat} -> InterfaceOnPositions (Vect n) DecEq
   -- vectInterfacePos = MkI

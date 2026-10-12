@@ -10,7 +10,6 @@ import Data.Vect.Quantifiers
 import Data.Container.Base.Object.Definition
 import Data.Container.Base.Morphism.Definition
 import Data.Container.Base.Extension.Definition
-import Data.Container.Base.Properties.Definition
 import Data.Container.Base.Endofunctor.Definition
 
 

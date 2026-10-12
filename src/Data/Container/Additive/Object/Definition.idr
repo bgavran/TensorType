@@ -37,12 +37,6 @@ namespace NotExposingType
   UMon : (c : AddCont) -> (s : c.Shp) -> ComMonoid
   UMon c s = c.Pos s
 
-||| The monoid structure on positions, packaged as an interface section on the
-||| underlying container (compatibility with the unbundled presentation)
-public export
-mon : (c : AddCont) -> InterfaceOnPositions (UC c) ComMonoid
-mon c = MkI (\s => UMon c s)
-
 public export
 (.Plus) : (c : AddCont) -> (s : c.Shp) -> c.PosSet s -> c.PosSet s -> c.PosSet s
 (.Plus) c s = plus (UMon c s)

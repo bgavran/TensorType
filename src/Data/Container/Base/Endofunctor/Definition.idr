@@ -5,7 +5,6 @@ import public Decidable.Equality
 
 import Data.Container.Base.Object.Definition
 import Data.Container.Base.Morphism.Definition
-import Data.Container.Base.Properties.Definition
 
 import Data.ComMonoid
 
@@ -69,13 +68,6 @@ public export
 joinBw : Monad m => m <!> c =%> m <!> (m <!> c)
 joinBw = !% \x => (x ** join)
 
-||| A bag of positions is added up using their monoid structure
-||| This is the underlying lens of the unit of `UC -| !*`, i.e. of
-||| `addContTranspose id`.
-public export
-sumBw : InterfaceOnPositions c ComMonoid => c =%> Bag <!> c
-sumBw @{MkI i} = !% \x => (x ** sum @{i x})
-
 -- todo which other adjunction structure maps should be here?
 
 
@@ -111,15 +103,7 @@ namespace FunctorsOnCont
 
 ||| A pointed container additionally in its shape contains the data of also one
 ||| distinguished position
-||| Unlike with `Deriv` below, decidability is not needed
+||| Unlike with `Deriv`, decidability is not needed
 public export
 Pointed : Cont -> Cont
 Pointed c = (dp : DPair c) !> c.Pos (fst dp)
-
-||| The derivative of a container `c` can be thought of as a shape `s : c.Shp`, 
-||| a distinguished position `p : c.Pos s`, and the set of *all other positions*
-||| Technically, this is an endofunctor only on cartesian containers
-public export
-Deriv : (c : Cont) -> IsDecidable c => Cont
-Deriv c @{MkI dec}
-  = ((s ** p) : DPair c) !> (p' : c.Pos s ** IsNo (decEq @{dec s} p p'))

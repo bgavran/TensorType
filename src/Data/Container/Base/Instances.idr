@@ -4,6 +4,7 @@ module Data.Container.Base.Instances
 import public Data.Container.Base.Object.Instances
 import public Data.Container.Base.Extension.Instances
 import public Data.Container.Base.Morphism.Instances
+import public Data.Container.Base.Properties.Definition
 import public Data.Container.Base.Properties.Instances
 import public Data.Container.Base.Endofunctor.Instances
 

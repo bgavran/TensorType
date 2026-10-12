@@ -13,6 +13,14 @@ import Data.Container.Base.Object.Instances
 
 import Misc
 
+||| The derivative of a container `c` can be thought of as a shape `s : c.Shp`, 
+||| a distinguished position `p : c.Pos s`, and the set of *all other positions*
+||| Technically, this is an endofunctor only on cartesian containers
+public export
+Deriv : (c : Cont) -> IsDecidable c => Cont
+Deriv c @{dec}
+  = ((s ** p) : DPair c) !> (p' : c.Pos s ** IsNo (decEq @{GetInterface dec s} p p'))
+
 {-------------------------------------------------------------------------------
 Distributive laws between endofunctors and other stuff
 -------------------------------------------------------------------------------}
@@ -71,8 +79,8 @@ compositionBangBack = !% \ex => (shapeExt ex <| (index ex) . pure **
 ||| Can also be written in terms of unplug and plug
 public export
 setLens : IsDecidable c => Pointed c >*< Scalar =%> c
-setLens @{MkI dec} = !% \((s ** p), ()) => (s **
-  \p' => case decEq @{dec s} p p' of 
+setLens @{dec} = !% \((s ** p), ()) => (s **
+  \p' => case decEq @{GetInterface dec s} p p' of
         No _ => Left p'
         Yes _ => Right ())
 

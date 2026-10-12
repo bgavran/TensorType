@@ -661,6 +661,11 @@ record Iso (a, b : Type) where
   forwardBackward : (x : a) -> backward (forward x) = x
   backwardForward : (y : b) -> forward (backward y) = y
 
+||| The identity isomorphism
+public export
+idIso : Iso a a
+idIso = MkIso id id (\_ => Refl) (\_ => Refl)
+
 -- ||| Duplicate of `index` from Data.Vect.Quantifiers.All, but with an
 -- ||| additional `public` export modifier
 public export

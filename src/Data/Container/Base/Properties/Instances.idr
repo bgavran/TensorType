@@ -11,6 +11,7 @@ import Data.Container.Base.Object.Definition
 import Data.Container.Base.Morphism.Definition
 import Data.Container.Base.Extension.Definition
 import Data.Container.Base.Properties.Definition
+import Data.Container.Base.Endofunctor.Definition
 import Data.Container.Base.Product.Definition
 
 import Data.Container.Base.Object.Instances
@@ -20,18 +21,203 @@ import Data.Container.Base.Morphism.Instances
 import Data.Trees
 import Data.Functor.Products
 import Data.Functor.Algebra
+import Data.Layout
 import Data.Container.Base.TreeUtils
 
 import Misc
 
 %hide Data.Vect.fromList
 %hide Prelude.toList
+%hide Prelude.(<|)
+
+
+{-------------------------------------------------------------------------------
+Instances of the properties for the zoo, and what follows from them
+-------------------------------------------------------------------------------}
+
+public export
+EmptyExt : {0 c : Cont} -> IsNaperian c => Ext c Unit
+EmptyExt @{Via _} = () <| \_ => ()
+
+public export
+liftA2ConstCont : IsNaperian c => Ext c a -> Ext c b -> Ext c (a, b)
+liftA2ConstCont @{Via _} ea eb = () <| (\x => (index ea x, index eb x))
+
+||| The extension of any Naperian container is an applicative functor
+||| Examples: Scalar, Pair, Vect n, Stream
+||| But not all Applicatives are Naperian, examples being: List and Maybe
+public export
+IsNaperian c => Applicative (Ext c) where
+  pure @{Via _} a = () <| \_ => a
+  (<*>) fs xs @{Via _} = uncurry ($) <$> liftA2ConstCont fs xs
+
+namespace CompositionTensorInteraction
+  ||| Going the other way is impossible without any constraints
+  ||| Two possibilities on constraints (this, and `compToTensor2`)
+  public export
+  compToTensor : IsNaperian d =>
+    c >@ d =%> c >< d
+  compToTensor @{(Via dPos)} = !% \(cShp <| content) =>
+    ((cShp,()) ** \(cPos, dPos) => (cPos ** dPos))
+
+  public export
+  compToTensor2 : IsFlat c =>
+    c >@ d =%> c >< d
+  compToTensor2 @{(Via cShp)} = !% \(cShp <| dShp) =>
+    ((cShp, dShp ()) ** \((), dPos') => (() ** dPos'))
+
+namespace Transpose
+  public export
+  transposeLens : IsNaperian c => IsNaperian d => c >@ d =%> d >@ c
+  transposeLens @{Via _} @{Via _} = !% \(() <| _) =>
+    (() <| (\_ => ()) ** \(dInd ** cInd) => (cInd ** dInd))
+
+  public export
+  transpose : IsNaperian c => IsNaperian d =>
+    Tensor [c, d] =%> Tensor [d, c]
+  transpose @{Via _} @{Via _} = wrapIntoMatrix transposeLens
+
+  -- ||| experiment, does this work?
+  -- public export
+  -- transposeMiddle : IsNaperian c => IsNaperian e =>
+  --   Tensor [c, e, d] =%>
+
+
+  --||| Transpose a given element to the front of the shape
+  --public export
+  --transposeToFront : (shape : List Cont) ->
+  --  (c : Cont) ->
+  --  (elem : Elem c shape) =>
+  --  All IsNaperian (dropAfterElem shape elem) =>
+  --  Tensor shape =%> Tensor (c :: dropElem shape elem)
+  --transposeToFront (_ :: xs) c @{Here} @{allNap} = ?transposeToFront_rhs_0
+  --transposeToFront (y :: xs) c @{(There x)} @{allNap} = ?transposeToFront_rhs_1
+
+namespace CubicalHelpers
+  ||| Helper function allowing `shape` in `cubicalShape` to have zero annotation
+  public export
+  cubicalShapeHelper : All IsCubical shape -> List Nat
+  cubicalShapeHelper [] = []
+  cubicalShapeHelper (ic :: ics) = dimHelper ic :: cubicalShapeHelper ics
+    
+  ||| Given a list of cubical containers, return the list of their dimensions
+  public export
+  cubicalShape : (0 shape : List Cont) -> All IsCubical shape => List Nat
+  cubicalShape _ @{ac} = cubicalShapeHelper ac
+    
+  ||| Size of a list of cubical containers is the product of their dimensions
+  public export
+  size : (0 shape : List Cont) -> All IsCubical shape => Nat
+  size shape = prod (cubicalShape shape)
+
+||| Layout-aware dependent lens flattening a cubical tensor
+public export
+flattenCubical : {shape : List Cont} ->
+  (ac : All IsCubical shape) =>
+  LayoutOrder ->
+  Tensor shape =%> Vect (size shape)
+flattenCubical {shape = [], ac=[]} _ = !% \() => (() ** \FZ => ())
+flattenCubical {shape = (_ :: ss), ac=(Via n :: as)} lo
+  = !% \(() <| t) => (() ** \idx =>
+      let (!% recBackward) = flattenCubical {shape = ss} lo
+          (i, rest) = splitFinProd lo idx
+          (_ ** backRec) = recBackward (t i)
+      in (i ** backRec rest))
+
+||| Layout-aware dependent lens unflattening a tensor
+public export
+unflattenCubical : {shape : List Cont} ->
+  (ac : All IsCubical shape) =>
+  LayoutOrder ->
+  Vect (size shape) =%> Tensor shape
+unflattenCubical {shape = [], ac=[]} lo = !% \() => (() ** \() => FZ)
+unflattenCubical {shape = (_ :: ss), ac=((Via n) :: as)} lo =
+  let (!% f) = unflattenCubical {shape = ss} lo
+      (innerShape ** innerBack) = f ()
+  in !% \() => ((() <| \_ => innerShape) ** (\(cp ** restPos) =>
+    indexFinProd lo cp (innerBack restPos)))
+
+||| This is simply a rewrite!
+public export
+recastFlattenedTensor : {oldShape, newShape : List Cont} ->
+  (oldAc : All IsCubical oldShape) => (newAc : All IsCubical newShape) =>
+  {auto prf : size oldShape = size newShape} ->
+  Vect (size oldShape) =%> Vect (size newShape)
+recastFlattenedTensor = !% \() => (() ** \i => rewrite prf in i)
+
+||| Reshapes a cubical tensor by first flattening it to a linear representation,
+||| casting the type to the new shape, and then unflattening it back
+||| Is generic over layout order
+public export
+reshape : {oldShape, newShape : List Cont} ->
+  (oldAc : All IsCubical oldShape) => (newAc : All IsCubical newShape) =>
+  LayoutOrder ->
+  {auto prf : size oldShape = size newShape} ->
+  Tensor oldShape =%> Tensor newShape
+reshape lo = flattenCubical lo
+         %>> recastFlattenedTensor
+         %>> unflattenCubical lo
+
+||| Functionality for transforming a tensor into a hancock tensor
+namespace TransformIntoHancockTensor
+  public export
+  hancockTensorNaperianShape : {shape : List Cont} ->
+    (allNap : All IsNaperian shape) =>
+    (HancockTensor shape).Shp
+  hancockTensorNaperianShape {shape = []} = ()
+  hancockTensorNaperianShape {allNap = ((Via _) :: _)}
+    = ((), hancockTensorNaperianShape)
+  
+  ||| Helper to compute the unique shape of Tensor when all containers are Naperian
+  public export
+  tensorNaperianShape : {shape : List Cont} ->
+    (allNap : All IsNaperian shape) =>
+    (Tensor shape).Shp
+  tensorNaperianShape {shape = []} = ()
+  tensorNaperianShape {shape = (_ :: ss), allNap = ((Via _) :: ns)}
+    = () <| \_ => tensorNaperianShape {shape = ss} @{ns}
+  
+  ||| Analogous to `naperianPosEq` but for the HancockTensor structure
+  ||| We can't use `naperianPosEq` directly because the shape of the resulting
+  ||| container is not Unit, it is only isomorphic to it
+  public export
+  hancockTensorPosEq : {shape : List Cont} ->
+    (allNap : All IsNaperian shape) =>
+    {0 x, y : (HancockTensor shape).Shp} ->
+    (HancockTensor shape).Pos x = (HancockTensor shape).Pos y
+  hancockTensorPosEq {allNap = []} = Refl
+  hancockTensorPosEq {allNap = ((Via _) :: _)} = cong2 Pair
+    (naperianPosEq @{Via _} {x=()} {y=()})
+    hancockTensorPosEq
+  
+  ||| Tensor shape is isomorphic to HancockTensor shape when all containers in
+  ||| the shape are Naperian. This is one arrow of that isomorphism
+  public export
+  transformToHancock : {shape : List Cont} ->
+    All IsNaperian shape =>
+    Tensor shape =%> HancockTensor shape
+  transformToHancock {shape = []} = id
+  transformToHancock {shape = (_ :: _)} @{((Via _) :: _)}
+    = !% \(() <| content) => (((), hancockTensorNaperianShape) **
+       \(p, restPos) =>
+         let (_ ** recBack) = (%!) transformToHancock (content p)
+         in (p ** recBack $ replace {p = id} hancockTensorPosEq restPos))
+
+  public export
+  transformFromHancock : {shape : List Cont} ->
+    All IsNaperian shape =>
+    HancockTensor shape =%> Tensor shape
+  transformFromHancock {shape = []} = id
+  transformFromHancock {shape = (Nap s :: ss)} @{((Via s) :: _)}
+    = !% \((), hShp) =>
+        let (tShp ** recBack) = (%!) transformFromHancock hShp
+        in (() <| (\_ => tShp) ** \(p ** restPos) => (p, recBack restPos))
 
 public export
 IsConcrete Scalar where
   func = id
   functorInstance = MkFunctor id
-  fromConcreteTy = pure
+  fromConcreteTy x = () <| \_ => x
   toConcreteTy (() <| f) = f ()
 
 public export
@@ -87,19 +273,8 @@ public export
 
 
 ||| For recursive types we need to extract out the conversion functions
+||| They live in `Extension.Instances`, as they use no property
 namespace List
-  public export
-  fromList : List a -> List' a
-  fromList [] = (0 <| absurd)
-  fromList (x :: xs) = let (l <| c) = fromList xs
-                       in (S l <| cons x c)
-
-  public export
-  toList : List' a -> List a
-  toList (0 <| _) = []
-  toList l@((S k) <| ind) = head ind :: toList
-    (assert_smaller l (k <| tail ind))
-
   public export
   IsConcrete List where
     func = List
@@ -108,14 +283,6 @@ namespace List
     toConcreteTy = toList
 
 namespace Vect
-  public export
-  fromVect : Vect n a -> Vect' n a
-  fromVect v = () <| \i => index i v
-  
-  public export
-  toVect : {n : Nat} -> Vect' n a -> Vect n a
-  toVect (_ <| index) = Vect.Fin.tabulate index
-
   -- public export
   -- test : {n : Nat} -> IsConcrete (Vect n)
   -- test = MkIsConcrete
@@ -141,24 +308,6 @@ namespace Grid
 
 namespace BinTreeSame
   public export
-  fromBinTreeSame : BinTreeSame a -> BinTree' a
-  fromBinTreeSame (Leaf x) = LeafS <| \_ => x
-  fromBinTreeSame (Node x lt rt) =
-    let (fblt, fbrt) = (fromBinTreeSame lt, fromBinTreeSame rt)
-    in NodeS (shapeExt fblt) (shapeExt fbrt) <| \case
-        AtNode => x
-        GoLeft posL => index fblt posL
-        GoRight posR => index fbrt posR
-
-  public export
-  toBinTreeSame : BinTree' a -> BinTreeSame a
-  toBinTreeSame (LeafS <| index) = Leaf (index AtLeaf)
-  toBinTreeSame n@(NodeS lt rt <| index) =
-    Node (index AtNode)
-         (toBinTreeSame $ assert_smaller n (lt <| index . GoLeft))
-         (toBinTreeSame $ assert_smaller n (rt <| index . GoRight))
-
-  public export
   IsConcrete BinTree where
     func = BinTreeSame
     functorInstance = %search
@@ -166,30 +315,6 @@ namespace BinTreeSame
     toConcreteTy = toBinTreeSame
 
 namespace BinTreeNode
-  public export
-  fromTreeHelper : BinTreePosNode LeafS -> a
-  fromTreeHelper AtNode impossible
-  fromTreeHelper (GoLeft x) impossible
-  fromTreeHelper (GoRight x) impossible
-  
-  public export
-  fromBinTreeNode : BinTreeNode a -> BinTreeNode' a
-  fromBinTreeNode (Leaf ()) = LeafS <| fromTreeHelper
-  fromBinTreeNode (Node node leftTree rightTree)
-    = let (fblt, fbrt) = (fromBinTreeNode leftTree, fromBinTreeNode rightTree)
-      in (NodeS (shapeExt fblt) (shapeExt fbrt) <| \case
-            AtNode => node
-            GoLeft posL => index fblt posL
-            GoRight posR => index fbrt posR)
-
-  public export
-  toBinTreeNode : BinTreeNode' a -> BinTreeNode a
-  toBinTreeNode (LeafS <| index) = Leaf ()
-  toBinTreeNode n@(NodeS lt rt <| index) = 
-    Node (index AtNode)
-         (toBinTreeNode $ assert_smaller n (lt <| index . GoLeft))
-         (toBinTreeNode $ assert_smaller n (rt <| index . GoRight))
-
   public export
   IsConcrete BinTreeNode where
     func = BinTreeNode
@@ -199,28 +324,11 @@ namespace BinTreeNode
 
 namespace BinTreeLeaf
   public export
-  fromBinTreeLeaf : BinTreeLeaf a -> BinTreeLeaf' a
-  fromBinTreeLeaf (Leaf leaf) = LeafS <| \_ => leaf
-  fromBinTreeLeaf (Node node lt rt) =
-    let (fblt, fbrt) = (fromBinTreeLeaf lt, fromBinTreeLeaf rt)
-    in NodeS (shapeExt fblt) (shapeExt fbrt) <| \case
-          GoLeft posL => index fblt posL
-          GoRight posR => index fbrt posR
-
-  public export
-  toBinTreeLeaf : BinTreeLeaf' a -> BinTreeLeaf a
-  toBinTreeLeaf (LeafS <| content) = Leaf (content AtLeaf)
-  toBinTreeLeaf n@(NodeS l r <| content) =
-    Node' (toBinTreeLeaf $ assert_smaller n (l <| content . GoLeft))
-          (toBinTreeLeaf $ assert_smaller n (r <| content . GoRight))
-
-  public export
   IsConcrete BinTreeLeaf where
     func = BinTreeLeaf
     functorInstance = %search
     fromConcreteTy = fromBinTreeLeaf
     toConcreteTy = toBinTreeLeaf
-
 
 -- Decidable instances for common containers
 
@@ -277,41 +385,9 @@ tensorIsDecidable @{[]} = %search
 tensorIsDecidable @{cd :: cds}
   = compositionIsDecidable @{cd} @{tensorIsDecidable @{cds}}
 
-public export
-IsFoldable List where
-  mapToList = id
-
-public export
-IsFoldable List1 where
-  mapToList = !% \n => (S n ** id)
-
-public export
-{n : Nat} -> IsFoldable (Vect n) where
-  mapToList = vectToList
-
-||| A foldable container restricted to one of its shapes is foldable
-public export
-foldableAt : IsFoldable c => (s : c.Shp) -> IsFoldable (At c s)
-foldableAt s = MkIsFoldable (atShape s %>> mapToList {c})
-
-||| Requires making a choice of traversal order
-||| Is there a good reason to prefer a particular order?
-public export
-IsFoldable BinTreeLeaf where
-  mapToList = inorder
-
-public export
-IsFoldable BinTreeNode where
-  mapToList = inorder
-
-public export
-IsFoldable BinTree where
-  mapToList = inorder
-
-||| A non-empty list of shape `n` is a vector of length `S n`
-public export
-Traversable (Ext List1) where
-  traverse f (n <| g) = (\v => n <| index (fromVect v)) <$> traverse f (toVect (() <| g))
+-- public export
+-- binTreePosInterface : InterfaceOnPositions BinTree DecEq
+-- binTreePosInterface = MkI
 
 
 -- old
@@ -327,142 +403,106 @@ Traversable (Ext List1) where
 -- mapIndexPreserve (x :: xs) (FS j) = mapIndexPreserve xs j
 
 
--- the idea is that the bottom part of this file will slowly be made obsolete 
--- as more and more things are implemented in terms of containers
-
-
-||| Any finite container (i.e. whose each set of positions is finite) can be
-||| given an algebra instance simply by summing up all the concrete values
+||| The extension of a foldable container folds in its chosen order
 public export
-algebraFinite : 
-  (0 c : Cont) -> (isFinite : IsFinite c) =>
-  (0 a : Type) -> Num a =>
-  Algebra (Ext c) a
-algebraFinite c {isFinite = MkI p} _
-  = MkAlgebra $ \(shp <| content) => reduce $ values @{p shp} <&> content
+IsFoldable c => Foldable (Ext c) where
+  foldr @{Along toL} f z e = foldr
+    (\p, acc => f (index e p) acc)
+    z
+    (tabulate (toL.bwd (shapeExt e)))
 
+||| Every enumeration is a fold, forgetting the map from positions to indices
+%hint
+public export
+enumerableIsFoldable : IsEnumerable c => IsFoldable c
+enumerableIsFoldable @{MkIsEnum e} = Along (!% (%! ((:%) e)))
+
+||| Lists, non-empty lists and vectors number their own positions
+%hint
+public export
+listIsEnumerable : IsEnumerable List
+listIsEnumerable = MkIsEnum (!: \n => (n ** idIso))
+
+%hint
+public export
+list1IsEnumerable : IsEnumerable List1
+list1IsEnumerable = MkIsEnum (!: \n => (S n ** idIso))
+
+%hint
+public export
+vectIsEnumerable : {n : Nat} -> IsEnumerable (Vect n)
+vectIsEnumerable = MkIsEnum (!: \() => (n ** idIso))
+
+||| Forgetting the order of a list gives a bag
+public export
+forgetOrder : List =%> Bag
+forgetOrder = !% \n => (n ** toFin)
+
+||| Every foldable container is summable, through the order its fold chose
+%hint
+public export
+foldableIsSummable : IsFoldable c => IsSummable c
+foldableIsSummable @{Along toL} = Along (toL %>> forgetOrder)
+
+||| A foldable container restricted to one of its shapes is foldable
+public export
+foldableAt : IsFoldable c => (s : c.Shp) -> IsFoldable (At c s)
+foldableAt s = Along (atShape s %>> mapToList)
+
+||| Every extension of a foldable container indexes as a list
+public export
+index : IsFoldable c => Pick c a =%> List
+index = pick %>> mapToList
+
+||| Requires making a choice of traversal order
+||| Is there a good reason to prefer a particular order?
+||| The index of a position and the two round trips are not written yet
+%hint
+public export
+binTreeLeafIsEnumerable : IsEnumerable BinTreeLeaf
+binTreeLeafIsEnumerable = MkIsEnum (!: \b => (numLeaves b ** MkIso
+  ?inorderForward_binTreeLeaf (BinTreeLeaf.inorderBackward b)
+  ?inorderForwardBackward_binTreeLeaf ?inorderBackwardForward_binTreeLeaf))
+
+%hint
+public export
+binTreeNodeIsEnumerable : IsEnumerable BinTreeNode
+binTreeNodeIsEnumerable = MkIsEnum (!: \b => (numNodes b ** MkIso
+  ?inorderForward_binTreeNode (BinTreeNode.inorderBackward b)
+  ?inorderForwardBackward_binTreeNode ?inorderBackwardForward_binTreeNode))
+
+%hint
+public export
+binTreeIsEnumerable : IsEnumerable BinTree
+binTreeIsEnumerable = MkIsEnum (!: \b => (numNodesAndLeaves b ** MkIso
+  ?inorderForward_binTree (BinTree.inorderBackward b)
+  ?inorderForwardBackward_binTree ?inorderBackwardForward_binTree))
+
+||| Any foldable functor can be given an algebra by summing its values
 public export
 algebraFoldable : {f : Type -> Type} ->
   Foldable f => Num a => Algebra f a
 algebraFoldable = MkAlgebra sum
 
+||| The extension of a foldable container, as an instance so that search finds
+||| it, for `Vect'`, `List'`, the trees, and any container with `IsFoldable`
+public export
+IsFoldable c => Num a => Algebra (Ext c) a where
+  reduce = sum
 
-namespace VectInstances
-  public export
-  {n : Nat} -> Eq x => Eq (Vect' n x) where
-    v == v' = (toVect v) == (toVect v')
- 
-  -- public export
-  -- {n : Nat} -> Show x => Show (Vect' n x) where
-  --   show v = show (toVect v)
+public export
+argmax : Ord a => (isF : IsFoldable c) => (ne : IsNonEmpty c) =>
+  (e : Ext c a) -> c.Pos (shapeExt e)
+argmax e = foldr
+  (\p, best => if index e p >= index e best then p else best)
+  (GetInterface ne (shapeExt e))
+  positionsCont
 
-  public export
-  {n : Nat} -> Num a => Algebra (Vect' n) a where
-    reduce v = reduce (toVect v)
-
-  public export
-  {n : Nat} -> Traversable (Vect' n) where
-    traverse f v = fromVect <$> traverse f (toVect v)
-
-  -- Applicative and Naperian instance follow because the set of shapes is ()
-
-  -- analogus to Misc.takeFin, but for Vect'
-  public export 
-  take : {n : Nat} ->
-    (s : Fin (S n)) -> Vect' n a -> Vect' (finToNat s) a
-  take s = fromVect . takeFin s . toVect
-
-  public export
-  (++) : {n : Nat} -> Vect' n a -> Vect' m a -> Vect' (n + m) a
-  (++) v1 v2 = () <| \i => case splitSum i of
-    Left i1 => index v1 i1
-    Right i2 => index v2 i2
-
-{---
-Ideally, all instances would be defined in terms of ConcreteTypes,
-but there are totality checking issues with types whose size isn't known
-at compile time
----}
-namespace ListInstances
-  ||| Is there a different way to convince Idris' totality checker?
-  public export
-  Eq a => Eq (List' a) where
-    l == l' = assert_total ((toList l) == (toList l'))
-
-  -- ||| Is there a different way to convince Idris' totality checker?
-  -- public export
-  -- Show a => Show (List' a) where
-  --   show x = assert_total (show (toList x))
-
-  public export
-  Num a => Algebra List' a where
-    reduce = reduce {f=List} . toList
-
-
-  -- some attempts at fixing partiality below
-  -- public export
-  -- showListHelper : Show a => List' a -> String
-  -- showListHelper (0 <| _) = ""
-  -- showListHelper (1 <| index) = show $ index FZ
-  -- showListHelper ((S k) <| index)
-  --   = let (s, rest) = headTail index
-  --     in show s ++ ", " ++ showListHelper (k <| rest)
-
-  -- public export
-  -- showListHelper : Show a => List' a -> String
-  -- showListHelper x = show (toList x)
-
-
-namespace BinTreeInstances
-  ||| Is there a different way to convince Idris' totality checker?
-  public export
-  Eq a => Eq (BinTree' a) where
-    t == t' = assert_total (toBinTreeSame t == toBinTreeSame t')
-
-  -- ||| Is there a different way to convince Idris' totality checker?
-  -- public export
-  -- Show a => Show (BinTree' a) where
-  --   show = assert_total (show . toBinTreeSame)
-
-  ||| Summing up nodes and leaves of the tree given by the Num a structure
-  public export
-  Num a => Algebra BinTree' a where
-    reduce = reduce {f=BinTreeSame} . toBinTreeSame
-
-  -- public export
-  -- binTreePosInterface : InterfaceOnPositions BinTree DecEq
-  -- binTreePosInterface = MkI
-
-
-namespace BinTreeLeafInstances
-  ||| Is there a different way to convince Idris' totality checker?
-  public export
-  Eq a => Eq (BinTreeLeaf' a) where
-    t == t' = assert_total (toBinTreeLeaf t == toBinTreeLeaf t')
-
-  -- ||| Is there a different way to convince Idris' totality checker?
-  -- public export
-  -- Show a => Show (BinTreeLeaf' a) where
-  --   show = assert_total (show . toBinTreeLeaf)
-
-  ||| Summing up leaves of the tree given by the Num a structure
-  public export
-  Num a => Algebra BinTreeLeaf' a where
-    reduce = reduce {f=BinTreeLeaf} . toBinTreeLeaf
-
-
-namespace BinTreeNodeInstances
-  ||| Is there a different way to convince Idris' totality checker?
-  public export
-  Eq a => Eq (BinTreeNode' a) where
-    t == t' = assert_total (toBinTreeNode t == toBinTreeNode t')
-
-  -- ||| Is there a different way to convince Idris' totality checker?
-  -- public export
-  -- Show a => Show (BinTreeNode' a) where
-  --   show = assert_total (show . toBinTreeNode)
-
-  ||| Summing up nodes of the tree given by the Num a structure
-  public export
-  Num a => Algebra BinTreeNode' a where
-    reduce = reduce {f=BinTreeNode} . toBinTreeNode
+||| Traversal through the vector of contents, the shape-and-contents
+||| representation of a finitary container
+public export
+IsEnumerable c => Traversable (Ext c) where
+  traverse f (sh <| ind) =
+    let (n ** iso) = (:!) enumerate sh
+    in (\v => sh <| index (fromVect v) . iso.forward)
+         <$> traverse f (toVect (() <| ind . iso.backward))

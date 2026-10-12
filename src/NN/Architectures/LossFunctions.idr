@@ -37,10 +37,10 @@ namespace Combinators
   ||| The loss of a section against a labelled branch
   ||| We always choose the branch the label chooses
   public export
-  chosenBranchLoss : {n : Nat} -> {branches : Vect' n AddCont} ->
-    {0 lc : AddCont} ->
-    (losses : (i : Fin n) -> Loss (index branches i) lc) ->
-    Loss (Section (index branches)) lc
+  chosenBranchLoss : {c : Cont} -> {branches : c.filledWith AddCont} ->
+    {0 l : AddCont} ->
+    (losses : (i : c.Pos (shapeExt branches)) -> Loss (index branches i) l) ->
+    Loss (Section (index branches)) l
   chosenBranchLoss losses = MkPara (AddContDPair (\i => Param (losses i)))
     (evalSection {a = index branches} {p = \i => Param (losses i)}
       %+>> copair (\i => Run (losses i)))
@@ -48,13 +48,22 @@ namespace Combinators
   ||| Same as above, except we take an already chosen branch, and fail if 
   ||| label disagrees with it
   public export
-  matchedBranchLoss : {n : Nat} -> {branches : Vect' n AddCont} ->
-    {0 lc : AddCont} ->
-    (losses : (i : Fin n) -> Loss (index branches i) lc) ->
-    Loss (Coproduct branches) (Maybe lc)
+  matchedBranchLoss : {c : Cont} -> (dec : IsDecidable c) =>
+    {branches : c.filledWith AddCont} -> {0 l : AddCont} ->
+    (losses : (i : c.Pos (shapeExt branches)) -> Loss (index branches i) l) ->
+    Loss (Coproduct branches) (Maybe l)
   matchedBranchLoss losses = MkPara (AddContDPair (\i => Param (losses i)))
-    (matchIndex {b = index branches} {l = \i => Param (losses i)}
+    (matchIndex @{GetInterface dec (shapeExt branches)}
+      {b = index branches} {l = \i => Param (losses i)}
       %+>> Maybe (copair (\i => Run (losses i))))
+
+
+  ||| Given a made choice, pair with with a dirac delta distribution
+  public export
+  madeChoice : {ax : Axis} -> IsNaperian ax => DecEq (Log ax) =>
+    {f : Log ax -> AddCont} ->
+    AddContDPair f =%+> Simplex ax >*< AddContDPair f
+  madeChoice = !%+ \ix => ((diracDelta (fst ix), ix) ** snd)
 
 namespace Instances
   public export
@@ -68,12 +77,13 @@ namespace Instances
   MeanSquaredError = MkPara (Const (Tensor [n] a)) meanSquaredDifference
 
   ||| The payoff object is the rank-0 tensor, not `Double`
+  ||| Defined for Naperian axes, where the prediction and the label have one shape
   ||| TODO the prediction and the label can be distributions of different shapes!
-  ||| Right now they're restricted to cubical axes
   public export
-  softargmaxCrossEntropyLogits : {a : Axis} -> (ic : IsCubical a) =>
+  softargmaxCrossEntropyLogits : {a : Axis} ->
+    (nap : IsNaperian a) => IsFoldable a.cont =>
     Simplex a >*< Simplex a =%+> Const (Tensor [] Double)
-  softargmaxCrossEntropyLogits @{MkIsCubical _ n} = !%+ \(predicted, labels) =>
+  softargmaxCrossEntropyLogits @{MkIsNaperian _ pos} = !%+ \(predicted, labels) =>
     let logSoftargmaxLogits = logSoftargmax predicted.logits
         targetProbs = softargmaxImpl labels.logits
         out = - dot logSoftargmaxLogits targetProbs
@@ -83,7 +93,8 @@ namespace Instances
        (extract l' *) <$> negate (targetProbs * ((+ extract out) <$> logSoftargmaxLogits))))
 
   public export
-  SoftargmaxCrossEntropyLogits : {a : Axis} -> (ic : IsCubical a) =>
+  SoftargmaxCrossEntropyLogits : {a : Axis} ->
+    IsNaperian a => IsFoldable a.cont =>
     Loss (Simplex a) (Const (Tensor [] Double))
   SoftargmaxCrossEntropyLogits
     = MkPara (Simplex a) softargmaxCrossEntropyLogits

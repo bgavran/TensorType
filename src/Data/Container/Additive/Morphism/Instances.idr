@@ -92,8 +92,8 @@ namespace CategoricalProduct
   materialiseCont : Materialise c.Shp =>
     (ip : InterfaceOnPositions c Materialise) =>
     c =%+> c
-  materialiseCont {ip=MkI i} = !%+ \x => (materialise x ** \x' =>
-    materialise @{i x} (replace {p=c.PosSet} materialiseIsId x'))
+  materialiseCont = !%+ \x => (materialise x ** \x' =>
+    materialise @{GetInterface ip x} (replace {p=c.PosSet} materialiseIsId x'))
 
   ||| Generally used for pairing up parameters
   public export
@@ -211,7 +211,7 @@ namespace CompositionProductAction
   ||| Backwards pass is ComMon-homomorphism on the nose
   public export
   unitor : {c : AddCont} -> c =%+> Scalar >-+@ c
-  unitor = !% sumBw @{mon c} %>> (Bag <!> leftUnitInv {c=UC c})
+  unitor = !% sumBw c %>> (Bag <!> leftUnitInv {c=UC c})
 
   ||| Backwards map is a ComMon-homomorphism only through the quotient
   public export
@@ -383,7 +383,7 @@ namespace Costate
   public export
   constantOne : {c : AddCont} ->
     InterfaceOnPositions c Num => Costate c
-  constantOne @{MkI p} = toCostate (\x => let numPos = p x in 1)
+  constantOne @{ip} = toCostate (\x => let numPos = GetInterface ip x in 1)
 
   public export
   Delete : {c : AddCont} -> Costate c 

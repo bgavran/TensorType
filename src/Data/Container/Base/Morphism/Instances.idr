@@ -9,7 +9,6 @@ import Data.List.Quantifiers
 import Data.Container.Base.Object.Definition
 import Data.Container.Base.Morphism.Definition
 import Data.Container.Base.Extension.Definition
-import Data.Container.Base.Properties.Definition
 import Data.Container.Base.Product.Definition
 import Data.Container.Base.Endofunctor.Definition
 
@@ -183,20 +182,6 @@ namespace CompositionTensorInteraction
                %>> duoidal {d=Scalar,e=Scalar}
                %>> (rightUnit >@ leftUnit)
 
-  ||| Going the other way is impossible without any constraints 
-  ||| Two possibilities on constraints (this, and `compToTensor2`)
-  public export 
-  compToTensor : IsNaperian d =>
-    c >@ d =%> c >< d
-  compToTensor @{(MkIsNaperian dPos)} = !% \(cShp <| content) =>
-    ((cShp,()) ** \(cPos, dPos) => (cPos ** dPos))
-  
-  public export
-  compToTensor2 : IsFlat c =>
-    c >@ d =%> c >< d
-  compToTensor2 @{(ItIsFlat cShp)} = !% \(cShp <| dShp) =>
-    ((cShp, dShp ()) ** \((), dPos') => (() ** dPos'))
-  
   ||| Specific distributive law we need
   public export
   distribute : c >< e =%> s ->
@@ -296,162 +281,9 @@ wrapIntoVectorHancock : c =%> d ->
   HancockTensor [c] =%> HancockTensor [d]
 wrapIntoVectorHancock f = rightUnit %>> f %>> rightUnitInv
 
-namespace CubicalHelpers
-  ||| Helper function allowing `shape` in `cubicalShape` to have zero annotation
-  public export
-  cubicalShapeHelper : All IsCubical shape -> List Nat
-  cubicalShapeHelper [] = []
-  cubicalShapeHelper (ic :: ics) = dimHelper ic :: cubicalShapeHelper ics
-    
-  ||| Given a list of cubical containers, return the list of their dimensions
-  public export
-  cubicalShape : (0 shape : List Cont) -> All IsCubical shape => List Nat
-  cubicalShape _ @{ac} = cubicalShapeHelper ac
-    
-  ||| Size of a list of cubical containers is the product of their dimensions
-  public export
-  size : (0 shape : List Cont) -> All IsCubical shape => Nat
-  size shape = prod (cubicalShape shape)
-
-||| Layout-aware dependent lens flattening a cubical tensor
-public export
-flattenCubical : {shape : List Cont} ->
-  (ac : All IsCubical shape) =>
-  LayoutOrder ->
-  Tensor shape =%> Vect (size shape)
-flattenCubical {shape = [], ac=[]} _ = !% \() => (() ** \FZ => ())
-flattenCubical {shape = (_ :: ss), ac=(MkIsCubical n :: as)} lo
-  = !% \(() <| t) => (() ** \idx =>
-      let (!% recBackward) = flattenCubical {shape = ss} lo
-          (i, rest) = splitFinProd lo idx
-          (_ ** backRec) = recBackward (t i)
-      in (i ** backRec rest))
-
-||| Layout-aware dependent lens unflattening a tensor
-public export
-unflattenCubical : {shape : List Cont} ->
-  (ac : All IsCubical shape) =>
-  LayoutOrder ->
-  Vect (size shape) =%> Tensor shape
-unflattenCubical {shape = [], ac=[]} lo = !% \() => (() ** \() => FZ)
-unflattenCubical {shape = (_ :: ss), ac=((MkIsCubical n) :: as)} lo =
-  let (!% f) = unflattenCubical {shape = ss} lo
-      (innerShape ** innerBack) = f ()
-  in !% \() => ((() <| \_ => innerShape) ** (\(cp ** restPos) =>
-    indexFinProd lo cp (innerBack restPos)))
-
-||| This is simply a rewrite!
-public export
-recastFlattenedTensor : {oldShape, newShape : List Cont} ->
-  (oldAc : All IsCubical oldShape) => (newAc : All IsCubical newShape) =>
-  {auto prf : size oldShape = size newShape} ->
-  Vect (size oldShape) =%> Vect (size newShape)
-recastFlattenedTensor = !% \() => (() ** \i => rewrite prf in i)
-
-||| Reshapes a cubical tensor by first flattening it to a linear representation,
-||| casting the type to the new shape, and then unflattening it back
-||| Is generic over layout order
-public export
-reshape : {oldShape, newShape : List Cont} ->
-  (oldAc : All IsCubical oldShape) => (newAc : All IsCubical newShape) =>
-  LayoutOrder ->
-  {auto prf : size oldShape = size newShape} ->
-  Tensor oldShape =%> Tensor newShape
-reshape lo = flattenCubical lo
-         %>> recastFlattenedTensor
-         %>> unflattenCubical lo
-
-
-namespace Transpose
-  public export
-  transposeLens : IsNaperian c => IsNaperian d => c >@ d =%> d >@ c
-  transposeLens @{MkIsNaperian _} @{MkIsNaperian _} = !% \(() <| _) =>
-    (() <| (\_ => ()) ** \(dInd ** cInd) => (cInd ** dInd))
-
-  public export
-  transpose : IsNaperian c => IsNaperian d =>
-    Tensor [c, d] =%> Tensor [d, c]
-  transpose @{MkIsNaperian _} @{MkIsNaperian _} = wrapIntoMatrix transposeLens
-
-  -- ||| experiment, does this work?
-  -- public export
-  -- transposeMiddle : IsNaperian c => IsNaperian e =>
-  --   Tensor [c, e, d] =%> 
-  
-
-  --||| Transpose a given element to the front of the shape
-  --public export
-  --transposeToFront : (shape : List Cont) ->
-  --  (c : Cont) ->
-  --  (elem : Elem c shape) =>
-  --  All IsNaperian (dropAfterElem shape elem) =>
-  --  Tensor shape =%> Tensor (c :: dropElem shape elem)
-  --transposeToFront (_ :: xs) c @{Here} @{allNap} = ?transposeToFront_rhs_0
-  --transposeToFront (y :: xs) c @{(There x)} @{allNap} = ?transposeToFront_rhs_1
-  
-||| Functionality for transforming a tensor into a hancock tensor
-namespace TransformIntoHancockTensor
-  public export
-  hancockTensorNaperianShape : {shape : List Cont} ->
-    (allNap : All IsNaperian shape) =>
-    (HancockTensor shape).Shp
-  hancockTensorNaperianShape {shape = []} = ()
-  hancockTensorNaperianShape {allNap = ((MkIsNaperian _) :: _)}
-    = ((), hancockTensorNaperianShape)
-  
-  ||| Helper to compute the unique shape of Tensor when all containers are Naperian
-  public export
-  tensorNaperianShape : {shape : List Cont} ->
-    (allNap : All IsNaperian shape) =>
-    (Tensor shape).Shp
-  tensorNaperianShape {shape = []} = ()
-  tensorNaperianShape {shape = (_ :: ss), allNap = ((MkIsNaperian _) :: ns)}
-    = () <| \_ => tensorNaperianShape {shape = ss} @{ns}
-  
-  ||| Analogous to `naperianPosEq` but for the HancockTensor structure
-  ||| We can't use `naperianPosEq` directly because the shape of the resulting
-  ||| container is not Unit, it is only isomorphic to it
-  public export
-  hancockTensorPosEq : {shape : List Cont} ->
-    (allNap : All IsNaperian shape) =>
-    {0 x, y : (HancockTensor shape).Shp} ->
-    (HancockTensor shape).Pos x = (HancockTensor shape).Pos y
-  hancockTensorPosEq {allNap = []} = Refl
-  hancockTensorPosEq {allNap = ((MkIsNaperian _) :: _)} = cong2 Pair
-    (naperianPosEq @{MkIsNaperian _} {x=()} {y=()})
-    hancockTensorPosEq
-  
-  ||| Tensor shape is isomorphic to HancockTensor shape when all containers in
-  ||| the shape are Naperian. This is one arrow of that isomorphism
-  public export
-  transformToHancock : {shape : List Cont} ->
-    All IsNaperian shape =>
-    Tensor shape =%> HancockTensor shape
-  transformToHancock {shape = []} = id
-  transformToHancock {shape = (_ :: _)} @{((MkIsNaperian _) :: _)}
-    = !% \(() <| content) => (((), hancockTensorNaperianShape) **
-       \(p, restPos) =>
-         let (_ ** recBack) = (%!) transformToHancock (content p)
-         in (p ** recBack $ replace {p = id} hancockTensorPosEq restPos))
-
-  public export
-  transformFromHancock : {shape : List Cont} ->
-    All IsNaperian shape =>
-    HancockTensor shape =%> Tensor shape
-  transformFromHancock {shape = []} = id
-  transformFromHancock {shape = (Nap s :: ss)} @{((MkIsNaperian s) :: _)}
-    = !% \((), hShp) =>
-        let (tShp ** recBack) = (%!) transformFromHancock hShp
-        in (() <| (\_ => tShp) ** \(p ** restPos) => (p, recBack restPos))
-
 public export
 pick : Pick c a =%> c
 pick = !% \e => (shapeExt e ** index e)
-
-||| Every extension of a foldable container indexes as a list
-public export
-index : IsFoldable c => Pick c a =%> List
-index = pick %>> mapToList
 
 ||| A lens from a container specialised to a shape to the container itself
 public export
@@ -514,6 +346,19 @@ vectToList1 = !% \() => (k ** id)
 --     --   \(p, fld) => (p ** ?bnn))
 
 -- need to organise this
+
+public export
+handleEffect : Monad m =>
+  (handler : (m <!> effect) =%> Scalar) ->
+  (program : a =%> effect) ->
+  m <!> a =%> Scalar
+handleEffect handler program = !% \x =>
+  let (ef ** nn) = (%! program) x
+      (() ** rest) = (%! handler) ef
+  in (() ** \() => do 
+    e <- rest ()
+    pure (nn e))
+
 namespace BinTree
   public export
   inorderBackward : (b : BinTreeShape) ->
@@ -585,15 +430,3 @@ maybeToList : Maybe =%> List
 maybeToList = !% \b => case b of 
   False => (0 ** absurd)
   True => (1 ** \_ => ())
-
-public export
-handleEffect : Monad m =>
-  (handler : (m <!> effect) =%> Scalar) ->
-  (program : a =%> effect) ->
-  m <!> a =%> Scalar
-handleEffect handler program = !% \x =>
-  let (ef ** nn) = (%! program) x
-      (() ** rest) = (%! handler) ef
-  in (() ** \() => do 
-    e <- rest ()
-    pure (nn e))

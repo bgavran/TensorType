@@ -65,8 +65,8 @@ Applicative List where
 ||| For vectors produces a `zip` operation
 export
 IsNaperian c => TensorMonoid c where
-  tensorN @{(MkIsNaperian _)} = toState ()
-  tensorM @{(MkIsNaperian _)} = !% \((), ()) => (() ** \i => (i, i))
+  tensorN @{(Via _)} = toState ()
+  tensorM @{(Via _)} = !% \((), ()) => (() ** \i => (i, i))
 
 public export
 [compositeTensorMonoid]
@@ -79,7 +79,7 @@ TensorMonoid c => TensorMonoid d => TensorMonoid (c >@ d) where
 ||| Vectors also form a *graded* monad, which isn't implemented here
 export
 IsNaperian c => SeqMonoid c where
-  seqM @{MkIsNaperian pos} = compToTensor {d=c} %>> tensorM
+  seqM @{Via pos} = compToTensor {d=c} %>> tensorM
 
 
 ||| Tensor preserves TensorMonoid/Applicative
